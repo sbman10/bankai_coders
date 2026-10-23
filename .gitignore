@@ -1,0 +1,19 @@
+# Node / Next.js
+node_modules/
+.next/
+out/
+dist/
+
+# Local environment values
+.env
+.env.*
+!.env.example
+
+# Logs and local editor files
+npm-debug.log*
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
+
+# Local Supabase CLI state
+supabase/.temp/

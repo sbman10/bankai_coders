@@ -1,0 +1,173 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { isRecord, JsonBodyError, readJsonBody } from "@/lib/http/read-json-body";
+
+type ClaimDocumentInput = {
+  kind: "invoice" | "warranty";
+  storagePath: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+};
+
+const allowedMimeTypes = new Set(["application/pdf", "image/jpeg", "image/png"]);
+
+function isValidDate(value: string): boolean {
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(parsed.valueOf()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+function isClaimDocument(value: unknown, userId: string): value is ClaimDocumentInput {
+  if (!isRecord(value)) return false;
+  const expectedPath = new RegExp(`^${userId}/[0-9a-f-]{36}-[A-Za-z0-9][A-Za-z0-9._-]{0,139}$`, "i");
+  return (value.kind === "invoice" || value.kind === "warranty") &&
+    typeof value.storagePath === "string" && value.storagePath.length <= 512 && expectedPath.test(value.storagePath) &&
+    typeof value.fileName === "string" && value.fileName.length > 0 && value.fileName.length <= 240 && !/[\u0000-\u001f\u007f]/.test(value.fileName) &&
+    typeof value.mimeType === "string" && allowedMimeTypes.has(value.mimeType) &&
+    Number.isInteger(value.sizeBytes) && Number(value.sizeBytes) > 0 && Number(value.sizeBytes) <= 10 * 1024 * 1024;
+}
+
+async function validateStoredDocuments(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  documents: ClaimDocumentInput[],
+): Promise<"valid" | "invalid" | "unavailable"> {
+  for (const document of documents) {
+    const { data, error } = await supabase.storage.from("claim-documents").download(document.storagePath);
+    if (error) return "unavailable";
+    if (!data || data.size !== document.sizeBytes) return "invalid";
+
+    const header = new Uint8Array(await data.slice(0, 1024).arrayBuffer());
+    const isPdf = document.mimeType === "application/pdf" &&
+      String.fromCharCode(...header).includes("%PDF-");
+    const isJpeg = document.mimeType === "image/jpeg" &&
+      header.length >= 3 && header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff;
+    const isPng = document.mimeType === "image/png" &&
+      header.length >= 8 && header[0] === 0x89 && header[1] === 0x50 && header[2] === 0x4e &&
+      header[3] === 0x47 && header[4] === 0x0d && header[5] === 0x0a && header[6] === 0x1a && header[7] === 0x0a;
+    if (!isPdf && !isJpeg && !isPng) return "invalid";
+  }
+  return "valid";
+}
+
+export async function GET() {
+  try {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) return NextResponse.json({ error: "Sign in to view your claims." }, { status: 401 });
+
+    const { data, error } = await supabase
+      .from("claims")
+      .select("id, product_id, fault_description, failure_date, status, assessment, claim_draft, created_at, products(name), claim_evidence(id, document_id, evidence_kind, content, source_page, confidence, created_at), claim_approvals(id, approved_content, approved_at, action_status)")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) return NextResponse.json({ error: "Your claims could not be loaded." }, { status: 503 });
+
+    return NextResponse.json({ claims: data ?? [] });
+  } catch {
+    return NextResponse.json({ error: "Claim storage is not configured yet." }, { status: 503 });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) return NextResponse.json({ error: "Sign in before saving a claim." }, { status: 401 });
+
+    let body: Record<string, unknown>;
+    try {
+      const value = await readJsonBody(request, 16 * 1024);
+      if (!isRecord(value)) return NextResponse.json({ error: "The claim details were not valid JSON." }, { status: 400 });
+      body = value;
+    } catch (error) {
+      if (error instanceof JsonBodyError) {
+        const message = error.status === 413 ? "The claim details are too large." : "The claim details were not valid JSON.";
+        return NextResponse.json({ error: message }, { status: error.status });
+      }
+      return NextResponse.json({ error: "The claim details were not valid JSON." }, { status: 400 });
+    }
+
+    const product = typeof body.product === "string" ? body.product.trim() : "";
+    const fault = typeof body.fault === "string" ? body.fault.trim() : "";
+    const failureDate = typeof body.failureDate === "string" ? body.failureDate : null;
+    const idempotencyKey = typeof body.idempotencyKey === "string" ? body.idempotencyKey : "";
+    const documents = body.documents === undefined ? [] : body.documents;
+    if (!product || product.length > 160 || !fault || fault.length > 4000 || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idempotencyKey)) {
+      return NextResponse.json({ error: "Add a product name and a fault description, then try again." }, { status: 400 });
+    }
+    if (body.failureDate !== undefined && body.failureDate !== null && (!failureDate || !isValidDate(failureDate))) {
+      return NextResponse.json({ error: "Choose a valid date for when the issue began." }, { status: 400 });
+    }
+    if (!Array.isArray(documents) || documents.length > 2 || documents.some((document) => !isClaimDocument(document, user.id)) ||
+      new Set(documents.filter(isRecord).map((document) => document.kind)).size !== documents.length) {
+      return NextResponse.json({ error: "One of the attached documents is invalid. Please remove it and upload it again." }, { status: 400 });
+    }
+
+    const documentValidation = await validateStoredDocuments(supabase, documents as ClaimDocumentInput[]);
+    if (documentValidation === "invalid") {
+      return NextResponse.json({ error: "An uploaded document does not match its declared file type. Please replace it and try again." }, { status: 400 });
+    }
+    if (documentValidation === "unavailable") {
+      return NextResponse.json({ error: "Your private documents could not be verified. Please retry in a moment." }, { status: 503 });
+    }
+
+    const { data, error } = await supabase.rpc("create_claim_intake", {
+      p_idempotency_key: idempotencyKey,
+      p_product_name: product,
+      p_fault_description: fault,
+      p_failure_date: failureDate,
+      p_documents: (documents as ClaimDocumentInput[]).map((document) => ({
+        document_kind: document.kind,
+        storage_path: document.storagePath,
+        original_filename: document.fileName,
+        mime_type: document.mimeType,
+        size_bytes: document.sizeBytes,
+      })),
+    });
+    if (error || !data?.claim_id || !data?.product_id) {
+      return NextResponse.json({ error: "Your claim could not be saved. Your documents remain private; please retry." }, { status: 503 });
+    }
+
+    let automation = data.duplicate ? "duplicate" : "not_configured";
+    const webhookUrl = process.env.N8N_CLAIM_INTAKE_WEBHOOK_URL?.trim();
+    const webhookToken = process.env.N8N_WEBHOOK_AUTH_TOKEN;
+    let parsedWebhookUrl: URL | null = null;
+    if (!data.duplicate && webhookUrl && webhookToken) {
+      try {
+        const parsed = new URL(webhookUrl);
+        if (parsed.protocol === "https:" && !parsed.username && !parsed.password) parsedWebhookUrl = parsed;
+      } catch {
+        parsedWebhookUrl = null;
+      }
+      if (!parsedWebhookUrl) automation = "failed";
+    }
+    if (!data.duplicate && parsedWebhookUrl && webhookToken) {
+      try {
+        const response = await fetch(parsedWebhookUrl, {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-claimforge-secret": webhookToken },
+          body: JSON.stringify({
+            eventId: idempotencyKey,
+            eventType: "claim.intake.received",
+            claimId: data.claim_id,
+            productId: data.product_id,
+          }),
+          signal: AbortSignal.timeout(8000),
+          cache: "no-store",
+          redirect: "error",
+        });
+        automation = response.ok ? "acknowledged" : "failed";
+      } catch {
+        automation = "failed";
+      }
+    }
+
+    return NextResponse.json({
+      claim: { id: data.claim_id, productId: data.product_id, status: "received" },
+      duplicate: Boolean(data.duplicate),
+      automation,
+    }, { status: data.duplicate ? 200 : 201 });
+  } catch {
+    return NextResponse.json({ error: "Claim intake is not configured yet." }, { status: 503 });
+  }
+}

@@ -1,0 +1,9 @@
+.venv/
+.venv311/
+.python/
+.uv-cache/
+.env
+__pycache__/
+*.py[cod]
+data/*
+!data/README.md

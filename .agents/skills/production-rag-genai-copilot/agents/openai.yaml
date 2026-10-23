@@ -1,0 +1,10 @@
+interface:
+  display_name: "Production RAG & GenAI Copilot"
+  short_description: "Build and debug production RAG"
+  icon_small: "./assets/icon.svg"
+  default_prompt: "Debug why this RAG system is returning the wrong evidence."
+policy:
+  products:
+    - CHAT
+    - CODEX
+  allow_implicit_invocation: true

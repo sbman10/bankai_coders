@@ -1,0 +1,85 @@
+import { NextResponse } from "next/server";
+import { isRecord, JsonBodyError, readJsonBody } from "@/lib/http/read-json-body";
+import { createClient } from "@/lib/supabase/server";
+
+const productIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const documentListFields = "id, product_id, document_kind, original_filename, mime_type, size_bytes, created_at, ingestion_status, ingestion_warning_code, indexed_at";
+const kinds = new Set(["invoice", "warranty", "manual", "other"]);
+const mimeTypes = new Set(["application/pdf", "image/jpeg", "image/png"]);
+
+async function bodyOf(request: Request): Promise<Record<string, unknown> | NextResponse> {
+  try {
+    const value = await readJsonBody(request, 8 * 1024);
+    return isRecord(value) ? value : NextResponse.json({ error: "Document details must be a JSON object." }, { status: 400 });
+  } catch (error) {
+    if (error instanceof JsonBodyError) {
+      const message = error.status === 413 ? "Document details are too large." : "Document details must be valid JSON.";
+      return NextResponse.json({ error: message }, { status: error.status });
+    }
+    return NextResponse.json({ error: "Document details must be valid JSON." }, { status: 400 });
+  }
+}
+
+function validDocument(body: Record<string, unknown>, userId: string, productId: string) {
+  const { documentKind, storagePath, fileName, mimeType, sizeBytes } = body;
+  const pathPattern = new RegExp(`^${userId}/[0-9a-f-]{36}-[A-Za-z0-9][A-Za-z0-9._-]{0,139}$`, "i");
+  return body.productId === productId && typeof documentKind === "string" && kinds.has(documentKind) &&
+    typeof storagePath === "string" && storagePath.length <= 512 && pathPattern.test(storagePath) &&
+    typeof fileName === "string" && fileName.length > 0 && fileName.length <= 240 && !/[\u0000-\u001f\u007f]/.test(fileName) &&
+    typeof mimeType === "string" && mimeTypes.has(mimeType) && Number.isInteger(sizeBytes) && Number(sizeBytes) >= 1 && Number(sizeBytes) <= 10 * 1024 * 1024;
+}
+
+export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
+  try {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) return NextResponse.json({ error: "Sign in to view product documents." }, { status: 401 });
+    const { id: productId } = await context.params;
+    if (!productIdPattern.test(productId)) return NextResponse.json({ error: "This product could not be found." }, { status: 404 });
+
+    const { data: product, error: productError } = await supabase.from("products").select("id")
+      .eq("id", productId).eq("user_id", user.id).maybeSingle();
+    if (productError) return NextResponse.json({ error: "The product could not be checked." }, { status: 503 });
+    if (!product) return NextResponse.json({ error: "This product could not be found." }, { status: 404 });
+
+    const { data, error } = await supabase.from("product_documents").select(documentListFields)
+      .eq("user_id", user.id).eq("product_id", productId).order("created_at", { ascending: false }).limit(100);
+    if (error) return NextResponse.json({ error: "Product documents could not be loaded." }, { status: 503 });
+    return NextResponse.json({ documents: data ?? [] }, { headers: { "Cache-Control": "private, no-store" } });
+  } catch {
+    return NextResponse.json({ error: "Product document storage is not configured yet." }, { status: 503 });
+  }
+}
+
+export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
+  try {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) return NextResponse.json({ error: "Sign in before attaching a document." }, { status: 401 });
+    const { id: productId } = await context.params;
+    if (!productIdPattern.test(productId)) return NextResponse.json({ error: "This product could not be found." }, { status: 404 });
+    const body = await bodyOf(request);
+    if (body instanceof NextResponse) return body;
+    if (!validDocument(body, user.id, productId)) return NextResponse.json({ error: "Check the document type, file name, storage path, and 10 MB file-size limit." }, { status: 400 });
+
+    const { data: product, error: productError } = await supabase.from("products").select("id")
+      .eq("id", productId).eq("user_id", user.id).maybeSingle();
+    if (productError) return NextResponse.json({ error: "The product could not be checked." }, { status: 503 });
+    if (!product) return NextResponse.json({ error: "This product could not be found." }, { status: 404 });
+
+    const { data, error } = await supabase.from("product_documents").insert({
+      user_id: user.id,
+      product_id: productId,
+      document_kind: body.documentKind,
+      storage_path: body.storagePath,
+      original_filename: body.fileName,
+      mime_type: body.mimeType,
+      size_bytes: body.sizeBytes,
+    }).select(documentListFields).single();
+    if (error || !data) return NextResponse.json({ error: "The document could not be attached to this product." }, { status: 503 });
+    return NextResponse.json({ document: data }, { status: 201, headers: { "Cache-Control": "private, no-store" } });
+  } catch {
+    return NextResponse.json({ error: "Product document storage is not configured yet." }, { status: 503 });
+  }
+}
