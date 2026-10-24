@@ -80,8 +80,8 @@ export function ClaimReview({ claim, approved, onApprove, onBack }: { claim: Cla
           ) : (
             <section className="review-card local-preview-card">
               <div className="review-card-head"><span className="panel-index">02</span><span>DOCUMENT ANALYSIS</span></div>
-              <h2>Your files are ready for the next step.</h2>
-              <p>This local preview captured the details and file names in your browser only. Connect the n8n workflow to extract and cite warranty terms before making an assessment.</p>
+              <h2>Temporary browser preview.</h2>
+              <p>Your entered details and selected file names are shown for this session only. No file was uploaded, no claim was saved, and no analysis was run.</p>
               <div className="source-list">
                 <SourceRow icon="invoice" title="Purchase invoice" detail={claim.invoiceName} />
                 <SourceRow icon="terms" title="Warranty terms" detail={claim.warrantyName} />

@@ -66,17 +66,17 @@ export function ClaimIntake({ onCancel, onSubmit }: { onCancel: () => void; onSu
         <label className="field-label" htmlFor="failure-date">When did the issue begin? <span className="optional-label">OPTIONAL</span></label>
         <input id="failure-date" className="text-input" type="date" value={failureDate} onChange={(event) => { rotateIdempotencyKey(); setFailureDate(event.target.value); }} />
 
-        <div className="form-section-title documents-title"><span>02</span><div><h2>Bring the paperwork</h2><p>PDF, JPG, or PNG · Your files stay private.</p></div></div>
+        <div className="form-section-title documents-title"><span>02</span><div><h2>Preview supporting paperwork</h2><p>PDF, JPG, or PNG · files are not uploaded.</p></div></div>
         <div className="upload-grid">
           <UploadField id="invoice-upload" label="Purchase invoice" file={invoice} onFile={(file) => acceptFile(file, setInvoice)} />
           <UploadField id="warranty-upload" label="Warranty terms" file={warranty} onFile={(file) => acceptFile(file, setWarranty)} />
         </div>
         {uploadError && <p role="alert" className="upload-error">{uploadError}</p>}
-        <div className="form-safe-note"><LockKeyhole size={15} /> Documents upload to your private Supabase storage. They are not sent to n8n.</div>
+        <div className="form-safe-note"><LockKeyhole size={15} /> Public demo only: details and selected files stay in this browser tab and are not uploaded or saved. Don’t use real personal documents.</div>
         {submitError && <p role="alert" className="upload-error">{submitError}</p>}
         <div className="form-actions"><button type="button" className="button button-quiet" onClick={onCancel} disabled={saving}>Cancel</button><button type="submit" className="button button-primary" disabled={!product.trim() || !fault.trim() || saving}><Sparkles size={16} /> {saving ? "Saving claim…" : "Save claim"}</button></div>
       </form>
-      <p className="demo-disclosure">Your claim is saved under your account. Automated document analysis is only shown when the workflow is configured.</p>
+      <p className="demo-disclosure">This creates a temporary preview only. It is cleared when you leave or refresh the page; no claim is saved and no analysis runs.</p>
     </div>
   );
 }

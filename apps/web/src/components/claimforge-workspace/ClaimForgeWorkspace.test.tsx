@@ -28,16 +28,31 @@ afterEach(() => {
 });
 
 describe("ClaimForge customer workflow", () => {
-  it("opens the document-grounded assistant from workspace navigation", async () => {
+  it("opens the fictional public demo without checking auth or requesting private data", async () => {
+    render(<ClaimForgeWorkspace />);
+
+    expect(await screen.findAllByText(/public demo/i)).not.toHaveLength(0);
+    expect(screen.getByRole("heading", { name: /make the next step/i })).toBeInTheDocument();
+    expect(fetch).not.toHaveBeenCalledWith("/api/auth");
+    expect(fetch).not.toHaveBeenCalledWith("/api/claims", expect.anything());
+  });
+
+  it("explains that private document Q&A is unavailable in the public demo", async () => {
     const user = userEvent.setup();
     render(<ClaimForgeWorkspace />);
 
-    await user.click(await screen.findByRole("button", { name: /ask documents/i }));
+    await user.click(screen.getByRole("button", { name: /ask documents/i }));
 
-    expect(await screen.findByRole("heading", { name: /ask about your documents/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /private account features are turned off/i })).toBeInTheDocument();
+    expect(fetch).not.toHaveBeenCalledWith("/api/products", expect.anything());
+    expect(fetch).not.toHaveBeenCalledWith("/api/assistant/answer", expect.anything());
+
+    await user.click(screen.getByRole("button", { name: /^products$/i }));
+    expect(screen.getByRole("heading", { name: /private account features are turned off/i })).toBeInTheDocument();
+    expect(fetch).not.toHaveBeenCalledWith("/api/products", expect.anything());
   });
 
-  it("lets a customer begin a claim with a fault description and supporting files", async () => {
+  it("creates a browser-only claim preview without uploading files or saving a claim", async () => {
     const user = userEvent.setup();
     render(<ClaimForgeWorkspace />);
 
@@ -61,11 +76,11 @@ describe("ClaimForge customer workflow", () => {
     );
     await user.click(screen.getByRole("button", { name: /save claim/i }));
 
-    expect(
-      await screen.findByRole("heading", { name: /your claim is saved/i }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /review your claim/i })).toBeInTheDocument();
     expect(screen.getByText("headphones-invoice.pdf")).toBeInTheDocument();
-    expect(screen.getByText(/n8n is not configured/i)).toBeInTheDocument();
+    expect(screen.getByText(/no file was uploaded, no claim was saved/i)).toBeInTheDocument();
+    expect(fetch).not.toHaveBeenCalledWith("/api/claims", expect.objectContaining({ method: "POST" }));
+    expect(mockSupabase.storage.from).not.toHaveBeenCalled();
   });
 
   it("shows evidence citations next to the preliminary assessment", async () => {
