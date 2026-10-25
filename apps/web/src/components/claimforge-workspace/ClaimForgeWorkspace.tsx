@@ -1,11 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
-  ArrowRight,
   Bell,
   ChevronLeft,
-  Crown,
   FileText,
   GitCommit,
   HelpCircle,
@@ -86,6 +84,21 @@ export function ClaimForgeWorkspace() {
   const [claimsLoading, setClaimsLoading] = useState(false);
   const [claimsError, setClaimsError] = useState("");
 
+  const loadClaims = useCallback(async () => {
+    setClaimsLoading(true);
+    setClaimsError("");
+    try {
+      const response = await fetch("/api/claims", { cache: "no-store" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? "Couldn't load claims.");
+      setClaims(result.claims ?? []);
+    } catch (err) {
+      setClaimsError(err instanceof Error ? err.message : "Couldn't load claims.");
+    } finally {
+      setClaimsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (view !== "claims") return;
     let active = true;
@@ -163,6 +176,7 @@ export function ClaimForgeWorkspace() {
         </div>
 
         <nav className="nav-list" aria-label="Workspace">
+          {/* Primary Navigation — Product Ownership Priority */}
           <button
             className={`nav-item ${view === "workspace" ? "active" : ""}`}
             onClick={() => setView("workspace")}
@@ -181,12 +195,54 @@ export function ClaimForgeWorkspace() {
           </button>
 
           <button
-            className={`nav-item ${view === "intake" ? "active" : ""}`}
-            onClick={beginClaim}
+            className="nav-item"
+            onClick={() => setView("products")}
             aria-label="Add Product"
           >
             <span className="nav-icon"><PackagePlus size={17} /></span>
             <span className="nav-label">Add Product</span>
+          </button>
+
+          <button
+            className={`nav-item ${view === "timeline" ? "active" : ""}`}
+            onClick={() => setView("timeline")}
+            aria-label="Timeline"
+          >
+            <span className="nav-icon"><GitCommit size={17} /></span>
+            <span className="nav-label">Timeline</span>
+          </button>
+
+          <button
+            className={`nav-item ${view === "prices" ? "active" : ""}`}
+            onClick={() => setView("prices")}
+            aria-label="Price Watch"
+          >
+            <span className="nav-icon"><TrendingDown size={17} /></span>
+            <span className="nav-label">Price Watch</span>
+          </button>
+
+          <button
+            className={`nav-item ${view === "reminders" ? "active" : ""}`}
+            onClick={() => setView("reminders")}
+            aria-label="Reminders"
+          >
+            <span className="nav-icon"><Bell size={17} /></span>
+            <span className="nav-label">Reminders</span>
+            <span className="nav-count-badge">3</span>
+          </button>
+
+          {/* Secondary Tools & Experimental Features */}
+          <div className="nav-section-label">
+            <span>Tools &amp; Assistant</span>
+          </div>
+
+          <button
+            className={`nav-item ${view === "assistant" ? "active" : ""}`}
+            onClick={() => setView("assistant")}
+            aria-label="Ask documents"
+          >
+            <span className="nav-icon"><FileText size={17} /></span>
+            <span className="nav-label">Documents Q&amp;A</span>
           </button>
 
           <button
@@ -205,53 +261,22 @@ export function ClaimForgeWorkspace() {
           </button>
 
           <button
-            className={`nav-item ${view === "assistant" ? "active" : ""}`}
-            onClick={() => setView("assistant")}
-            aria-label="Ask documents"
-          >
-            <span className="nav-icon"><FileText size={17} /></span>
-            <span className="nav-label">Documents</span>
-          </button>
-
-          <button
-            className={`nav-item ${view === "prices" ? "active" : ""}`}
-            onClick={() => setView("prices")}
-          >
-            <span className="nav-icon"><TrendingDown size={17} /></span>
-            <span className="nav-label">Price Watch</span>
-          </button>
-
-          <button
-            className={`nav-item ${view === "reminders" ? "active" : ""}`}
-            onClick={() => setView("reminders")}
-          >
-            <span className="nav-icon"><Bell size={17} /></span>
-            <span className="nav-label">Reminders</span>
-            <span className="nav-count-badge">3</span>
-          </button>
-
-          <button
             className={`nav-item ${view === "claims" || view === "review" ? "active" : ""}`}
             onClick={() => { setView("claims"); void loadClaims(); }}
+            aria-label="My Claims"
           >
             <span className="nav-icon"><ShieldCheck size={17} /></span>
-            <span className="nav-label">My Claims</span>
+            <span className="nav-label">Warranty Claims</span>
             {claims.length > 0 && <span className="nav-count-badge">{claims.length}</span>}
           </button>
+        </nav>
 
-          <button
-            className={`nav-item ${view === "timeline" ? "active" : ""}`}
-            onClick={() => setView("timeline")}
-          >
-            <span className="nav-icon"><GitCommit size={17} /></span>
-            <span className="nav-label">Timeline</span>
-          </button>
-
-          <div className="nav-divider" />
-
+        {/* Pinned Bottom Footer Navigation */}
+        <div className="sidebar-footer-nav">
           <button
             className={`nav-item ${view === "settings" ? "active" : ""}`}
             onClick={() => setView("settings")}
+            aria-label="Settings"
           >
             <span className="nav-icon"><Settings size={17} /></span>
             <span className="nav-label">Settings</span>
@@ -260,29 +285,11 @@ export function ClaimForgeWorkspace() {
           <button
             className={`nav-item ${view === "help" ? "active" : ""}`}
             onClick={() => setView("help")}
+            aria-label="Help & Support"
           >
             <span className="nav-icon"><HelpCircle size={17} /></span>
             <span className="nav-label">Help &amp; Support</span>
           </button>
-        </nav>
-
-        {/* Upgrade to Pro Card */}
-        <div className="sidebar-bottom">
-          <div className="upgrade-pro-card">
-            <div className="upgrade-icon-wrap">
-              <Crown size={20} className="crown-icon" />
-            </div>
-            <strong className="upgrade-title">Upgrade to Pro</strong>
-            <p className="upgrade-desc">
-              Get advanced tracking, unlimited storage and more.
-            </p>
-            <button
-              className="upgrade-btn"
-              onClick={() => alert("ClaimForge Pro subscription preview: Unlimited document OCR, automated invoice extraction, and price alert webhook dispatching.")}
-            >
-              Upgrade Now <ArrowRight size={14} />
-            </button>
-          </div>
         </div>
       </aside>
 
@@ -397,10 +404,10 @@ export function ClaimForgeWorkspace() {
               )}
             </div>
 
-            {/* Header "+ Add Product" quick action button in dark mode / wide screens */}
+            {/* Header "+ Add Product" quick action button */}
             <button
               className="topbar-add-btn"
-              onClick={beginClaim}
+              onClick={() => setView("products")}
               aria-label="Add Product"
             >
               <Plus size={15} />
@@ -448,7 +455,7 @@ export function ClaimForgeWorkspace() {
           ) : view === "assistant" ? (
             <AssistantChat />
           ) : view === "products" || view === "prices" || view === "reminders" || view === "timeline" ? (
-            <ProductCenter view={view === "timeline" ? "products" : view} />
+            <ProductCenter view={view} />
           ) : view === "settings" || view === "help" ? (
             <PublicDemoNotice onBack={() => setView("workspace")} currentView={view} />
           ) : (
