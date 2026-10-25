@@ -30,6 +30,9 @@ async function readBody(request: Request): Promise<Record<string, unknown> | Nex
   }
 }
 
+import { isSupabaseConfigured } from "@/lib/supabase/configured";
+import { prototypeStore } from "@/lib/store/prototype-store";
+
 export async function GET() {
   try {
     const supabase = await createClient();
@@ -40,6 +43,10 @@ export async function GET() {
     if (error) return NextResponse.json({ error: "Your reminders could not be loaded." }, { status: 503 });
     return NextResponse.json({ reminders: data ?? [] }, { headers: { "Cache-Control": "private, no-store" } });
   } catch {
+    if (!isSupabaseConfigured()) {
+      const reminders = prototypeStore.getReminders();
+      return NextResponse.json({ reminders }, { headers: { "Cache-Control": "private, no-store" } });
+    }
     return NextResponse.json({ error: "Reminder storage is not configured yet." }, { status: 503 });
   }
 }
@@ -67,6 +74,19 @@ export async function POST(request: Request) {
     if (error || !data) return NextResponse.json({ error: "Your reminder could not be saved." }, { status: 503 });
     return NextResponse.json({ reminder: data }, { status: 201, headers: { "Cache-Control": "private, no-store" } });
   } catch {
+    if (!isSupabaseConfigured()) {
+      const body = await readBody(request);
+      if (body instanceof NextResponse) return body;
+      const productId = String(body.productId);
+      const estimateDays = Number(body.estimateDays) || 30;
+      const remindAt = String(body.remindAt);
+      const reminder = prototypeStore.createReminder({
+        productId,
+        estimateDays,
+        remindAt,
+      });
+      return NextResponse.json({ reminder }, { status: 201, headers: { "Cache-Control": "private, no-store" } });
+    }
     return NextResponse.json({ error: "Reminder storage is not configured yet." }, { status: 503 });
   }
 }

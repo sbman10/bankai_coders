@@ -3,6 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+import { isSupabaseConfigured } from "@/lib/supabase/configured";
+import { prototypeStore } from "@/lib/store/prototype-store";
+
 export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const supabase = await createClient();
@@ -17,6 +20,12 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
     if (!data) return NextResponse.json({ error: "This reminder could not be found." }, { status: 404 });
     return NextResponse.json({ cancelled: true }, { headers: { "Cache-Control": "private, no-store" } });
   } catch {
+    if (!isSupabaseConfigured()) {
+      const { id } = await context.params;
+      const removed = prototypeStore.deleteReminder(id);
+      if (!removed) return NextResponse.json({ error: "This reminder could not be found." }, { status: 404 });
+      return NextResponse.json({ cancelled: true }, { headers: { "Cache-Control": "private, no-store" } });
+    }
     return NextResponse.json({ error: "Reminder storage is not configured yet." }, { status: 503 });
   }
 }

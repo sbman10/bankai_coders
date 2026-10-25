@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { isRecord, JsonBodyError, readJsonBody } from "@/lib/http/read-json-body";
 import { createClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/configured";
+import { prototypeStore } from "@/lib/store/prototype-store";
 
 const productIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -48,6 +50,11 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     if (error) return NextResponse.json({ error: "Product documents could not be loaded." }, { status: 503 });
     return NextResponse.json({ documents: data ?? [] }, { headers: { "Cache-Control": "private, no-store" } });
   } catch {
+    if (!isSupabaseConfigured()) {
+      const { id: productId } = await context.params;
+      const documents = prototypeStore.getProductDocuments(productId);
+      return NextResponse.json({ documents }, { headers: { "Cache-Control": "private, no-store" } });
+    }
     return NextResponse.json({ error: "Product document storage is not configured yet." }, { status: 503 });
   }
 }
@@ -80,6 +87,20 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     if (error || !data) return NextResponse.json({ error: "The document could not be attached to this product." }, { status: 503 });
     return NextResponse.json({ document: data }, { status: 201, headers: { "Cache-Control": "private, no-store" } });
   } catch {
+    if (!isSupabaseConfigured()) {
+      const { id: productId } = await context.params;
+      const body = await bodyOf(request);
+      if (body instanceof NextResponse) return body;
+      const document = prototypeStore.createProductDocument({
+        productId,
+        documentKind: (body.documentKind as "invoice" | "warranty" | "manual" | "other") || "other",
+        fileName: String(body.fileName || "document.pdf"),
+        mimeType: String(body.mimeType || "application/pdf"),
+        sizeBytes: Number(body.sizeBytes) || 1024,
+        storagePath: typeof body.storagePath === "string" ? body.storagePath : undefined,
+      });
+      return NextResponse.json({ document }, { status: 201, headers: { "Cache-Control": "private, no-store" } });
+    }
     return NextResponse.json({ error: "Product document storage is not configured yet." }, { status: 503 });
   }
 }

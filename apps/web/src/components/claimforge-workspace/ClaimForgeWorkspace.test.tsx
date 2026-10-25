@@ -16,6 +16,9 @@ beforeEach(() => {
     if (url === "/api/auth" && !init?.method) return { ok: true, json: async () => ({ user: { id: "user-test-1", email: "demo@example.com" } }) };
     if (url === "/api/claims" && !init?.method) return { ok: true, json: async () => ({ claims: [] }) };
     if (url === "/api/claims" && init?.method === "POST") return { ok: true, json: async () => ({ claim: { id: "claim-test-1", status: "received" }, automation: "not_configured" }) };
+    if (url === "/api/products" && !init?.method) return { ok: true, json: async () => ({ products: [] }) };
+    if (url === "/api/price-watches" && !init?.method) return { ok: true, json: async () => ({ watches: [] }) };
+    if (url === "/api/reminders" && !init?.method) return { ok: true, json: async () => ({ reminders: [] }) };
     if (url === "/api/auth" && init?.method === "POST") return { ok: true, json: async () => ({ ok: true }) };
     return { ok: false, json: async () => ({ error: "Unexpected test request" }) };
   }));
@@ -37,19 +40,16 @@ describe("ClaimForge customer workflow", () => {
     expect(fetch).not.toHaveBeenCalledWith("/api/claims", expect.anything());
   });
 
-  it("explains that private document Q&A is unavailable in the public demo", async () => {
+  it("navigates to the interactive document assistant and product library", async () => {
     const user = userEvent.setup();
     render(<ClaimForgeWorkspace />);
 
     await user.click(screen.getByRole("button", { name: /ask documents/i }));
 
-    expect(await screen.findByRole("heading", { name: /private account features are turned off/i })).toBeInTheDocument();
-    expect(fetch).not.toHaveBeenCalledWith("/api/products", expect.anything());
-    expect(fetch).not.toHaveBeenCalledWith("/api/assistant/answer", expect.anything());
+    expect(await screen.findByRole("heading", { name: /ask about your documents/i })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /^products$/i }));
-    expect(screen.getByRole("heading", { name: /private account features are turned off/i })).toBeInTheDocument();
-    expect(fetch).not.toHaveBeenCalledWith("/api/products", expect.anything());
+    expect(await screen.findByText(/products with a paper trail/i)).toBeInTheDocument();
   });
 
   it("creates a browser-only claim preview without uploading files or saving a claim", async () => {

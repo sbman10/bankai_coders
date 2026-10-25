@@ -55,6 +55,9 @@ async function readBody(request: Request): Promise<Record<string, unknown> | Nex
   }
 }
 
+import { isSupabaseConfigured } from "@/lib/supabase/configured";
+import { prototypeStore } from "@/lib/store/prototype-store";
+
 export async function GET() {
   try {
     const supabase = await createClient();
@@ -66,6 +69,10 @@ export async function GET() {
     if (error) return NextResponse.json({ error: "Your products could not be loaded." }, { status: 503 });
     return NextResponse.json({ products: data ?? [] }, { headers: { "Cache-Control": "private, no-store" } });
   } catch {
+    if (!isSupabaseConfigured()) {
+      const products = prototypeStore.getProducts();
+      return NextResponse.json({ products }, { headers: { "Cache-Control": "private, no-store" } });
+    }
     return NextResponse.json({ error: "Product storage is not configured yet." }, { status: 503 });
   }
 }
@@ -86,6 +93,23 @@ export async function POST(request: Request) {
     if (error || !data) return NextResponse.json({ error: "Your product could not be saved." }, { status: 503 });
     return NextResponse.json({ product: data }, { status: 201, headers: { "Cache-Control": "private, no-store" } });
   } catch {
+    if (!isSupabaseConfigured()) {
+      const body = await readBody(request);
+      if (body instanceof NextResponse) return body;
+      const input = productInput(body);
+      if (!input) return NextResponse.json({ error: "Enter a product name and valid ownership dates." }, { status: 400 });
+      const product = prototypeStore.createProduct({
+        name: input.name as string,
+        brand: input.brand,
+        model: input.model,
+        category: (input.category as string) || "Other",
+        seller: input.seller,
+        serial_number: input.serial_number,
+        purchase_date: input.purchase_date,
+        warranty_end: input.warranty_end,
+      });
+      return NextResponse.json({ product }, { status: 201, headers: { "Cache-Control": "private, no-store" } });
+    }
     return NextResponse.json({ error: "Product storage is not configured yet." }, { status: 503 });
   }
 }

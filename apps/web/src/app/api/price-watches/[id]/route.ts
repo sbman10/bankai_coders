@@ -18,6 +18,9 @@ async function bodyOf(request: Request): Promise<Record<string, unknown> | NextR
   }
 }
 
+import { isSupabaseConfigured } from "@/lib/supabase/configured";
+import { prototypeStore } from "@/lib/store/prototype-store";
+
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const supabase = await createClient();
@@ -40,6 +43,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (!data) return NextResponse.json({ error: "This price watch could not be found." }, { status: 404 });
     return NextResponse.json({ watch: data }, { headers: { "Cache-Control": "private, no-store" } });
   } catch {
+    if (!isSupabaseConfigured()) {
+      const { id } = await context.params;
+      const body = await bodyOf(request);
+      if (body instanceof NextResponse) return body;
+      const amount = Number(body.currentPrice) || 0;
+      const watch = prototypeStore.updatePriceWatch(id, amount);
+      if (!watch) return NextResponse.json({ error: "This price watch could not be found." }, { status: 404 });
+      return NextResponse.json({ watch }, { headers: { "Cache-Control": "private, no-store" } });
+    }
     return NextResponse.json({ error: "Price-watch storage is not configured yet." }, { status: 503 });
   }
 }
@@ -56,6 +68,12 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
     if (!data) return NextResponse.json({ error: "This price watch could not be found." }, { status: 404 });
     return NextResponse.json({ removed: true }, { headers: { "Cache-Control": "private, no-store" } });
   } catch {
+    if (!isSupabaseConfigured()) {
+      const { id } = await context.params;
+      const removed = prototypeStore.deletePriceWatch(id);
+      if (!removed) return NextResponse.json({ error: "This price watch could not be found." }, { status: 404 });
+      return NextResponse.json({ removed: true }, { headers: { "Cache-Control": "private, no-store" } });
+    }
     return NextResponse.json({ error: "Price-watch storage is not configured yet." }, { status: 503 });
   }
 }

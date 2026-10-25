@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { isRecord, JsonBodyError, readJsonBody } from "@/lib/http/read-json-body";
 import { createClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/configured";
+import { prototypeStore } from "@/lib/store/prototype-store";
 
 export const runtime = "nodejs";
 
@@ -73,6 +75,23 @@ export async function POST(request: Request, context: Context) {
 
     return NextResponse.json({ error: "The approved draft could not be saved." }, { status: 503 });
   } catch {
+    if (!isSupabaseConfigured()) {
+      const { id: claimId } = await context.params;
+      const body = await readJsonBody(request, 12 * 1024).catch(() => ({})) as Record<string, unknown>;
+      const approvedContent = typeof body.approvedContent === "string" ? body.approvedContent : "";
+      prototypeStore.approveClaim(claimId, approvedContent);
+      return NextResponse.json({
+        approval: {
+          id: "00000000-0000-4000-8000-000000000099",
+          claim_id: claimId,
+          approved_content: approvedContent,
+          approved_at: new Date().toISOString(),
+          action_status: "draft_only",
+        },
+        duplicate: false,
+        externalAction: "not_sent",
+      }, { status: 201 });
+    }
     return NextResponse.json({ error: "Claim approval is not configured yet." }, { status: 503 });
   }
 }

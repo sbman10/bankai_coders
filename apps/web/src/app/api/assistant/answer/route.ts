@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { isRecord, JsonBodyError, readJsonBody } from "@/lib/http/read-json-body";
 import { createClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/configured";
+import { prototypeStore } from "@/lib/store/prototype-store";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const statuses = new Set(["supported", "conditional", "insufficient_evidence", "conflicting_terms"]);
@@ -207,6 +209,21 @@ export async function POST(request: Request) {
       citations: verifiedCitations,
     }, { headers: { "Cache-Control": "private, no-store" } });
   } catch {
+    if (!isSupabaseConfigured()) {
+      let q = "";
+      let pIds: string[] = [];
+      let dIds: string[] = [];
+      try {
+        const body = await readJsonBody(request, 8 * 1024);
+        if (isRecord(body)) {
+          q = typeof body.question === "string" ? body.question : "";
+          pIds = Array.isArray(body.productIds) ? body.productIds.map(String) : [];
+          dIds = Array.isArray(body.documentIds) ? body.documentIds.map(String) : [];
+        }
+      } catch {}
+      const answer = prototypeStore.answerQuestion(q, pIds, dIds);
+      return NextResponse.json(answer, { headers: { "Cache-Control": "private, no-store" } });
+    }
     return NextResponse.json({ error: "The document assistant is temporarily unavailable." }, { status: 503 });
   }
 }

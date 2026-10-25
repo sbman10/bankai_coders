@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { isRecord, JsonBodyError, readJsonBody } from "@/lib/http/read-json-body";
 import { createClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/configured";
+import { prototypeStore } from "@/lib/store/prototype-store";
 
 const fields = "id, name, category, brand, model, seller, serial_number, purchase_date, warranty_end, replenishment_days, replenishment_remind_at, created_at, updated_at";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -58,6 +60,18 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (!data) return NextResponse.json({ error: "This product could not be found." }, { status: 404 });
     return NextResponse.json({ product: data }, { headers: { "Cache-Control": "private, no-store" } });
   } catch {
+    if (!isSupabaseConfigured()) {
+      const { id } = await context.params;
+      const body = await bodyOf(request);
+      if (body instanceof NextResponse) return body;
+      const update: Record<string, string | null> = {};
+      for (const [key, column] of [["name", "name"], ["category", "category"], ["brand", "brand"], ["model", "model"], ["seller", "seller"], ["serialNumber", "serial_number"], ["purchaseDate", "purchase_date"], ["warrantyEnd", "warranty_end"]] as const) {
+        if (body[key] !== undefined) update[column] = typeof body[key] === "string" ? (body[key] as string).trim() : null;
+      }
+      const product = prototypeStore.updateProduct(id, update);
+      if (!product) return NextResponse.json({ error: "This product could not be found." }, { status: 404 });
+      return NextResponse.json({ product }, { headers: { "Cache-Control": "private, no-store" } });
+    }
     return NextResponse.json({ error: "Product storage is not configured yet." }, { status: 503 });
   }
 }
@@ -83,6 +97,12 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
     if (!data) return NextResponse.json({ error: "This product could not be found." }, { status: 404 });
     return NextResponse.json({ removed: true }, { headers: { "Cache-Control": "private, no-store" } });
   } catch {
+    if (!isSupabaseConfigured()) {
+      const { id } = await context.params;
+      const removed = prototypeStore.deleteProduct(id);
+      if (!removed) return NextResponse.json({ error: "This product could not be found." }, { status: 404 });
+      return NextResponse.json({ removed: true }, { headers: { "Cache-Control": "private, no-store" } });
+    }
     return NextResponse.json({ error: "Product storage is not configured yet." }, { status: 503 });
   }
 }
