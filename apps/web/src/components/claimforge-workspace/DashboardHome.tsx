@@ -9,7 +9,6 @@ import {
   ChevronRight,
   Clock3,
   FileText,
-  MoreHorizontal,
   Package,
   Plus,
   Shield,
@@ -23,7 +22,6 @@ import {
   HeadphoneThumb,
   HeroBoxIllustration,
   LaptopThumb,
-  PhoneThumb,
   RefrigeratorThumb,
   SneakerThumb,
   SunscreenThumb,
@@ -58,7 +56,7 @@ export const sampleProducts: ProductDetail[] = [
     serialNumber: "SN-9482018402",
     price: "₹26,990",
     thumb: <HeadphoneThumb className="w-12 h-12" />,
-    attentionNote: "Price dropped to ₹24,990 (Target: ₹22,000)",
+    attentionNote: "Warranty card on file · Terms verified",
   },
   {
     id: "lg-refrigerator",
@@ -86,7 +84,7 @@ export const sampleProducts: ProductDetail[] = [
     serialNumber: "SN-TITAN-88319",
     price: "₹8,495",
     thumb: <WatchThumb className="w-12 h-12" />,
-    attentionNote: "Warranty expires in 3 weeks",
+    attentionNote: "Warranty expires in 21 days (18 Aug 2026)",
   },
   {
     id: "minimalist-sunscreen",
@@ -101,6 +99,20 @@ export const sampleProducts: ProductDetail[] = [
     price: "₹399",
     thumb: <SunscreenThumb className="w-12 h-12" />,
     attentionNote: "Estimated to restock in 8 days based on usage",
+  },
+  {
+    id: "macbook-air-m3",
+    name: "MacBook Air 15\" M3",
+    brand: "Apple",
+    category: "Computers",
+    purchaseDate: "10 Apr 2026",
+    warrantyEnd: "10 Apr 2027",
+    warrantyStatus: "Active Warranty",
+    invoiceName: "Apple_Store_Invoice.pdf",
+    serialNumber: "SN-C02XYZ123ABC",
+    price: "₹1,24,900",
+    thumb: <LaptopThumb className="w-12 h-12" />,
+    attentionNote: "Confirm warranty registration link",
   },
 ];
 
@@ -117,34 +129,24 @@ type TimelineItem = {
 
 const timelineEvents: TimelineItem[] = [
   {
-    id: "t1",
-    date: "15 Mar 2026",
-    dotColor: "#EF4444",
-    title: "Sony WH-1000XM5",
+    id: "t6",
+    date: "28 Oct 2026",
+    dotColor: "#4338CA",
+    title: "Nike Air Max 270",
+    action: "Added to price watch",
+    subtext: "Target: ₹7,499 · Target Reached",
+    category: "Footwear",
+    thumb: <SneakerThumb className="w-7 h-7" />,
+  },
+  {
+    id: "t5",
+    date: "12 Oct 2026",
+    dotColor: "#3B82F6",
+    title: "MacBook Air 15\" M3",
     action: "Purchased",
-    subtext: "Invoice saved",
+    subtext: "Apple Store BKC invoice saved",
     category: "Electronics",
-    thumb: <HeadphoneThumb className="w-7 h-7" />,
-  },
-  {
-    id: "t2",
-    date: "02 May 2026",
-    dotColor: "#F97316",
-    title: "Sunscreen SPF 50",
-    action: "Added to ClaimForge",
-    subtext: "Set refill reminder",
-    category: "Personal Care",
-    thumb: <SunscreenThumb className="w-7 h-7" />,
-  },
-  {
-    id: "t3",
-    date: "20 Jun 2026",
-    dotColor: "#F59E0B",
-    title: "LG Refrigerator",
-    action: "AMC registered",
-    subtext: "Service plan saved",
-    category: "Appliances",
-    thumb: <RefrigeratorThumb className="w-7 h-7" />,
+    thumb: <LaptopThumb className="w-7 h-7" />,
   },
   {
     id: "t4",
@@ -152,29 +154,39 @@ const timelineEvents: TimelineItem[] = [
     dotColor: "#B45309",
     title: "Titan Watch",
     action: "Warranty card added",
-    subtext: "Support link saved",
+    subtext: "Official service support link saved",
     category: "Accessories",
     thumb: <WatchThumb className="w-7 h-7" />,
   },
   {
-    id: "t5",
-    date: "12 Oct 2026",
-    dotColor: "#3B82F6",
-    title: "MacBook Air M2",
-    action: "Purchased",
-    subtext: "Invoice saved",
-    category: "Electronics",
-    thumb: <LaptopThumb className="w-7 h-7" />,
+    id: "t3",
+    date: "20 Jun 2026",
+    dotColor: "#F59E0B",
+    title: "LG Refrigerator",
+    action: "AMC registered",
+    subtext: "Annual service plan saved",
+    category: "Appliances",
+    thumb: <RefrigeratorThumb className="w-7 h-7" />,
   },
   {
-    id: "t6",
-    date: "28 Oct 2026",
-    dotColor: "#4338CA",
-    title: "Nike Air Max 270",
-    action: "Added to price watch",
-    subtext: "Target price: ₹5,999",
-    category: "Footwear",
-    thumb: <SneakerThumb className="w-7 h-7" />,
+    id: "t2",
+    date: "02 May 2026",
+    dotColor: "#F97316",
+    title: "Minimalist Sunscreen",
+    action: "Passport created",
+    subtext: "60-day refill reminder scheduled",
+    category: "Personal Care",
+    thumb: <SunscreenThumb className="w-7 h-7" />,
+  },
+  {
+    id: "t1",
+    date: "15 Mar 2026",
+    dotColor: "#EF4444",
+    title: "Sony WH-1000XM5",
+    action: "Purchased",
+    subtext: "Reliance Digital invoice saved",
+    category: "Electronics",
+    thumb: <HeadphoneThumb className="w-7 h-7" />,
   },
 ];
 
@@ -300,7 +312,7 @@ export function DashboardHome({
               {/* Item 1: LG Refrigerator */}
               <div
                 className="attention-item"
-                onClick={() => setSelectedProduct(sampleProducts[1])}
+                onClick={() => onNavigateTab("reminders")}
                 role="button"
                 tabIndex={0}
               >
@@ -310,7 +322,7 @@ export function DashboardHome({
                 <div className="attention-info">
                   <strong className="attention-product-name">LG Refrigerator</strong>
                   <span className="attention-tag-red">AMC renewal due</span>
-                  <span className="attention-sub">Purchased on 12 Feb 2024</span>
+                  <span className="attention-sub">Service plan renewal due in 14 days</span>
                 </div>
                 <div className="attention-action">
                   <span className="badge-pill badge-pill-red">14 days</span>
@@ -318,23 +330,23 @@ export function DashboardHome({
                 </div>
               </div>
 
-              {/* Item 2: Sony WH-1000XM5 */}
+              {/* Item 2: Titan Analog Watch */}
               <div
                 className="attention-item"
-                onClick={() => setSelectedProduct(sampleProducts[0])}
+                onClick={() => onNavigateTab("products")}
                 role="button"
                 tabIndex={0}
               >
                 <div className="attention-thumb">
-                  <HeadphoneThumb className="w-10 h-10" />
+                  <WatchThumb className="w-10 h-10" />
                 </div>
                 <div className="attention-info">
-                  <strong className="attention-product-name">Sony WH-1000XM5</strong>
-                  <span className="attention-tag-green">Price dropped to ₹24,990</span>
-                  <span className="attention-sub">Target: ₹22,000</span>
+                  <strong className="attention-product-name">Titan Analog Watch</strong>
+                  <span className="attention-tag-amber">Warranty expiring soon</span>
+                  <span className="attention-sub">Expires in 21 days (18 Aug 2026)</span>
                 </div>
                 <div className="attention-action">
-                  <span className="badge-pill badge-pill-green">↓ ₹3,000</span>
+                  <span className="badge-pill badge-pill-amber">21 days</span>
                   <ChevronRight size={15} className="item-arrow" />
                 </div>
               </div>
@@ -342,7 +354,7 @@ export function DashboardHome({
               {/* Item 3: Minimalist Sunscreen */}
               <div
                 className="attention-item"
-                onClick={() => setSelectedProduct(sampleProducts[3])}
+                onClick={() => onNavigateTab("reminders")}
                 role="button"
                 tabIndex={0}
               >
@@ -351,11 +363,32 @@ export function DashboardHome({
                 </div>
                 <div className="attention-info">
                   <strong className="attention-product-name">Minimalist Sunscreen</strong>
-                  <span className="attention-tag-amber">Estimated to restock</span>
-                  <span className="attention-sub">Based on your usage</span>
+                  <span className="attention-tag-amber">Replenishment reminder</span>
+                  <span className="attention-sub">Refill needed in 8 days based on usage</span>
                 </div>
                 <div className="attention-action">
                   <span className="badge-pill badge-pill-amber">8 days</span>
+                  <ChevronRight size={15} className="item-arrow" />
+                </div>
+              </div>
+
+              {/* Item 4: MacBook Air 15" M3 */}
+              <div
+                className="attention-item"
+                onClick={() => onNavigateTab("products")}
+                role="button"
+                tabIndex={0}
+              >
+                <div className="attention-thumb">
+                  <LaptopThumb className="w-10 h-10" />
+                </div>
+                <div className="attention-info">
+                  <strong className="attention-product-name">MacBook Air 15&quot; M3</strong>
+                  <span className="attention-tag-blue">Confirm product details</span>
+                  <span className="attention-sub">Upload warranty card or official support URL</span>
+                </div>
+                <div className="attention-action">
+                  <span className="badge-pill badge-pill-blue">Needs Info</span>
                   <ChevronRight size={15} className="item-arrow" />
                 </div>
               </div>
@@ -381,51 +414,81 @@ export function DashboardHome({
 
             <div className="price-alerts-list">
               {/* Alert 1: Sony WH-1000XM5 */}
-              <div className="price-alert-item">
+              <div
+                className="price-alert-item"
+                onClick={() => onNavigateTab("prices")}
+                role="button"
+                tabIndex={0}
+              >
                 <div className="price-alert-thumb">
                   <HeadphoneThumb className="w-10 h-10" />
                 </div>
                 <div className="price-alert-info">
                   <strong className="price-product-name">Sony WH-1000XM5</strong>
                   <span className="price-sub">
-                    Current: <strong>₹26,990</strong> · Target: ₹22,000
+                    Prev: <s>₹26,990</s> · Current: <strong>₹24,990</strong> · Target: ₹22,000
+                  </span>
+                  <span className="price-meta-text">
+                    Checked 3h ago · Amazon India (Above target by ₹2,990)
                   </span>
                 </div>
-                <span className="badge-pill badge-pill-green badge-dropped">
-                  ↓ ₹3,000 dropped
-                </span>
+                <div className="price-alert-action">
+                  <span className="badge-pill badge-pill-green badge-dropped">
+                    ↓ ₹2,000 dropped
+                  </span>
+                </div>
               </div>
 
               {/* Alert 2: Nike Air Max 270 */}
-              <div className="price-alert-item">
+              <div
+                className="price-alert-item"
+                onClick={() => onNavigateTab("prices")}
+                role="button"
+                tabIndex={0}
+              >
                 <div className="price-alert-thumb">
                   <SneakerThumb className="w-10 h-10" />
                 </div>
                 <div className="price-alert-info">
                   <strong className="price-product-name">Nike Air Max 270</strong>
                   <span className="price-sub">
-                    Current: <strong>₹7,499</strong> · Target: ₹5,999
+                    Prev: <s>₹7,999</s> · Current: <strong>₹7,499</strong> · Target: ₹7,499
+                  </span>
+                  <span className="price-meta-text">
+                    Checked today · Nike Store India
                   </span>
                 </div>
-                <span className="badge-pill badge-pill-green badge-dropped">
-                  ↓ ₹500 dropped
-                </span>
+                <div className="price-alert-action">
+                  <span className="badge-pill badge-pill-green badge-target-reached">
+                    🎯 Target Reached!
+                  </span>
+                </div>
               </div>
 
-              {/* Alert 3: iPhone 15 */}
-              <div className="price-alert-item">
+              {/* Alert 3: Apple MacBook Air 15" M3 */}
+              <div
+                className="price-alert-item"
+                onClick={() => onNavigateTab("prices")}
+                role="button"
+                tabIndex={0}
+              >
                 <div className="price-alert-thumb">
-                  <PhoneThumb className="w-10 h-10" />
+                  <LaptopThumb className="w-10 h-10" />
                 </div>
                 <div className="price-alert-info">
-                  <strong className="price-product-name">iPhone 15</strong>
+                  <strong className="price-product-name">MacBook Air 15&quot; M3</strong>
                   <span className="price-sub">
-                    Current: <strong>₹69,999</strong> · Target: ₹64,999
+                    Prev: <s>₹1,29,900</s> · Current: <strong>₹1,24,900</strong> · Target: ₹1,15,000
+                  </span>
+                  <span className="price-meta-text">
+                    Checked yesterday · Apple BKC (Above target by ₹9,900)
                   </span>
                 </div>
-                <span className="badge-pill badge-pill-green badge-dropped">
-                  ↓ ₹2,000 dropped
-                </span>
+                <div className="price-alert-action">
+                  <span className="badge-pill badge-pill-green badge-dropped">
+                    ↓ ₹5,000 dropped
+                  </span>
+                </div>
               </div>
             </div>
           </section>
@@ -448,57 +511,6 @@ export function DashboardHome({
           >
             Review claim <ArrowRight size={14} />
           </button>
-        </section>
-
-        {/* "My Products" Grid Section */}
-        <section className="my-products-section" aria-labelledby="my-products-heading">
-          <div className="section-head-bar">
-            <h3 id="my-products-heading" className="section-title">My Products</h3>
-            <button
-              className="view-all-link"
-              onClick={() => onNavigateTab("products")}
-            >
-              View All <ArrowRight size={13} />
-            </button>
-          </div>
-
-          <div className="products-grid">
-            {sampleProducts.map((prod) => (
-              <div key={prod.id} className="product-card">
-                <div className="product-card-top">
-                  <span className={`product-status-tag tag-${prod.warrantyStatus.toLowerCase().replace(/\s+/g, "-")}`}>
-                    {prod.warrantyStatus}
-                  </span>
-                  <button
-                    className="menu-dots-btn"
-                    aria-label={`Options for ${prod.name}`}
-                    onClick={() => setSelectedProduct(prod)}
-                  >
-                    <MoreHorizontal size={16} />
-                  </button>
-                </div>
-
-                <div className="product-card-visual" onClick={() => setSelectedProduct(prod)}>
-                  {prod.thumb}
-                </div>
-
-                <div className="product-card-details">
-                  <h4 className="prod-name" onClick={() => setSelectedProduct(prod)}>
-                    {prod.name}
-                  </h4>
-                  <span className="prod-cat">{prod.category}</span>
-                  <span className="prod-purchased">Purchased {prod.purchaseDate}</span>
-                </div>
-
-                <button
-                  className="product-card-btn"
-                  onClick={() => setSelectedProduct(prod)}
-                >
-                  View Details <ArrowRight size={12} />
-                </button>
-              </div>
-            ))}
-          </div>
         </section>
 
         {/* Quick Actions Row */}

@@ -52,6 +52,29 @@ describe("ClaimForge customer workflow", () => {
     expect(await screen.findByText(/products with a paper trail/i)).toBeInTheDocument();
   });
 
+  it("navigates to My Claims and fetches claims without runtime error", async () => {
+    const user = userEvent.setup();
+    render(<ClaimForgeWorkspace />);
+
+    await user.click(screen.getByRole("button", { name: /my claims/i }));
+    expect(fetch).toHaveBeenCalledWith("/api/claims", expect.anything());
+    expect(await screen.findByText(/saved claims|no claims yet/i)).toBeInTheDocument();
+  });
+
+  it("navigates to Timeline, Price Watch, and Reminders from the prioritized sidebar", async () => {
+    const user = userEvent.setup();
+    render(<ClaimForgeWorkspace />);
+
+    await user.click(screen.getByRole("button", { name: /^timeline$/i }));
+    expect(await screen.findByText(/all product ownership events|ownership history/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^price watch$/i }));
+    expect(await screen.findByText(/know when the price is right/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^reminders$/i }));
+    expect(await screen.findByText(/a nudge on your terms/i)).toBeInTheDocument();
+  });
+
   it("creates a browser-only claim preview without uploading files or saving a claim", async () => {
     const user = userEvent.setup();
     render(<ClaimForgeWorkspace />);
