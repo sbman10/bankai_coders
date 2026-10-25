@@ -11,6 +11,7 @@ const documentId = "8d87b716-e870-4a40-a6b8-fcd6f6b0d6ee";
 const productMaybeSingle = vi.fn();
 const documentIn = vi.fn();
 const rpc = vi.fn();
+const functionsInvoke = vi.fn();
 const fetchMock = vi.fn();
 
 function request(body: unknown) {
@@ -35,12 +36,22 @@ beforeEach(() => {
   productMaybeSingle.mockResolvedValue({ data: { id: productId }, error: null });
   documentIn.mockResolvedValue({ data: [{ id: documentId }], error: null });
   rpc.mockResolvedValue({ data: [], error: null });
+  functionsInvoke.mockResolvedValue({ data: {
+    embedding: Array.from({ length: 384 }, () => 0.125),
+    modelAlias: "gte-small",
+    modelRepository: "Supabase/gte-small",
+    modelRevision: null,
+    dimension: 384,
+    pooling: "mean",
+    normalized: true,
+  }, error: null });
   createClient.mockResolvedValue({
     auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: userId } }, error: null }) },
     from: vi.fn((table: string) => table === "products"
       ? { select: vi.fn(() => ({ eq: vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle: productMaybeSingle })) })) })) }
       : { select: vi.fn(() => ({ eq: vi.fn(() => ({ eq: vi.fn(() => ({ in: documentIn })) })) })) }),
     rpc,
+    functions: { invoke: functionsInvoke },
   });
   vi.stubGlobal("fetch", fetchMock);
 });
@@ -185,12 +196,26 @@ describe("document-grounded assistant answer route", () => {
   it("uses retrieval constrained to the signed-in user's selected product and documents", async () => {
     await POST(request(validBody()));
 
-    expect(rpc).toHaveBeenCalledWith("search_selected_document_chunks", {
-      p_query_text: "Does this warranty cover a speaker failure?",
+    expect(functionsInvoke).toHaveBeenCalledWith("embed-text", {
+      body: { text: "Does this warranty cover a speaker failure?" },
+    });
+    expect(rpc).toHaveBeenCalledWith("search_selected_document_chunks_by_embedding", {
+      p_query_embedding: Array.from({ length: 384 }, () => 0.125),
       p_product_id: productId,
       p_document_ids: [documentId],
       p_result_limit: 8,
     });
+  });
+
+  it("does not search or answer when query embedding is unavailable", async () => {
+    functionsInvoke.mockResolvedValueOnce({ data: null, error: { message: "private provider detail" } });
+
+    const response = await POST(request(validBody()));
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "Semantic document search is unavailable. Please try again later." });
+    expect(rpc).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("abstains without calling Groq when selected documents contain no matching evidence", async () => {

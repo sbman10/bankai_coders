@@ -1,8 +1,16 @@
 # ClaimForge web MVP
 
-Next.js App Router app for managing products and warranty claims. Supabase Auth sessions are read in server routes through `@supabase/ssr`; browser requests never receive a service-role key.
+Next.js App Router app for managing products and warranty claims. The current UI is a public, fictional demo and does not require sign-in or email.
 
-## Connected behavior
+## Public demo behavior
+
+- The overview and sample claim review use fictional data.
+- New claim intake creates only a temporary in-memory browser preview. Selected files are not uploaded; no claim or draft is persisted. Do not enter real personal information or select real documents.
+- Products, saved claims, document Q&A, price watches, reminders, and private uploads are disabled in the public UI because they require an account-owned workspace.
+- The account-backed API routes and Supabase Auth code remain in the repository for later re-enablement. They still require a verified Supabase user and retain their owner-scoped checks; the public UI does not call them.
+- Browser requests never receive a service-role key.
+
+## Account-backed API behavior (not exposed by the public demo UI)
 
 - Sign in, sign up, and sign out through the Next.js auth route.
 - Save and edit product passports with brand, model, category, seller, serial number, purchase date, and warranty end date; remove products when linked claims, documents, watches, or reminders would not be lost.
@@ -17,9 +25,9 @@ Next.js App Router app for managing products and warranty claims. Supabase Auth 
 
 ## Local document assistant implementation
 
-The local code now includes a read-only document Q&A path. A signed-in user selects an owned product and its indexed documents; the answer route rechecks ownership, searches only the selected documents, and resolves model-proposed citation IDs against the retrieved rows before returning document/page/section metadata. No-evidence results abstain, and a model-reported conflict is converted to a non-decisive response. The UI distinguishes document facts, user facts, inferences, uncertainty, and source excerpts. Questions and selected excerpts are sent to the configured Groq chat model; the UI discloses this before use.
+The local code includes a read-only document Q&A path intended for a signed-in user with owned products and indexed documents. The answer route rechecks ownership, embeds the question through the `embed-text` Edge Function, calls the owner-scoped vector search RPC for only the selected documents, and resolves model-proposed citation IDs against retrieved rows before returning document/page/section metadata. No-evidence results abstain, and a model-reported conflict is converted to a non-decisive response. The assistant UI is not exposed in the current public demo: its navigation item shows a notice instead of calling private APIs. These vector paths are local code only and have not been verified against Supabase.
 
-The local ingestion route supports native-text PDFs using `pdfjs-dist`, stores page-aware chunks and index versions, and marks image-only, scanned, unreadable, or incomplete files `needs_review`. OCR is not configured. Retrieval is PostgreSQL English full-text search, not vector or hybrid search; paraphrase recall is limited. Conflict detection depends on the model identifying conflicting passages and is not a guarantee. Chat history is not persisted.
+The local ingestion route supports native-text PDFs using `pdfjs-dist`, stores page-aware chunks and index versions, and marks image-only, scanned, unreadable, or incomplete files `needs_review`. OCR is not configured. The answer API now has a semantic vector-search path in local code; hybrid ranking is not implemented. Existing indexing remains synchronous and does not yet generate/store vectors, so the vector path requires the local embedding/processing worker and schema to be integrated before it can return indexed evidence. No vector match threshold has been calibrated; similarity is not proof of coverage. Conflict detection depends on the model identifying conflicting passages and is not a guarantee. Chat history is not persisted.
 
 The local document-processing status API is `GET`/`POST /api/products/[id]/documents/[documentId]/processing`. It returns only allowlisted ingestion/job state; reprocessing requests are owner-checked and idempotent, and report `dispatchStatus: "pending"` until a worker dispatches them. Creating a job does not change document ingestion state or start extraction. This route depends on the local-only `20261023000000_rag_embeddings_and_processing_jobs.sql` migration, which has not been applied to Supabase. Queue dispatch and the worker are not implemented by this API.
 
@@ -27,13 +35,13 @@ This code requires the additive migration `supabase/migrations/20261022150000_do
 
 ## Data boundaries
 
-Product, price-watch, reminder, document, and claim APIs require a verified Supabase user session. They use the publishable key with the user's session and apply owner filters; Postgres RLS is the second boundary. Product documents remain private in Supabase Storage and signed download links expire after 60 seconds. Request bodies are bounded and validated. n8n credentials and provider keys stay server-side. See [`docs/n8n-integration.md`](../../docs/n8n-integration.md) for the current workflow state.
+The current public demo UI does not call product, price-watch, reminder, document, assistant, or claim persistence APIs. Those API routes still require a verified Supabase user session, use the publishable key with the user's session, and apply owner filters; Postgres RLS is the second boundary. Product documents remain private in Supabase Storage and signed download links expire after 60 seconds. Request bodies are bounded and validated. n8n credentials and provider keys stay server-side. See [`docs/n8n-integration.md`](../../docs/n8n-integration.md) for the current workflow state.
 
 The existing migrations create the owner-scoped tables and private `claim-documents` bucket. They were applied to the selected `bankai` project and verified in the dashboard. Do not reset or overwrite the database.
 
 ## Not connected yet
 
-- Live RAG enablement and integration verification: the new schema migration is local only; no live migration, Supabase retrieval, or Groq call has been performed. OCR, vector embeddings, and hybrid retrieval are not implemented.
+- Live RAG enablement and integration verification: vector-search schema is local only; no live migration, Supabase retrieval, Edge Function call, or Groq call has been performed. OCR, actual vector generation/storage integration, and hybrid retrieval are not connected.
 - Automated retailer price checks; manual price updates are the working path.
 - Background reminder delivery; scheduled reminders are currently an in-app list.
 - The sample approval screen remains demo-only until a real processed claim and editable evidence-linked draft are available. Although the protected draft-only approval API is implemented, no claim currently reaches `ready_for_review`; external sending is disabled.
@@ -42,7 +50,7 @@ These states are shown honestly in the UI. Do not label an n8n acknowledgement a
 
 ## Configure and run
 
-Copy `.env.example` to `.env.local`. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` for the selected project. Keep `.env.local` out of version control. The local `.env.local` contains the Supabase and Groq variable names used by the app, but provider credentials/model compatibility have not been live-tested. The production n8n webhook URL and callback secret remain blank. The workflow is inactive and acknowledgement-only.
+The public demo runs without Supabase, Groq, or n8n configuration. To re-enable account-backed APIs later, copy `.env.example` to `.env.local` and set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` for the selected project. Keep `.env.local` out of version control. Provider credentials/model compatibility have not been live-tested. The production n8n webhook URL and callback secret remain blank. The workflow is inactive and acknowledgement-only.
 
 ```powershell
 npm install
