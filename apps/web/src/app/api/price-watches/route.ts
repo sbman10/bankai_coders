@@ -36,6 +36,9 @@ async function readBody(request: Request): Promise<Record<string, unknown> | Nex
   }
 }
 
+import { isSupabaseConfigured } from "@/lib/supabase/configured";
+import { prototypeStore } from "@/lib/store/prototype-store";
+
 export async function GET() {
   try {
     const supabase = await createClient();
@@ -46,6 +49,10 @@ export async function GET() {
     if (error) return NextResponse.json({ error: "Your price watches could not be loaded." }, { status: 503 });
     return NextResponse.json({ watches: data ?? [] }, { headers: { "Cache-Control": "private, no-store" } });
   } catch {
+    if (!isSupabaseConfigured()) {
+      const watches = prototypeStore.getPriceWatches();
+      return NextResponse.json({ watches }, { headers: { "Cache-Control": "private, no-store" } });
+    }
     return NextResponse.json({ error: "Price-watch storage is not configured yet." }, { status: 503 });
   }
 }
@@ -78,6 +85,21 @@ export async function POST(request: Request) {
     if (error || !data) return NextResponse.json({ error: "Your price watch could not be saved." }, { status: 503 });
     return NextResponse.json({ watch: data }, { status: 201, headers: { "Cache-Control": "private, no-store" } });
   } catch {
+    if (!isSupabaseConfigured()) {
+      const body = await readBody(request);
+      if (body instanceof NextResponse) return body;
+      const productId = String(body.productId);
+      const currentPrice = price(body.currentPrice) ?? 0;
+      const targetPrice = price(body.targetPrice) ?? 0;
+      const productUrl = safeProductUrl(body.productUrl) ?? "";
+      const watch = prototypeStore.createPriceWatch({
+        productId,
+        productUrl,
+        currentPrice,
+        targetPrice,
+      });
+      return NextResponse.json({ watch }, { status: 201, headers: { "Cache-Control": "private, no-store" } });
+    }
     return NextResponse.json({ error: "Price-watch storage is not configured yet." }, { status: 503 });
   }
 }

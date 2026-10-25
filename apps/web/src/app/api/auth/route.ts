@@ -2,15 +2,29 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isRecord, JsonBodyError, readJsonBody } from "@/lib/http/read-json-body";
 
+import { isSupabaseConfigured } from "@/lib/supabase/configured";
+
 export async function GET() {
+  if (!isSupabaseConfigured()) {
+    return NextResponse.json({
+      user: { id: "00000000-0000-4000-8000-000000000001", email: "demo@claimforge.app" },
+      configured: false,
+      prototype: true,
+    });
+  }
+
   try {
     const supabase = await createClient();
     const { data: { user }, error } = await supabase.auth.getUser();
 
-    if (error || !user) return NextResponse.json({ user: null }, { status: 200 });
-    return NextResponse.json({ user: { id: user.id, email: user.email ?? null } });
+    if (error || !user) return NextResponse.json({ user: null, configured: true }, { status: 200 });
+    return NextResponse.json({ user: { id: user.id, email: user.email ?? null }, configured: true });
   } catch {
-    return NextResponse.json({ user: null, configured: false }, { status: 200 });
+    return NextResponse.json({
+      user: { id: "00000000-0000-4000-8000-000000000001", email: "demo@claimforge.app" },
+      configured: false,
+      prototype: true,
+    }, { status: 200 });
   }
 }
 

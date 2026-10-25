@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/configured";
+import { prototypeStore } from "@/lib/store/prototype-store";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const fileFields = "id, product_id, storage_path, original_filename";
@@ -26,6 +28,9 @@ export async function GET(_request: Request, context: Context) {
     if (linkError || !data?.signedUrl) return NextResponse.json({ error: "A private document link could not be created." }, { status: 503 });
     return NextResponse.json({ url: data.signedUrl }, { headers: { "Cache-Control": "private, no-store" } });
   } catch {
+    if (!isSupabaseConfigured()) {
+      return NextResponse.json({ url: "#demo-document-preview" }, { headers: { "Cache-Control": "private, no-store" } });
+    }
     return NextResponse.json({ error: "Private document access is not configured yet." }, { status: 503 });
   }
 }
@@ -48,6 +53,11 @@ export async function DELETE(_request: Request, context: Context) {
     if (deleteError || !removed) return NextResponse.json({ error: "The file was removed, but its product record could not be cleaned up." }, { status: 503 });
     return NextResponse.json({ removed: true }, { headers: { "Cache-Control": "private, no-store" } });
   } catch {
+    if (!isSupabaseConfigured()) {
+      const { documentId } = await context.params;
+      prototypeStore.deleteProductDocument(documentId);
+      return NextResponse.json({ removed: true }, { headers: { "Cache-Control": "private, no-store" } });
+    }
     return NextResponse.json({ error: "Product document storage is not configured yet." }, { status: 503 });
   }
 }

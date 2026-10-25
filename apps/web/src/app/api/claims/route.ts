@@ -49,6 +49,9 @@ async function validateStoredDocuments(
   return "valid";
 }
 
+import { isSupabaseConfigured } from "@/lib/supabase/configured";
+import { prototypeStore } from "@/lib/store/prototype-store";
+
 export async function GET() {
   try {
     const supabase = await createClient();
@@ -64,6 +67,10 @@ export async function GET() {
 
     return NextResponse.json({ claims: data ?? [] });
   } catch {
+    if (!isSupabaseConfigured()) {
+      const claims = prototypeStore.getClaims();
+      return NextResponse.json({ claims });
+    }
     return NextResponse.json({ error: "Claim storage is not configured yet." }, { status: 503 });
   }
 }
@@ -168,6 +175,26 @@ export async function POST(request: Request) {
       automation,
     }, { status: data.duplicate ? 200 : 201 });
   } catch {
+    if (!isSupabaseConfigured()) {
+      let body: Record<string, unknown> = {};
+      try {
+        const val = await readJsonBody(request, 16 * 1024);
+        if (isRecord(val)) body = val;
+      } catch {}
+      const product = typeof body.product === "string" ? body.product.trim() : "Product";
+      const fault = typeof body.fault === "string" ? body.fault.trim() : "Reported issue";
+      const failureDate = typeof body.failureDate === "string" ? body.failureDate : null;
+      const claim = prototypeStore.createClaim({
+        productName: product,
+        fault,
+        failureDate,
+      });
+      return NextResponse.json({
+        claim: { id: claim.id, productId: claim.product_id, status: claim.status },
+        duplicate: false,
+        automation: "not_configured",
+      }, { status: 201 });
+    }
     return NextResponse.json({ error: "Claim intake is not configured yet." }, { status: 503 });
   }
 }
