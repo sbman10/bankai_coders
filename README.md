@@ -1,10 +1,10 @@
-# ClaimForge
+# ProductVault
 
-ClaimForge helps consumers manage products after purchase: organize product records, understand supplied warranty terms, prepare claim or rejection-response drafts, and set price and replenishment reminders.
+ProductVault helps consumers manage products after purchase: organize product records, understand supplied warranty terms, prepare claim or rejection-response drafts, and set price and replenishment reminders.
 
 ## Current priority
 
-Build the ClaimForge MVP while keeping the Reforged '26 deck accurate. See [slide copy and visuals](deck/slide-copy.md), [deck outline](deck/pitch-deck-outline.md), and [research notes](research.md).
+Build the ProductVault MVP while keeping the Reforged '26 deck accurate. See [slide copy and visuals](deck/slide-copy.md), [deck outline](deck/pitch-deck-outline.md), and [research notes](research.md).
 
 ## Product documents
 

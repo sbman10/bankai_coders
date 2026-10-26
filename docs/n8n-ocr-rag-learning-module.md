@@ -1,6 +1,6 @@
-# ClaimForge: Learn n8n, OCR, and RAG End to End
+# ProductVault: Learn n8n, OCR, and RAG End to End
 
-**Audience:** beginner building the ClaimForge MVP  
+**Audience:** beginner building the ProductVault MVP  
 **Purpose:** understand how the Next.js app, Supabase, n8n, OCR, and document-grounded chat fit together before editing workflows.  
 **Research checked:** 26 October 2026. Provider plans, product UI, and docs can change; recheck before implementation.
 
@@ -32,7 +32,7 @@ Checked the source and docs in `apps/web` and `docs`:
 
 ### The basic building blocks
 
-1. **Trigger:** starts an execution. For ClaimForge, the key triggers are a Webhook (app event) and Schedule Trigger (recurring reminders/reconciliation). Schedule Trigger requires a published workflow and depends on workflow/instance timezone. [Webhook](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.webhook/) · [Schedule Trigger](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.scheduletrigger/)
+1. **Trigger:** starts an execution. For ProductVault, the key triggers are a Webhook (app event) and Schedule Trigger (recurring reminders/reconciliation). Schedule Trigger requires a published workflow and depends on workflow/instance timezone. [Webhook](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.webhook/) · [Schedule Trigger](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.scheduletrigger/)
 2. **Node:** one operation, for example validate fields, call an API, extract PDF text, branch on a result, or return a webhook response.
 3. **Item/data:** JSON (and sometimes binary data) passed from node to node. Keep each step’s payload small and intentional.
 4. **Connection/branch:** defines what runs next. Use deterministic conditions for eligibility/status rules; use AI only for interpretation and draft wording.
@@ -43,13 +43,13 @@ Checked the source and docs in `apps/web` and `docs`:
 
 - **Test URL:** n8n registers it while you choose “Listen for test event”/execute for testing. Use a synthetic request.
 - **Production URL:** registered when the workflow is published/activated. It is the endpoint the app server calls after the workflow is ready.
-- Configure the webhook with authentication. ClaimForge’s app server should call n8n; the browser must never receive the webhook secret. Webhook responses can be configured directly or via Respond to Webhook. [Webhook](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.webhook/) · [Respond to Webhook](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.respondtowebhook/)
+- Configure the webhook with authentication. ProductVault’s app server should call n8n; the browser must never receive the webhook secret. Webhook responses can be configured directly or via Respond to Webhook. [Webhook](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.webhook/) · [Respond to Webhook](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.respondtowebhook/)
 
 ### Synchronous vs asynchronous response
 
 - **Synchronous:** app waits for the workflow and gets the final result in the same HTTP request. It is simple but long OCR/LLM work can time out.
 - **Asynchronous (recommended for document processing):** n8n quickly returns `202 Accepted` plus an event/job ID. The app shows `processing`. Later n8n calls the authenticated Next.js callback with the result/status. `202` means accepted for work; it is not evidence that work succeeded.
-- For ClaimForge, the integration guide currently documents this acknowledgment pattern, but its actual workflow does not yet process the claim. The callback route exists; the workflow-to-callback path is not verified.
+- For ProductVault, the integration guide currently documents this acknowledgment pattern, but its actual workflow does not yet process the claim. The callback route exists; the workflow-to-callback path is not verified.
 
 ### Reliability concepts you need
 
@@ -64,7 +64,7 @@ Checked the source and docs in `apps/web` and `docs`:
 ```mermaid
 sequenceDiagram
   actor User
-  participant UI as ClaimForge UI
+  participant UI as ProductVault UI
   participant API as Next.js API
   participant DB as Supabase Auth/Postgres
   participant Store as Private Supabase Storage

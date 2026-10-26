@@ -1,4 +1,4 @@
-# ClaimForge Agent and Coding Instructions
+# ProductVault Agent and Coding Instructions
 
 ## Product truth
 

@@ -1,4 +1,4 @@
-# ClaimForge Product Requirements Document
+# ProductVault Product Requirements Document
 
 **Status:** Draft for pitch and MVP planning
 **Owner:** Product team
@@ -6,9 +6,9 @@
 
 ## 1. Product summary
 
-ClaimForge is a product and coverage assistant that helps people make informed decisions before and after they buy. Before purchase, a user can ask plain-language questions about a product’s warranty, protection plan, or an insurance policy/service—for example, exclusions, waiting periods, required documents, and how claims are filed. Answers must be grounded in the relevant documents or official source material, with citations and clear uncertainty.
+ProductVault is a product and coverage assistant that helps people make informed decisions before and after they buy. Before purchase, a user can ask plain-language questions about a product’s warranty, protection plan, or an insurance policy/service—for example, exclusions, waiting periods, required documents, and how claims are filed. Answers must be grounded in the relevant documents or official source material, with citations and clear uncertainty.
 
-After purchase, ClaimForge helps the user keep product details and documents together, track a price manually, set replenishment or service reminders, and understand and prepare a warranty claim. The user remains in control of all external communication and claim submissions.
+After purchase, ProductVault helps the user keep product details and documents together, track a price manually, set replenishment or service reminders, and understand and prepare a warranty claim. The user remains in control of all external communication and claim submissions.
 
 **Product promise:** Turn product ownership into peace of mind—from understanding coverage before you buy to managing products and claims afterward.
 
@@ -16,17 +16,17 @@ After purchase, ClaimForge helps the user keep product details and documents tog
 
 Before buying, people may struggle to compare dense warranty, protection-plan, or insurance terms. Marketing summaries can omit exclusions, waiting periods, deductibles, claim limits, and required evidence. After buying, receipts and policy documents become scattered, while price changes, replenishment dates, service needs, and claim steps are easy to forget.
 
-ClaimForge reduces this work by organizing source documents, answering questions with traceable evidence, and helping the user take the next step without presenting an AI answer as a binding coverage decision.
+ProductVault reduces this work by organizing source documents, answering questions with traceable evidence, and helping the user take the next step without presenting an AI answer as a binding coverage decision.
 
 ## 3. Target users and scenarios
 
 **Primary user:** A consumer who wants to understand the terms attached to a product or service before committing, and manage the purchase afterward.
 
-**Pre-purchase scenario:** A user is considering headphones with an extended protection plan, or an insurance service. They provide or select the relevant policy/terms and ask: “Does accidental damage appear to be covered?”, “Is there a waiting period?”, or “What documents would I need to make a claim?” ClaimForge gives a cited explanation or says the supplied evidence is insufficient.
+**Pre-purchase scenario:** A user is considering headphones with an extended protection plan, or an insurance service. They provide or select the relevant policy/terms and ask: “Does accidental damage appear to be covered?”, “Is there a waiting period?”, or “What documents would I need to make a claim?” ProductVault gives a cited explanation or says the supplied evidence is insufficient.
 
 **Post-purchase demo scenario:** A user bought headphones eight months ago; one side stops working. They upload the invoice and applicable warranty terms, describe the fault, and receive relevant cited terms, an evidence checklist, and a reviewable claim draft.
 
-**Everyday ownership scenario:** A user records a sunscreen purchase, its price, and an estimated 1.5-month usage period. ClaimForge can show the manually recorded price and remind the user in-app when it may be time to replenish it.
+**Everyday ownership scenario:** A user records a sunscreen purchase, its price, and an estimated 1.5-month usage period. ProductVault can show the manually recorded price and remind the user in-app when it may be time to replenish it.
 
 The India-first market framing is an assumption for the pitch/demo. Terms, regulations, and appropriate sources may differ by country and insurance product; the launch market must be confirmed before broader rollout.
 
@@ -68,7 +68,7 @@ The India-first market framing is an assumption for the pitch/demo. Terms, regul
 - Source citations with document name and page/section where available.
 - A typed evidence outcome such as `supported by supplied terms`, `conditional`, `insufficient evidence`, or `conflicting terms`.
 - A focused follow-up when a key fact is missing, such as purchase date, location, plan tier, or event details.
-- A clear separation between quoted/extracted policy facts, user-provided facts, and ClaimForge's explanation or inference.
+- A clear separation between quoted/extracted policy facts, user-provided facts, and ProductVault's explanation or inference.
 
 **Rules**
 
@@ -106,25 +106,25 @@ Use clearly labeled fictional/sample documents unless permission has been given 
 1. User chooses a product, protection plan, warranty, or insurance/service policy to understand.
 2. User uploads or selects the relevant document or official source.
 3. User asks a question in the policy assistant.
-4. ClaimForge retrieves only the selected, available sources and checks whether they support an answer.
-5. ClaimForge returns an explanation with citations and an evidence outcome, or asks a clarifying question/abstains.
-6. User verifies important terms with the provider before purchase; ClaimForge does not make the purchase decision.
+4. ProductVault retrieves only the selected, available sources and checks whether they support an answer.
+5. ProductVault returns an explanation with citations and an evidence outcome, or asks a clarifying question/abstains.
+6. User verifies important terms with the provider before purchase; ProductVault does not make the purchase decision.
 7. If the user buys the product/service, they may add it to their ownership records.
 
 ### Journey B: Prepare a post-purchase claim
 
 1. User creates or selects a product and describes the fault/event.
 2. User uploads an invoice and applicable warranty/policy terms to private storage, or selects existing documents.
-3. ClaimForge extracts legible details and asks the user to correct or clarify uncertain data.
-4. ClaimForge explains the relevant source terms and missing evidence, with citations.
-5. ClaimForge prepares an editable claim draft and records its status.
+3. ProductVault extracts legible details and asks the user to correct or clarify uncertain data.
+4. ProductVault explains the relevant source terms and missing evidence, with citations.
+5. ProductVault prepares an editable claim draft and records its status.
 6. User reviews and explicitly approves any external communication immediately before it is sent. If sending is not configured, the user copies the draft.
 7. Claim status and follow-up reminders are shown from the app's saved records.
 
 ### Journey C: Manage a product over time
 
 1. User records a purchase and optionally enters its price, expected usage duration, or service date.
-2. ClaimForge adds documents and dates to that product's ownership record.
+2. ProductVault adds documents and dates to that product's ownership record.
 3. The app shows manually tracked price entries and schedules in-app reminders based on the user's dates.
 4. The user edits or dismisses reminders and maintains their own product record.
 

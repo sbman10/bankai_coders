@@ -1,6 +1,6 @@
 # Warranty Claim Intake Workflow (Demo)
 
-**Status:** Draft workflow contract for the first ClaimForge demo.  
+**Status:** Draft workflow contract for the first ProductVault demo.  
 **Trigger:** User starts a claim and submits required inputs.  
 **Workflow owner:** The user owns the claim and approves all external communication; the system operator owns workflow availability and failure handling.
 

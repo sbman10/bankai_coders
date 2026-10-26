@@ -1,4 +1,4 @@
-# ClaimForge: videos and learning path for Next.js, Supabase, and n8n
+# ProductVault: videos and learning path for Next.js, Supabase, and n8n
 
 **Prepared:** 24 October 2026  
 **Purpose:** Help a beginner understand the system well enough to draw it by hand before asking an agent to implement more integrations.  
@@ -65,7 +65,7 @@ Useful chapters: [00:57 Form Trigger](https://www.youtube.com/watch?v=4cQWJViybA
 
 - Official reference to keep open: [n8n Webhook node](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.webhook/). It documents the test vs production URL, Header Auth/JWT options, HTTP method, and response modes.
 - Draw this specifically: browser → Next.js route → authenticated POST → n8n Webhook → validation/automation → immediate `202 accepted` response → later status update/callback if configured.
-- Important ClaimForge detail: n8n currently has an inactive app API workflow that only acknowledges receipt. Do not draw it as completing the claim-processing path.
+- Important ProductVault detail: n8n currently has an inactive app API workflow that only acknowledges receipt. Do not draw it as completing the claim-processing path.
 
 ### 4. Understand private invoice/warranty storage
 
@@ -73,7 +73,7 @@ Useful chapters: [00:57 Form Trigger](https://www.youtube.com/watch?v=4cQWJViybA
 
 - Official companion: [Supabase Storage Quickstart](https://supabase.com/docs/guides/storage/quickstart) and [Buckets: private vs public access](https://supabase.com/docs/guides/storage/buckets/fundamentals).
 - What to draw: file bytes → private Storage bucket; document metadata/path → Postgres; authorized server downloads only when processing is needed.
-- ClaimForge rule: keep uploaded invoices and warranty terms private; do not send file binaries or permanent public URLs through n8n.
+- ProductVault rule: keep uploaded invoices and warranty terms private; do not send file binaries or permanent public URLs through n8n.
 
 ### 5. Understand what an Edge Function is (for the separate RAG worker)
 
@@ -85,7 +85,7 @@ Useful chapters: [00:57 Form Trigger](https://www.youtube.com/watch?v=4cQWJViybA
 
 ## There is no single official end-to-end video
 
-I did not find one first-party tutorial showing **Next.js + Supabase Auth/DB/private Storage + n8n secured webhook + asynchronous callback + Supabase Queue/Edge Function RAG** as one complete ClaimForge system. The watch order above teaches each boundary separately. Treat the official docs as authoritative for current configuration, because videos can use older interfaces or framework versions.
+I did not find one first-party tutorial showing **Next.js + Supabase Auth/DB/private Storage + n8n secured webhook + asynchronous callback + Supabase Queue/Edge Function RAG** as one complete ProductVault system. The watch order above teaches each boundary separately. Treat the official docs as authoritative for current configuration, because videos can use older interfaces or framework versions.
 
 ## Beginner exercise for the notebook
 

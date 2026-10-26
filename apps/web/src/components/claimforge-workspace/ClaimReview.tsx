@@ -105,7 +105,7 @@ export function ClaimReview({ claim, approved, onApprove, onBack }: { claim: Cla
           </div>}
         </aside>
       </div>
-      <footer className="page-footer"><span>PRODUCT VAULT · YOUR EVIDENCE, YOUR DECISION</span><span>PRELIMINARY INFORMATION · NOT LEGAL ADVICE</span></footer>
+      <footer className="page-footer"><span>PRODUCTVAULT · YOUR EVIDENCE, YOUR DECISION</span><span>PRELIMINARY INFORMATION · NOT LEGAL ADVICE</span></footer>
     </div>
   );
 }
@@ -134,7 +134,7 @@ function RejectionAssistant({ claim }: { claim: ClaimSubmission }) {
     <section className="review-card rejection-card" aria-labelledby="rejection-title">
       <div className="review-card-head"><span className="panel-index">04</span><span>IF YOUR CLAIM IS DECLINED</span></div>
       <h2 id="rejection-title">Ask for a clearer explanation.</h2>
-      <p>Enter the stated reason. Product Vault will prepare a neutral clarification request using your product and document names. It will not assess legal rights or send anything.</p>
+      <p>Enter the stated reason. ProductVault will prepare a neutral clarification request using your product and document names. It will not assess legal rights or send anything.</p>
       <form onSubmit={prepareDraft} className="rejection-form">
         <label htmlFor="rejection-reason" className="field-label">Reason for rejection</label>
         <textarea id="rejection-reason" className="text-input textarea" required maxLength={2000} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Paste or summarize the reason given by the seller or manufacturer" rows={3} />
@@ -179,7 +179,7 @@ function ApprovalCard({ approved, onApprove }: { approved: boolean; onApprove: (
       <p>{approved ? "Your approval is recorded in this local demo. No message was sent." : "Review the draft above. Approve only if the details look right to you."}</p>
       <div className="approval-rule" />
       {approved ? <div className="approved-state" role="status"><CheckCircle2 size={17} /> Approved for demo <span>No message was sent</span></div> : <><div className="approval-status" role="status"><span className="approval-dot" /> Not approved yet</div><button className="button button-light" onClick={onApprove}>Approve draft <ArrowUpRight size={15} /></button></>}
-      <small>Product Vault never sends or shares a claim without your explicit approval.</small>
+      <small>ProductVault never sends or shares a claim without your explicit approval.</small>
     </div>
   );
 }

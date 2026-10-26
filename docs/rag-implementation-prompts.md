@@ -1,13 +1,13 @@
-# ClaimForge RAG implementation prompts
+# ProductVault RAG implementation prompts
 
-Use these prompts in order, one at a time, from the ClaimForge project directory. Do not paste all prompts in one request. The first prompt is an audit and seam-confirmation gate; wait for the implementation agent's questions and confirm the seams before proceeding. Each prompt assumes the previous prompt's accepted work is present in the current checkout.
+Use these prompts in order, one at a time, from the ProductVault project directory. Do not paste all prompts in one request. The first prompt is an audit and seam-confirmation gate; wait for the implementation agent's questions and confirm the seams before proceeding. Each prompt assumes the previous prompt's accepted work is present in the current checkout.
 
 ## Shared instructions
 
 Paste this once at the start of the coding session. If starting a fresh session, paste it again before resuming the numbered sequence.
 
 ```text
-You are implementing ClaimForge's document-grounded RAG assistant. Work only in C:\Users\thaku\Desktop\claimforge. Do not inspect or modify C:\Users\thaku\Desktop\26045 or any other project.
+You are implementing ProductVault's document-grounded RAG assistant. Work only in C:\Users\thaku\Desktop\claimforge. Do not inspect or modify C:\Users\thaku\Desktop\26045 or any other project.
 
 Before coding, follow the root and apps/web AGENTS.md, PRD.md, apps/web/README.md, docs/n8n-integration.md, and research/rag-production-research.md. Read the relevant Next.js 16 docs under apps/web/node_modules/next/dist/docs before editing Next.js code.
 
@@ -22,10 +22,10 @@ Current repo notes say Supabase Auth/RLS, a private `claim-documents` bucket, `p
 
 ## Phase 1 — Understand and agree the shape
 
-### Prompt 01 — Audit the current ClaimForge state
+### Prompt 01 — Audit the current ProductVault state
 
 ```text
-Perform a read-only audit of the current ClaimForge repo and configured integrations. Read the shared instructions and the specified project docs. Verify the actual routes, components, migrations, RLS policies, Storage setup, Supabase project link, environment-variable presence (names/status only), Groq configuration presence (status only), and n8n MCP workflow state. Do not change files, database state, or workflows. Report what exists, what is missing, contradictions in docs, and the exact public behavioral seams you recommend for ingestion, owner-scoped retrieval, answer/abstention, citation display, chat UI, and n8n callbacks. Stop and ask me to confirm the seams.
+Perform a read-only audit of the current ProductVault repo and configured integrations. Read the shared instructions and the specified project docs. Verify the actual routes, components, migrations, RLS policies, Storage setup, Supabase project link, environment-variable presence (names/status only), Groq configuration presence (status only), and n8n MCP workflow state. Do not change files, database state, or workflows. Report what exists, what is missing, contradictions in docs, and the exact public behavioral seams you recommend for ingestion, owner-scoped retrieval, answer/abstention, citation display, chat UI, and n8n callbacks. Stop and ask me to confirm the seams.
 ```
 
 ### Prompt 02 — Decide the implementation architecture
@@ -135,7 +135,7 @@ Inspect the approved product design and implement minimal conversation persisten
 ### Prompt 18 — Add the chat entry and responsive shell
 
 ```text
-Using the frontend UI engineering and frontend-design guidance, inspect the existing ClaimForge UI and create the chatbot route/entry point and responsive workspace shell. Commit to a refined document-review workspace that fits ClaimForge's existing brand, typography, colors, and spacing. On desktop, prioritize the conversation beside a product/document context area; on mobile, keep document selection accessible without narrowing the chat. Avoid generic AI styling, excessive cards, gradients, and redesigning unrelated screens. Add route/navigation tests and verify responsive behavior.
+Using the frontend UI engineering and frontend-design guidance, inspect the existing ProductVault UI and create the chatbot route/entry point and responsive workspace shell. Commit to a refined document-review workspace that fits ProductVault's existing brand, typography, colors, and spacing. On desktop, prioritize the conversation beside a product/document context area; on mobile, keep document selection accessible without narrowing the chat. Avoid generic AI styling, excessive cards, gradients, and redesigning unrelated screens. Add route/navigation tests and verify responsive behavior.
 ```
 
 ### Prompt 19 — Build product and document selection

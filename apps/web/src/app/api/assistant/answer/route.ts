@@ -161,7 +161,7 @@ export async function POST(request: Request) {
         max_completion_tokens: 1200,
         response_format: { type: "json_object" },
         messages: [
-          { role: "system", content: `You are Product Vault's document-grounded assistant. Answer cautiously from evidence only. ${JSON.stringify(answerSchema)}` },
+          { role: "system", content: `You are ProductVault's document-grounded assistant. Answer cautiously from evidence only. ${JSON.stringify(answerSchema)}` },
           { role: "user", content: promptFor(body.question.trim(), chunks) },
         ],
       }),

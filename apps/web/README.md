@@ -1,4 +1,4 @@
-# ClaimForge web MVP
+# ProductVault web MVP
 
 Next.js App Router app for managing products and warranty claims. The current UI is a public, fictional demo and does not require sign-in or email.
 
@@ -14,7 +14,7 @@ Next.js App Router app for managing products and warranty claims. The current UI
 
 - Sign in, sign up, and sign out through the Next.js auth route.
 - Save and edit product passports with brand, model, category, seller, serial number, purchase date, and warranty end date; remove products when linked claims, documents, watches, or reminders would not be lost.
-- Create and update manual price watches tied to a saved product. ClaimForge does not fetch retailer pages or scrape prices.
+- Create and update manual price watches tied to a saved product. ProductVault does not fetch retailer pages or scrape prices.
 - Schedule in-app replenishment reminders for a saved product using a user-entered usage estimate. Reminder records are stored at 9:00 AM Asia/Kolkata and shown in the reminder timeline; no background or email notification is sent.
 - Open a product-specific timeline that combines its saved purchase and warranty dates, claim intake records, manual price-watch updates, and in-app reminders.
 - Attach invoices, warranty terms, and manuals to a product passport in the private `claim-documents` bucket. The document API returns owner-scoped metadata and issues 60-second signed download links on demand; file bytes and public URLs are not passed to n8n.

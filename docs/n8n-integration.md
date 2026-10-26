@@ -1,4 +1,4 @@
-# ClaimForge app, Supabase, and n8n integration
+# ProductVault app, Supabase, and n8n integration
 
 ## Current first-MVP path
 
@@ -6,7 +6,7 @@
 
 The web app uses Supabase Auth sessions through `@supabase/ssr`. Private files upload from the signed-in browser directly to the non-public `claim-documents` bucket, where Storage policies restrict paths to the authenticated user's ID. The app sends claim metadata to `POST /api/claims`; the route authenticates the session, validates fields and storage paths, downloads each referenced private file through the user's session to verify its byte count and PDF/JPEG/PNG signature, and calls the `create_claim_intake` RPC only after verification. That database function atomically creates the product, document metadata, and claim, and reuses a user's idempotency key for retry safety. `GET /api/claims` reads only that user's rows through RLS.
 
-The account's other ownership features also use server routes with the signed-in session and owner-scoped RLS: `/api/products` and `/api/products/[id]` manage product records; `/api/price-watches` and `/api/price-watches/[id]` save manual price observations; `/api/reminders` and `/api/reminders/[id]` schedule or cancel in-app reminders. Product deletion is rejected when it would cascade through linked claim, document, price-watch, or reminder records. Price-watch links are stored only; ClaimForge does not fetch those URLs. Reminder records use a 9:00 AM Asia/Kolkata time and are visible in the app; no background or email notification is configured.
+The account's other ownership features also use server routes with the signed-in session and owner-scoped RLS: `/api/products` and `/api/products/[id]` manage product records; `/api/price-watches` and `/api/price-watches/[id]` save manual price observations; `/api/reminders` and `/api/reminders/[id]` schedule or cancel in-app reminders. Product deletion is rejected when it would cascade through linked claim, document, price-watch, or reminder records. Price-watch links are stored only; ProductVault does not fetch those URLs. Reminder records use a 9:00 AM Asia/Kolkata time and are visible in the app; no background or email notification is configured.
 
 `POST /api/claims/[id]/approval` records an authenticated customer's exact edited draft only after a trusted workflow has set the owned claim to `ready_for_review` and populated `claim_draft`. It stores a SHA-256 content fingerprint and a UUID idempotency key, and marks the record `draft_only`. It never sends or queues an external message. The new additive approval-gate migration also prevents browser clients from setting later action states such as `sent`; only a future trusted server-side integration may do that. Until claim processing is connected, the interactive approval shown in the sample review remains sample-only.
 
@@ -27,7 +27,7 @@ The route validates the shared secret in constant time and calls the atomic `app
 ## Verified Supabase project
 
 - The selected existing project is `bankai` (`jjtwjpprnzeokesnulnz`, Tokyo).
-- Before applying the schema, the ten ClaimForge public tables were absent.
+- Before applying the schema, the ten ProductVault public tables were absent.
 - The migration `supabase/migrations/20261019213317_claimforge_core.sql` was applied through that project's SQL editor. All ten public tables were verified afterward.
 - The migration defines owner-scoped RLS policies, a private 10 MB PDF/JPG/PNG bucket, the keyword search function, and the idempotent claim-intake RPC.
 - The additive hardening migration `supabase/migrations/20261020101500_claim_intake_hardening.sql` is applied. Authenticated users can read their own claims and submit only new `received` claims; direct claim status, assessment, or draft updates/deletes are denied. The intake RPC handles simultaneous retries safely.

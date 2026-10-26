@@ -1,6 +1,6 @@
 # RagBuilder lab
 
-An isolated playground for comparing RAG pipeline choices for ClaimForge. This is an experiment only; RagBuilder is not a dependency of the Next.js app.
+An isolated playground for comparing RAG pipeline choices for ProductVault. This is an experiment only; RagBuilder is not a dependency of the Next.js app.
 
 ## Installed environment
 
@@ -17,7 +17,7 @@ cd "$HOME\Desktop\claimforge\experiments\ragbuilder-lab"
 
 Use only public warranty policies or synthetic/redacted samples under `data/`. Do not put invoices, personal documents, API keys, or Supabase credentials here.
 
-## ClaimForge experiment order
+## ProductVault experiment order
 
 Keep the embedding model fixed at `gte-small` and compare one variable at a time:
 
@@ -31,6 +31,6 @@ Build a small manually reviewed question set from the policy text. For each ques
 
 ## Important compatibility note
 
-RagBuilder’s default examples use OpenAI embeddings/models. ClaimForge has selected Supabase `gte-small` and Groq. Before treating its comparison as representative, configure adapters that use those same production models. Supabase documents that document and query vectors must use the same embedding model. If RagBuilder cannot use the Supabase embedding path, use it to explore chunking/retrieval concepts, then validate the winning choices against ClaimForge’s real Supabase search path.
+RagBuilder’s default examples use OpenAI embeddings/models. ProductVault has selected Supabase `gte-small` and Groq. Before treating its comparison as representative, configure adapters that use those same production models. Supabase documents that document and query vectors must use the same embedding model. If RagBuilder cannot use the Supabase embedding path, use it to explore chunking/retrieval concepts, then validate the winning choices against ProductVault’s real Supabase search path.
 
 The upstream repository currently marks itself as no longer actively maintained. Keep this isolated and review its output before adopting anything in production.

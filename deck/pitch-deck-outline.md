@@ -4,7 +4,7 @@ This outline follows the uploaded eight-slide deck: Title, Idea, Technical Archi
 
 ## Slide 1 — Title
 
-**Title:** ClaimForge  
+**Title:** ProductVault  
 **One-liner:** From confusing warranty terms to a review-ready claim.  
 **Subtitle:** AI-assisted warranty claim preparation and follow-up, with the customer in control.  
 **Visual:** A clean claim dossier: invoice → highlighted warranty clause → ready-to-review email. Use a product mockup, not a stock robot/hammer image.  
@@ -14,7 +14,7 @@ This outline follows the uploaded eight-slide deck: Title, Idea, Technical Archi
 
 **Opening scenario:** “Eight months after buying headphones, one side stops working. Is it covered? What proof does support need? What if they say no?” Label this as the demo scenario, not research evidence.  
 **Problem journey visual:** Find receipt → interpret terms → gather evidence → contact support → track response. Show where consumers lose time/friction.  
-**Solution:** ClaimForge reads the supplied invoice and terms, shows relevant clauses and missing evidence, drafts a claim, and tracks the user's chosen follow-up.  
+**Solution:** ProductVault reads the supplied invoice and terms, shows relevant clauses and missing evidence, drafts a claim, and tracks the user's chosen follow-up.  
 **Proof panel:** Add one or two verified real-world facts from `research.md`, each with the source and year in the slide footer. If evidence is unavailable, use a clearly labeled user journey rather than invented percentages.  
 **Presenter content:** Target user, pain, why now, and the single outcome the product improves.
 
@@ -36,12 +36,12 @@ Use the provided headphone example as a 5-step storyboard:
 4. Review and edit the claim draft.
 5. Approve a copyable/sendable message and optional follow-up reminder.
 
-Show sample UI panels or a swimlane with `Customer`, `ClaimForge`, and `n8n`. Include a visible “Needs your review” gate. If the demo uses synthetic documents, label them sample data.
+Show sample UI panels or a swimlane with `Customer`, `ProductVault`, and `n8n`. Include a visible “Needs your review” gate. If the demo uses synthetic documents, label them sample data.
 
 ## Slide 5 — USP
 
-Lead with the specific differentiation: ClaimForge connects warranty evidence to action, with traceable clauses and a user-controlled approval point.  
-**Comparison visual:** Generic chatbot (answers, weak case tracking) vs. manual process (user coordinates everything) vs. ClaimForge (evidence-linked brief + draft + reminder). Mark this as a capability comparison, not independently measured competitor research.  
+Lead with the specific differentiation: ProductVault connects warranty evidence to action, with traceable clauses and a user-controlled approval point.  
+**Comparison visual:** Generic chatbot (answers, weak case tracking) vs. manual process (user coordinates everything) vs. ProductVault (evidence-linked brief + draft + reminder). Mark this as a capability comparison, not independently measured competitor research.  
 **Trust design:** Every claim fact cites a source; uncertainty is explicit; no claim is sent before approval.  
 **Moat / defensibility content:** propose only if supportable (e.g., workflow quality and source-linked case history); label as a hypothesis, not an established moat.
 

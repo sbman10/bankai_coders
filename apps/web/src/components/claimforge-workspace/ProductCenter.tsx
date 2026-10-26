@@ -153,7 +153,7 @@ function getProductStatusBadge(product: Product) {
 const headings: Record<ProductCenterView, [string, string, string]> = {
   products: ["YOUR PRODUCT LIBRARY", "Products with a paper trail.", "Keep purchase details and warranty dates together in your private account."],
   prices: ["MANUAL PRICE WATCH", "Know when the price is right.", "Record the price you see and compare it with your target. No retailer scraping is running."],
-  reminders: ["PRODUCT-SPECIFIC REMINDERS", "A nudge on your terms.", "Set a reminder using your own estimated usage period. It appears in your Product Vault timeline."],
+  reminders: ["PRODUCT-SPECIFIC REMINDERS", "A nudge on your terms.", "Set a reminder using your own estimated usage period. It appears in your ProductVault timeline."],
   timeline: ["UNIFIED PRODUCT TIMELINE", "Your complete ownership history.", "Chronological events across all your products, warranties, reminders, and price watches."],
 };
 
@@ -407,7 +407,7 @@ export function ProductCenter({ view }: { view: ProductCenterView }) {
         {view === "reminders" ? <ReminderList products={products} reminders={reminders} busy={busy} onAdd={(reminder) => perform(() => addReminder(reminder))} onRemove={(id) => perform(() => removeReminder(id))} /> : null}
         {view === "timeline" ? <UnifiedTimelineView products={products} claims={claims} watches={watches} reminders={reminders} onSelectProduct={(id) => { void showProductTimeline(id); }} /> : null}
       </>}
-      <p className="local-data-note"><AlertTriangle size={14} /> Your product records are private to your account. Price checks are manual; reminders currently appear inside Product Vault.</p>
+      <p className="local-data-note"><AlertTriangle size={14} /> Your product records are private to your account. Price checks are manual; reminders currently appear inside ProductVault.</p>
     </div>
   );
 }

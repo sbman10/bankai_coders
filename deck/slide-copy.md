@@ -1,10 +1,10 @@
-# ClaimForge — slide copy and visual direction
+# ProductVault — slide copy and visual direction
 
 Use this alongside [the deck outline](pitch-deck-outline.md). It follows the uploaded Reforged '26 format exactly. The deck is 16:9. Copy below is intentionally short enough to place on slides; keep fuller explanations for speaker notes.
 
 ## Slide 1 — Title
 
-**ClaimForge**  
+**ProductVault**  
 **Turn warranty paperwork into a claim you can act on.**  
 AI-assisted claim preparation and follow-up, with the customer in control.
 
@@ -20,7 +20,7 @@ AI-assisted claim preparation and follow-up, with the customer in control.
 
 **Current effort:** Find proof of purchase → locate and interpret the terms → gather evidence → contact support → remember to follow up.
 
-**ClaimForge:** Upload the invoice and warranty terms. Get source-linked facts, a plain-language view of relevant clauses, a missing-evidence checklist, and an editable claim draft.
+**ProductVault:** Upload the invoice and warranty terms. Get source-linked facts, a plain-language view of relevant clauses, a missing-evidence checklist, and an editable claim draft.
 
 **Real-world context chart:**
 
@@ -28,7 +28,7 @@ AI-assisted claim preparation and follow-up, with the customer in control.
 - 2024: 112,468 average monthly complaints registered.
 - Derived comparison: about **3.0×** the 2017 monthly average.
 
-Use a two-point slope chart with a y-axis starting at zero (or clearly labeled values). Caption it: **“Broad consumer grievances across sectors; not warranty-specific.”** Source: [PIB / Department of Consumer Affairs, 7 Feb 2025](https://www.pib.gov.in/PressReleasePage.aspx?PRID=2100545&lang=2&reg=48). This establishes context only; do not call it ClaimForge demand, warranty-claim growth, or market size.
+Use a two-point slope chart with a y-axis starting at zero (or clearly labeled values). Caption it: **“Broad consumer grievances across sectors; not warranty-specific.”** Source: [PIB / Department of Consumer Affairs, 7 Feb 2025](https://www.pib.gov.in/PressReleasePage.aspx?PRID=2100545&lang=2&reg=48). This establishes context only; do not call it ProductVault demand, warranty-claim growth, or market size.
 
 **Presenter note:** The specific headphone journey is a demo scenario, not a research interview or customer testimonial. The workflow-friction framing is a product hypothesis to validate.
 
@@ -54,7 +54,7 @@ Add a small sidecar: `Claim status + source references`.
 
 **Headline:** One headphone failure, from upload to a reviewed next step.
 
-Show five numbered UI frames or a three-lane swimlane (`Customer / ClaimForge / n8n`):
+Show five numbered UI frames or a three-lane swimlane (`Customer / ProductVault / n8n`):
 
 1. **Describe:** “Headphones; left side stopped working.”
 2. **Upload:** Invoice and warranty terms.
@@ -68,7 +68,7 @@ Do not state the sample headphones are eligible unless the actual sample warrant
 
 ## Slide 5 — USP
 
-**Headline:** ClaimForge connects the warranty wording to the next action.
+**Headline:** ProductVault connects the warranty wording to the next action.
 
 Use three proof points as a row of cards:
 
@@ -107,7 +107,7 @@ Credit only tools and assets actually used. Check the final slide citations agai
 
 ## Slide 8 — Thank you
 
-**ClaimForge**  
+**ProductVault**  
 **Make the next warranty claim clear, evidenced, and easier to pursue.**
 
 `[Team/contact] · [Demo QR, if live and approved]`

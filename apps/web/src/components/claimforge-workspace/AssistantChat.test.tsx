@@ -52,7 +52,7 @@ describe("document assistant", () => {
 
     await user.click(screen.getByLabelText("synthetic-policy.pdf, warranty, ready for questions"));
     await user.type(screen.getByRole("textbox", { name: /ask about your documents/i }), "Does this cover a speaker failure?");
-    await user.click(screen.getByRole("button", { name: "Ask ClaimForge" }));
+    await user.click(screen.getByRole("button", { name: "Ask ProductVault" }));
 
     expect(await screen.findByText(/appear to cover manufacturing defects/i)).toBeInTheDocument();
     const citation = screen.getByText("synthetic-policy.pdf · Page 2 · Coverage").closest("details");
