@@ -41,13 +41,14 @@ type ClaimTimelineRecord = { id: string; productId: string; fault: string; statu
 type TimelineEvent = { id: string; date: string; title: string; detail: string; kind: "product" | "claim" | "price" | "reminder" };
 type ProductDocument = { id: string; productId: string; kind: string; fileName: string; mimeType: string; sizeBytes: number; createdAt: string; signedUrl?: string };
 
-type ProductCenterView = "products" | "prices" | "reminders";
+type ProductCenterView = "products" | "prices" | "reminders" | "timeline";
 type ProductPayload = { name: string; brand: string | null; model: string | null; category: string; seller: string | null; serialNumber: string | null; purchaseDate: string | null; warrantyEnd: string | null };
 
 const headings: Record<ProductCenterView, [string, string, string]> = {
   products: ["YOUR PRODUCT LIBRARY", "Products with a paper trail.", "Keep purchase details and warranty dates together in your private account."],
   prices: ["MANUAL PRICE WATCH", "Know when the price is right.", "Record the price you see and compare it with your target. No retailer scraping is running."],
   reminders: ["PRODUCT-SPECIFIC REMINDERS", "A nudge on your terms.", "Set a reminder using your own estimated usage period. It appears in your ClaimForge timeline."],
+  timeline: ["UNIFIED PRODUCT TIMELINE", "Your complete ownership history.", "Chronological events across all your products, warranties, reminders, and price watches."],
 };
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
@@ -253,6 +254,7 @@ export function ProductCenter({ view }: { view: ProductCenterView }) {
         </> : null}
         {view === "prices" ? <PriceTracker products={products} watches={watches} busy={busy} onAdd={(watch) => perform(() => addWatch(watch))} onUpdate={(id, price) => perform(() => updateWatch(id, price))} onRemove={(id) => perform(() => removeWatch(id))} /> : null}
         {view === "reminders" ? <ReminderList products={products} reminders={reminders} busy={busy} onAdd={(reminder) => perform(() => addReminder(reminder))} onRemove={(id) => perform(() => removeReminder(id))} /> : null}
+        {view === "timeline" ? <UnifiedTimelineView products={products} claims={claims} watches={watches} reminders={reminders} onSelectProduct={(id) => { void showProductTimeline(id); }} /> : null}
       </>}
       <p className="local-data-note"><AlertTriangle size={14} /> Your product records are private to your account. Price checks are manual; reminders currently appear inside ClaimForge.</p>
     </div>
@@ -442,3 +444,159 @@ function formatDate(value: string) {
 function todayInIndia() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }
+
+function UnifiedTimelineView({
+  products,
+  claims,
+  watches,
+  reminders,
+  onSelectProduct,
+}: {
+  products: Product[];
+  claims: ClaimTimelineRecord[];
+  watches: PriceWatch[];
+  reminders: Reminder[];
+  onSelectProduct: (id: string) => void;
+}) {
+  const [filterProductId, setFilterProductId] = useState<string>("all");
+
+  const events: (TimelineEvent & { productName: string; productId: string })[] = [];
+
+  for (const product of products) {
+    if (product.purchaseDate) {
+      events.push({
+        id: `purchase-${product.id}`,
+        date: product.purchaseDate,
+        title: `${product.name} purchased`,
+        detail: [product.seller ? `From ${product.seller}` : "", product.category].filter(Boolean).join(" · "),
+        kind: "product",
+        productName: product.name,
+        productId: product.id,
+      });
+    }
+    if (product.warrantyEnd) {
+      events.push({
+        id: `warranty-${product.id}`,
+        date: product.warrantyEnd,
+        title: `${product.name} warranty expires`,
+        detail: "Official manufacturer coverage deadline",
+        kind: "product",
+        productName: product.name,
+        productId: product.id,
+      });
+    }
+    if (product.createdAt) {
+      events.push({
+        id: `passport-${product.id}`,
+        date: product.createdAt.slice(0, 10),
+        title: `${product.name} passport created`,
+        detail: [product.brand, product.model, product.serialNumber ? `SN: ${product.serialNumber}` : ""].filter(Boolean).join(" · "),
+        kind: "product",
+        productName: product.name,
+        productId: product.id,
+      });
+    }
+  }
+
+  for (const claim of claims) {
+    const prod = products.find((p) => p.id === claim.productId);
+    events.push({
+      id: `claim-${claim.id}`,
+      date: claim.createdAt.slice(0, 10),
+      title: `${prod?.name ?? "Product"} claim started`,
+      detail: `${claim.fault} · Status: ${claim.status.replaceAll("_", " ")}`,
+      kind: "claim",
+      productName: prod?.name ?? "Product",
+      productId: claim.productId,
+    });
+  }
+
+  for (const watch of watches) {
+    const prod = products.find((p) => p.id === watch.productId);
+    const date = (watch.lastCheckedAt || watch.createdAt).slice(0, 10);
+    events.push({
+      id: `watch-${watch.id}`,
+      date,
+      title: `${prod?.name ?? watch.name} price watch`,
+      detail: `Current ₹${watch.currentPrice.toLocaleString("en-IN")} · Target ₹${watch.targetPrice.toLocaleString("en-IN")}`,
+      kind: "price",
+      productName: prod?.name ?? watch.name,
+      productId: watch.productId,
+    });
+  }
+
+  for (const reminder of reminders) {
+    const prod = products.find((p) => p.id === reminder.productId);
+    events.push({
+      id: `reminder-${reminder.id}`,
+      date: reminder.remindAt.slice(0, 10),
+      title: `${prod?.name ?? reminder.product} reminder scheduled`,
+      detail: reminder.estimateDays ? `Estimated ${reminder.estimateDays}-day usage period` : "In-app reminder",
+      kind: "reminder",
+      productName: prod?.name ?? reminder.product,
+      productId: reminder.productId,
+    });
+  }
+
+  // Deduplicate and sort chronologically (newest first)
+  const uniqueEvents = Array.from(new Map(events.map((e) => [e.id, e])).values());
+  uniqueEvents.sort((a, b) => b.date.localeCompare(a.date));
+
+  const filteredEvents = filterProductId === "all"
+    ? uniqueEvents
+    : uniqueEvents.filter((e) => e.productId === filterProductId);
+
+  return (
+    <section className="product-timeline unified-timeline-full" aria-labelledby="unified-timeline-title">
+      <div className="product-timeline-heading">
+        <div>
+          <div className="eyebrow"><span className="eyebrow-line" /> UNIFIED HISTORY</div>
+          <h2 id="unified-timeline-title">All Product Ownership Events</h2>
+          <p>Chronological history across purchases, warranty cards, service plans, reminders, and price watches.</p>
+        </div>
+        {products.length > 0 && (
+          <div className="timeline-filter-select-wrap">
+            <label htmlFor="timeline-product-filter" className="sr-only">Filter by product</label>
+            <select
+              id="timeline-product-filter"
+              value={filterProductId}
+              onChange={(e) => setFilterProductId(e.target.value)}
+              className="timeline-product-select"
+            >
+              <option value="all">All Products ({uniqueEvents.length} events)</option>
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
+      {filteredEvents.length === 0 ? (
+        <div className="tool-empty">No ownership events found. Add your products, price watches, or reminders to build your timeline.</div>
+      ) : (
+        <ol className="product-timeline-events">
+          {filteredEvents.map((event) => (
+            <li className={`product-timeline-event timeline-${event.kind}`} key={event.id}>
+              <span className="timeline-marker" aria-hidden="true" />
+              <div className="timeline-event-copy">
+                <span className="timeline-event-date">{formatDate(event.date)}</span>
+                <strong>{event.title}</strong>
+                <span>{event.detail}</span>
+              </div>
+              <button
+                type="button"
+                className="tool-icon-button"
+                title={`Open passport for ${event.productName}`}
+                onClick={() => onSelectProduct(event.productId)}
+              >
+                <ExternalLink size={13} />
+              </button>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  );
+}
+
