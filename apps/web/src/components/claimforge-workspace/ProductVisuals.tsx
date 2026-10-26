@@ -246,3 +246,38 @@ export function LaptopThumb({ className = "w-10 h-10" }: { className?: string })
     </svg>
   );
 }
+
+// 8. Ergonomic Office Chair Visual
+export function OfficeChairThumb({ className = "w-10 h-10" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <circle cx="40" cy="40" r="38" fill="#F1F5F9" className="thumb-bg" />
+      {/* Headrest */}
+      <rect x="34" y="12" width="12" height="5" rx="2.5" fill="#1E293B" stroke="#475569" strokeWidth="1" />
+      <line x1="40" y1="17" x2="40" y2="20" stroke="#64748B" strokeWidth="2" strokeLinecap="round" />
+      {/* High Mesh Backrest */}
+      <path d="M30 20 C30 18 50 18 50 20 L48 42 C48 44 32 44 32 42 Z" fill="#334155" stroke="#1E293B" strokeWidth="1.5" />
+      <line x1="33" y1="26" x2="47" y2="26" stroke="#475569" strokeWidth="1" strokeDasharray="1.5 1.5" />
+      <line x1="33" y1="32" x2="47" y2="32" stroke="#475569" strokeWidth="1" strokeDasharray="1.5 1.5" />
+      <line x1="34" y1="38" x2="46" y2="38" stroke="#475569" strokeWidth="1" strokeDasharray="1.5 1.5" />
+      {/* Armrests */}
+      <path d="M25 32 L29 32 L29 42" stroke="#1E293B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M55 32 L51 32 L51 42" stroke="#1E293B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      {/* Seat Cushion */}
+      <rect x="27" y="43" width="26" height="7" rx="3.5" fill="#0F172A" />
+      {/* Central Cylinder Post */}
+      <rect x="38" y="50" width="4" height="9" fill="#64748B" />
+      {/* 5-Star Caster Base Legs */}
+      <path d="M40 59 L26 67" stroke="#334155" strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M40 59 L54 67" stroke="#334155" strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M40 59 L40 68" stroke="#334155" strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M40 59 L31 64" stroke="#475569" strokeWidth="2" strokeLinecap="round" />
+      <path d="M40 59 L49 64" stroke="#475569" strokeWidth="2" strokeLinecap="round" />
+      {/* Wheels */}
+      <circle cx="26" cy="68" r="1.8" fill="#0F172A" />
+      <circle cx="54" cy="68" r="1.8" fill="#0F172A" />
+      <circle cx="40" cy="69" r="1.8" fill="#0F172A" />
+    </svg>
+  );
+}
+

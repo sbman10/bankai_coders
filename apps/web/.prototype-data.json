@@ -1,6 +1,30 @@
 {
   "products": [
     {
+      "id": "9172b040-54d3-48c3-8641-0b0bf32de5d2",
+      "user_id": "00000000-0000-4000-8000-000000000001",
+      "name": "Anker Soundcore Life Q30 Wireless ANC Headphones",
+      "brand": "Soundcore",
+      "model": "A3028",
+      "category": "Electronics",
+      "seller": "Appario Retail Private Ltd",
+      "serial_number": null,
+      "purchase_date": "2026-07-15",
+      "warranty_end": "2028-01-15",
+      "owner_name": "Rohan Sharma",
+      "buying_method": "UPI",
+      "purchase_platform": "Amazon.in",
+      "price_paid": 6999,
+      "currency": "INR",
+      "invoice_number": null,
+      "order_id": "402-9988776-1122334",
+      "warranty_duration_months": 18,
+      "replenishment_days": null,
+      "replenishment_remind_at": null,
+      "created_at": "2026-10-25T19:26:22.012Z",
+      "updated_at": "2026-10-25T19:26:22.012Z"
+    },
+    {
       "id": "11111111-1111-4111-8111-111111111111",
       "user_id": "00000000-0000-4000-8000-000000000001",
       "name": "Sony WH-1000XM5 Noise Cancelling Headphones",
@@ -31,22 +55,6 @@
       "replenishment_remind_at": "2024-11-05",
       "created_at": "2023-11-20T14:15:00Z",
       "updated_at": "2023-11-20T14:15:00Z"
-    },
-    {
-      "id": "33333333-3333-4333-8333-333333333333",
-      "user_id": "00000000-0000-4000-8000-000000000001",
-      "name": "Minimalist SPF 50 PA++++ Sunscreen 50g",
-      "brand": "Minimalist",
-      "model": "SPF50-50G",
-      "category": "Personal Care",
-      "seller": "Nykaa E-Retail",
-      "serial_number": "SN-MIN-44120",
-      "purchase_date": "2024-09-01",
-      "warranty_end": "2025-09-01",
-      "replenishment_days": 60,
-      "replenishment_remind_at": "2024-10-31",
-      "created_at": "2024-09-01T09:00:00Z",
-      "updated_at": "2024-09-01T09:00:00Z"
     },
     {
       "id": "44444444-4444-4444-8444-444444444444",
@@ -109,19 +117,6 @@
       "created_at": "2023-11-20T14:15:00Z",
       "products": {
         "name": "LG 655L Frost-Free Side-by-Side Refrigerator"
-      }
-    },
-    {
-      "id": "rem-002",
-      "user_id": "00000000-0000-4000-8000-000000000001",
-      "product_id": "33333333-3333-4333-8333-333333333333",
-      "remind_at": "2024-10-31T09:00:00Z",
-      "channel": "in_app",
-      "reason": "Minimalist Sunscreen bottle refill due (estimated 60-day interval)",
-      "status": "scheduled",
-      "created_at": "2024-09-01T09:00:00Z",
-      "products": {
-        "name": "Minimalist SPF 50 PA++++ Sunscreen 50g"
       }
     }
   ],

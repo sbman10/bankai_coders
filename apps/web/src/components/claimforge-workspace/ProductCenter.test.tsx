@@ -23,16 +23,36 @@ beforeEach(() => {
   fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     const method = init?.method ?? "GET";
-    const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {};
+    const body = init?.body && typeof init.body === "string" ? JSON.parse(String(init.body)) as Record<string, unknown> : {};
+    if (url === "/api/products/extract-invoice" && method === "POST") {
+      return response({
+        success: true,
+        invoice: {
+          productName: "Soundcore Life Q30",
+          brand: "Soundcore",
+          model: "A3028",
+          category: "Electronics",
+          ownerName: "Rohan Sharma",
+          buyingMethod: "Credit Card",
+          purchasePlatform: "Amazon.in",
+          seller: "Appario Retail Pvt Ltd",
+          amount: 5999,
+          currency: "INR",
+          purchaseDate: "2026-02-12",
+          invoiceNumber: "IN-2026-88192",
+          suggestedWarrantyMonths: 18,
+        },
+      });
+    }
     if (url === "/api/products" && method === "GET") return response({ products: [{ id: productId, name: "Daily sunscreen", category: "Personal care", purchase_date: null, warranty_end: null }] });
     if (url === "/api/price-watches" && method === "GET") return response({ watches: [] });
     if (url === "/api/reminders" && method === "GET") return response({ reminders: [] });
     if (url === "/api/claims" && method === "GET") return response({ claims: [] });
     if (url === `/api/products/${productId}/documents` && method === "GET") return response({ documents: [] });
-    if (url === `/api/products/${productId}/documents` && method === "POST") return response({ document: { id: "doc-1", product_id: productId, document_kind: body.documentKind, storage_path: body.storagePath, original_filename: body.fileName, mime_type: body.mimeType, size_bytes: body.sizeBytes, created_at: "2026-10-22T08:00:00Z" } }, 201);
+    if (url.match(/\/api\/products\/[^/]+\/documents$/) && method === "POST") return response({ document: { id: "doc-1", product_id: body.productId ?? productId, document_kind: body.documentKind, storage_path: body.storagePath, original_filename: body.fileName, mime_type: body.mimeType, size_bytes: body.sizeBytes, created_at: "2026-10-22T08:00:00Z" } }, 201);
     if (url === `/api/products/${productId}/documents/doc-1` && method === "GET") return response({ url: "https://storage.example/private-download" });
     if (url === `/api/products/${productId}/documents/doc-1` && method === "DELETE") return response({ removed: true });
-    if (url === "/api/products" && method === "POST") return response({ product: { id: createdProductId, name: body.name, brand: body.brand, model: body.model, category: body.category, seller: body.seller, serial_number: body.serialNumber, purchase_date: body.purchaseDate, warranty_end: body.warrantyEnd } }, 201);
+    if (url === "/api/products" && method === "POST") return response({ product: { id: createdProductId, name: body.name, brand: body.brand, model: body.model, category: body.category, seller: body.seller, serial_number: body.serialNumber, purchase_date: body.purchaseDate, warranty_end: body.warrantyEnd, owner_name: body.ownerName, buying_method: body.buyingMethod, purchase_platform: body.purchasePlatform, price_paid: body.pricePaid } }, 201);
     if (url === `/api/products/${productId}` && method === "PATCH") return response({ product: { id: productId, name: body.name ?? "Daily sunscreen", brand: body.brand, model: body.model, category: body.category ?? "Personal care", seller: body.seller, serial_number: body.serialNumber, purchase_date: body.purchaseDate, warranty_end: body.warrantyEnd } });
     if (url === "/api/price-watches" && method === "POST") return response({ watch: { id: "watch-1", product_id: body.productId, product_url: "", current_price: body.currentPrice, target_price: body.targetPrice, currency: "INR", products: { name: "Daily sunscreen" } } }, 201);
     if (url === "/api/price-watches/watch-1" && method === "PATCH") return response({ watch: { id: "watch-1", product_id: productId, product_url: "", current_price: body.currentPrice, target_price: 1000, currency: "INR", products: { name: "Daily sunscreen" } } });
@@ -51,6 +71,9 @@ describe("account-backed product tools", () => {
   it("saves a product to the signed-in account", async () => {
     const user = userEvent.setup();
     render(<ProductCenter view="products" />);
+
+    // Switch to manual entry tab
+    await user.click(await screen.findByRole("tab", { name: /add manually/i }));
 
     await user.type(await screen.findByLabelText(/product name/i), "Desk lamp");
     await user.type(screen.getByLabelText("Brand"), "Auralis");
@@ -157,4 +180,237 @@ describe("account-backed product tools", () => {
     await user.click(screen.getByRole("button", { name: /prepare private link/i }));
     expect(await screen.findByRole("link", { name: /open file/i })).toHaveAttribute("href", "https://storage.example/private-download");
   });
+
+  it("uploads an invoice, autofills details via AI OCR extraction, and creates a passport", async () => {
+    const user = userEvent.setup();
+    render(<ProductCenter view="products" />);
+
+    // In automated mode, upload an invoice file
+    const fileInput = await screen.findByLabelText(/upload invoice file/i);
+    const invoiceFile = new File(["sample amazon invoice"], "amazon-invoice.pdf", { type: "application/pdf" });
+    await user.upload(fileInput, invoiceFile);
+
+    // Trigger extraction
+    await user.click(screen.getByRole("button", { name: /extract details from invoice/i }));
+
+    // Review modal opens with extracted details
+    expect(await screen.findByRole("heading", { name: /product details extracted/i })).toBeInTheDocument();
+
+    const modal = screen.getByRole("dialog");
+    const nameInput = within(modal).getByDisplayValue("Soundcore Life Q30") as HTMLInputElement;
+    expect(nameInput).toBeInTheDocument();
+
+    const sellerInput = within(modal).getByDisplayValue("Appario Retail Pvt Ltd") as HTMLInputElement;
+    expect(sellerInput).toBeInTheDocument();
+
+    // Click Confirm & Save in review dialog
+    await user.click(within(modal).getByRole("button", { name: /confirm & save/i }));
+
+    expect(await screen.findByText("Soundcore Life Q30")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith("/api/products", expect.objectContaining({ method: "POST" }));
+    const postCall = fetchMock.mock.calls.find(([u, i]) => u === "/api/products" && i?.method === "POST");
+    expect(JSON.parse(String(postCall?.[1]?.body))).toEqual(expect.objectContaining({
+      name: "Soundcore Life Q30",
+      brand: "Soundcore",
+      ownerName: "Rohan Sharma",
+      buyingMethod: "Credit Card",
+      purchasePlatform: "Amazon.in",
+      pricePaid: 5999,
+      purchaseDate: "2026-02-12",
+    }));
+  });
+
+  it("opens review modal with confidence tags, shows duplicate warning, allows editing, and saves on confirm", async () => {
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+      const body = init?.body && typeof init.body === "string" ? JSON.parse(String(init.body)) as Record<string, unknown> : {};
+      if (url === "/api/products/extract-invoice" && method === "POST") {
+        return response({
+          success: true,
+          ocrEngine: "google-cloud-vision",
+          rawText: "Invoice # TEST-INV-2026-10427",
+          extracted: {
+            brand: "DemoSound",
+            product_name: "Demo Wireless Headphones",
+            model: "TEST-Q20",
+            category: "Electronics",
+            serial_number: "TEST-SN-00012345",
+            invoice_number: "TEST-INV-2026-10427",
+            order_id: "TEST-404-1234567-8901234",
+            purchase_date: "2026-10-24",
+            seller: "Demo Electronics Seller Pvt. Ltd.",
+            price: 2499,
+            currency: "INR",
+            warranty_duration: "12 months",
+            quantity: 1,
+            source_marketplace: "Amazon (demo source)",
+            owner_name: "Kapish Gupta",
+            buying_method: "Credit Card",
+          },
+          fieldStatus: {
+            brand: "confident",
+            product_name: "confident",
+            model: "confident",
+            category: "confident",
+            serial_number: "confident",
+            invoice_number: "confident",
+            order_id: "confident",
+            purchase_date: "confident",
+            seller: "confident",
+            price: "confident",
+            warranty_duration: "confident",
+          },
+          calculatedWarrantyMonths: 12,
+          calculatedWarrantyEnd: "2027-10-24",
+          duplicates: [
+            {
+              productId: "existing-1",
+              productName: "Previous Demo Headphones",
+              matchedField: "order_id",
+              matchedValue: "TEST-404-1234567-8901234",
+              message: 'An existing product "Previous Demo Headphones" has the same Order ID (TEST-404-1234567-8901234).',
+            },
+          ],
+          warnings: ["Date normalized to ISO format."],
+        });
+      }
+      if (url === "/api/products" && method === "GET") return response({ products: [] });
+      if (url === "/api/price-watches" && method === "GET") return response({ watches: [] });
+      if (url === "/api/reminders" && method === "GET") return response({ reminders: [] });
+      if (url === "/api/claims" && method === "GET") return response({ claims: [] });
+      if (url.match(/\/api\/products\/[^/]+\/documents$/) && method === "POST") return response({ document: { id: "doc-ocr-1", product_id: createdProductId, document_kind: "invoice", fileName: "demo-invoice.pdf" } }, 201);
+      if (url === "/api/products" && method === "POST") return response({ product: { id: createdProductId, ...body } }, 201);
+      return response({});
+    });
+
+    const user = userEvent.setup();
+    render(<ProductCenter view="products" />);
+
+    // Upload the demo invoice
+    const fileInput = await screen.findByLabelText(/upload invoice file/i);
+    const invoiceFile = new File(["demo invoice content"], "demo-invoice.pdf", { type: "application/pdf" });
+    await user.upload(fileInput, invoiceFile);
+
+    // Trigger extraction
+    await user.click(screen.getByRole("button", { name: /extract details from invoice/i }));
+
+    // Verify Review Modal opens with Product Details Extracted title
+    expect(await screen.findByRole("heading", { name: /product details extracted/i })).toBeInTheDocument();
+    expect(screen.getByText(/Google Cloud Vision/i)).toBeInTheDocument();
+
+    // Verify duplicate warning banner is shown
+    expect(screen.getByText(/Possible duplicate product or document detected/i)).toBeInTheDocument();
+    expect(screen.getByText(/Previous Demo Headphones/i)).toBeInTheDocument();
+
+    // Verify confidence tags
+    const confidentTags = screen.getAllByText(/✓ Confident/i);
+    expect(confidentTags.length).toBeGreaterThanOrEqual(5);
+
+    // Verify extracted values are in the editable inputs
+    const modal = screen.getByRole("dialog");
+    const nameInput = within(modal).getByDisplayValue("Demo Wireless Headphones") as HTMLInputElement;
+    expect(nameInput).toBeInTheDocument();
+    const modelInput = within(modal).getByDisplayValue("TEST-Q20") as HTMLInputElement;
+    expect(modelInput).toBeInTheDocument();
+
+    // User edits the model in the review dialog
+    await user.clear(modelInput);
+    await user.type(modelInput, "TEST-Q20-CONFIRMED");
+
+    // User confirms and saves
+    const confirmButton = within(modal).getByRole("button", { name: /confirm & save/i });
+    await user.click(confirmButton);
+
+    // Verify Product is saved with the user-confirmed data
+    expect(fetchMock).toHaveBeenCalledWith("/api/products", expect.objectContaining({ method: "POST" }));
+    const saveCall = fetchMock.mock.calls.find(([u, i]) => u === "/api/products" && i?.method === "POST");
+    expect(JSON.parse(String(saveCall?.[1]?.body))).toEqual(expect.objectContaining({
+      name: "Demo Wireless Headphones",
+      brand: "DemoSound",
+      model: "TEST-Q20-CONFIRMED",
+      orderId: "TEST-404-1234567-8901234",
+      invoiceNumber: "TEST-INV-2026-10427",
+      ownerName: "Kapish Gupta",
+      purchaseDate: "2026-10-24",
+      pricePaid: 2499,
+      warrantyDurationMonths: 12,
+    }));
+  });
+
+  it("extracts catalog specs and product image when only a product link is provided", async () => {
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+      const body = init?.body && typeof init.body === "string" ? JSON.parse(String(init.body)) as Record<string, unknown> : {};
+      if (url === "/api/products/extract-invoice" && method === "POST") {
+        return response({
+          success: true,
+          ocrEngine: "link-resolver",
+          imageUrl: "https://m.media-amazon.com/images/I/soundcore.jpg",
+          sourceUrl: "https://www.amazon.in/dp/B0D421F3XX",
+          asin: "B0D421F3XX",
+          extracted: {
+            brand: "Soundcore",
+            product_name: "Soundcore by Anker Life Q20i",
+            model: "Life Q20i",
+            category: "Audio",
+            price: 4499,
+            currency: "INR",
+            source_marketplace: "Amazon.in",
+          },
+          fieldStatus: {
+            brand: "confident",
+            product_name: "confident",
+            model: "confident",
+            category: "confident",
+            price: "needs_review",
+            source_marketplace: "confident",
+            owner_name: "not_found",
+            purchase_date: "not_found",
+          },
+          calculatedWarrantyMonths: 12,
+        });
+      }
+      if (url === "/api/products" && method === "GET") return response({ products: [] });
+      if (url === "/api/price-watches" && method === "GET") return response({ watches: [] });
+      if (url === "/api/reminders" && method === "GET") return response({ reminders: [] });
+      if (url === "/api/claims" && method === "GET") return response({ claims: [] });
+      if (url === "/api/products" && method === "POST") return response({ product: { id: createdProductId, ...body } }, 201);
+      return response({});
+    });
+
+    const user = userEvent.setup();
+    render(<ProductCenter view="products" />);
+
+    // Enter product URL only
+    const urlInput = await screen.findByLabelText(/product web link/i);
+    await user.type(urlInput, "https://www.amazon.in/dp/B0D421F3XX");
+
+    // Click fetch button
+    await user.click(screen.getByRole("button", { name: /fetch details from product link/i }));
+
+    // Review modal opens with link-resolver details & image
+    expect(await screen.findByRole("heading", { name: /product details extracted/i })).toBeInTheDocument();
+    expect(screen.getByText(/Web Link Catalog/i)).toBeInTheDocument();
+    expect(screen.getByText(/Product Photograph Attached/i)).toBeInTheDocument();
+
+    const modal = screen.getByRole("dialog");
+    const nameInput = within(modal).getByDisplayValue("Soundcore by Anker Life Q20i") as HTMLInputElement;
+    expect(nameInput).toBeInTheDocument();
+
+    // Confirm and save
+    await user.click(within(modal).getByRole("button", { name: /confirm & save/i }));
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/products", expect.objectContaining({ method: "POST" }));
+    const postCall = fetchMock.mock.calls.find(([u, i]) => u === "/api/products" && i?.method === "POST");
+    expect(JSON.parse(String(postCall?.[1]?.body))).toEqual(expect.objectContaining({
+      name: "Soundcore by Anker Life Q20i",
+      brand: "Soundcore",
+      imageUrl: "https://m.media-amazon.com/images/I/soundcore.jpg",
+      sourceUrl: "https://www.amazon.in/dp/B0D421F3XX",
+      asin: "B0D421F3XX",
+    }));
+  });
 });
+
