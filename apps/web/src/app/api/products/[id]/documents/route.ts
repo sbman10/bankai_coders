@@ -23,13 +23,39 @@ async function bodyOf(request: Request): Promise<Record<string, unknown> | NextR
   }
 }
 
+function normalizeDocumentPayload(body: Record<string, unknown>) {
+  let kind = String(body.documentKind || "");
+  let label = typeof body.documentLabel === "string" && body.documentLabel.trim().length > 0
+    ? body.documentLabel.trim().slice(0, 140)
+    : undefined;
+
+  if (kind === "extended_warranty") {
+    kind = "warranty";
+    if (!label) label = "Extended Warranty / AMC";
+  } else if (kind === "warranty_card") {
+    kind = "warranty";
+    if (!label) label = "Warranty Card";
+  } else if (kind === "service_receipt") {
+    kind = "other";
+    if (!label) label = "Service / Repair Receipt";
+  } else if (kind === "installation") {
+    kind = "other";
+    if (!label) label = "Installation Document";
+  }
+
+  return { kind, label };
+}
+
 function validDocument(body: Record<string, unknown>, userId: string, productId: string) {
-  const { documentKind, storagePath, fileName, mimeType, sizeBytes } = body;
+  const { documentKind, storagePath, fileName, mimeType, sizeBytes, documentLabel } = body;
+  const { kind } = normalizeDocumentPayload(body);
   const pathPattern = new RegExp(`^${userId}/[0-9a-f-]{36}-[A-Za-z0-9][A-Za-z0-9._-]{0,139}$`, "i");
-  return body.productId === productId && typeof documentKind === "string" && kinds.has(documentKind) &&
+  const validLabel = documentLabel === undefined || documentLabel === null || (typeof documentLabel === "string" && documentLabel.length <= 140);
+  return body.productId === productId && typeof documentKind === "string" && kinds.has(kind) &&
     typeof storagePath === "string" && storagePath.length <= 512 && pathPattern.test(storagePath) &&
     typeof fileName === "string" && fileName.length > 0 && fileName.length <= 240 && !/[\u0000-\u001f\u007f]/.test(fileName) &&
-    typeof mimeType === "string" && mimeTypes.has(mimeType) && Number.isInteger(sizeBytes) && Number(sizeBytes) >= 1 && Number(sizeBytes) <= 10 * 1024 * 1024;
+    typeof mimeType === "string" && mimeTypes.has(mimeType) && Number.isInteger(sizeBytes) && Number(sizeBytes) >= 1 && Number(sizeBytes) <= 10 * 1024 * 1024 &&
+    validLabel;
 }
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
@@ -70,20 +96,27 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     if (body instanceof NextResponse) return body;
     if (!validDocument(body, user.id, productId)) return NextResponse.json({ error: "Check the document type, file name, storage path, and 10 MB file-size limit." }, { status: 400 });
 
+    const { kind: normalizedKind, label: normalizedLabel } = normalizeDocumentPayload(body);
+
     const { data: product, error: productError } = await supabase.from("products").select("id")
       .eq("id", productId).eq("user_id", user.id).maybeSingle();
     if (productError) return NextResponse.json({ error: "The product could not be checked." }, { status: 503 });
     if (!product) return NextResponse.json({ error: "This product could not be found." }, { status: 404 });
 
-    const { data, error } = await supabase.from("product_documents").insert({
+    const insertPayload: Record<string, unknown> = {
       user_id: user.id,
       product_id: productId,
-      document_kind: body.documentKind,
+      document_kind: normalizedKind,
       storage_path: body.storagePath,
       original_filename: body.fileName,
       mime_type: body.mimeType,
       size_bytes: body.sizeBytes,
-    }).select(documentListFields).single();
+    };
+    if (normalizedLabel) {
+      insertPayload.document_label = normalizedLabel;
+    }
+
+    const { data, error } = await supabase.from("product_documents").insert(insertPayload).select(documentListFields).single();
     if (error || !data) return NextResponse.json({ error: "The document could not be attached to this product." }, { status: 503 });
     return NextResponse.json({ document: data }, { status: 201, headers: { "Cache-Control": "private, no-store" } });
   } catch {
@@ -91,9 +124,11 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       const { id: productId } = await context.params;
       const body = await bodyOf(request);
       if (body instanceof NextResponse) return body;
+      const { kind: normalizedKind, label: normalizedLabel } = normalizeDocumentPayload(body);
       const document = prototypeStore.createProductDocument({
         productId,
-        documentKind: (body.documentKind as "invoice" | "warranty" | "manual" | "other") || "other",
+        documentKind: (normalizedKind as "invoice" | "warranty" | "manual" | "other") || "other",
+        documentLabel: normalizedLabel,
         fileName: String(body.fileName || "document.pdf"),
         mimeType: String(body.mimeType || "application/pdf"),
         sizeBytes: Number(body.sizeBytes) || 1024,
