@@ -1,6 +1,66 @@
 {
   "products": [
     {
+      "id": "ae655ebf-24da-4dff-8a18-3dd17a74da34",
+      "user_id": "00000000-0000-4000-8000-000000000001",
+      "name": "realme P4 Lite 5G (Mosaic Green, 64 GB)",
+      "brand": "realme",
+      "model": "P4 Lite 5G",
+      "category": "mobile",
+      "seller": "XONIGHT E-Commerce",
+      "serial_number": null,
+      "purchase_date": null,
+      "warranty_end": null,
+      "owner_name": null,
+      "buying_method": null,
+      "purchase_platform": "Flipkart",
+      "price_paid": 16249,
+      "currency": "INR",
+      "invoice_number": null,
+      "order_id": null,
+      "warranty_duration_months": 12,
+      "image_url": "https://rukmini1.flixcart.com/image/1500/1500/xif0q/mobile/a/j/x/-resized-original-imahhngsymvs8bfs.jpeg?q=70",
+      "image_urls": [
+        "https://rukmini1.flixcart.com/image/1500/1500/xif0q/mobile/a/j/x/-resized-original-imahhngsymvs8bfs.jpeg?q=70"
+      ],
+      "source_url": "https://www.flipkart.com/realme-p4-lite-5g-mosaic-green-64-gb/p/itm90c243961f214?pid=MOBHN7A8SZ7F9C7T&lid=LSTMOBHN7A8SZ7F9C7TYM0TGX&marketplace=FLIPKART&store=tyy%2F4io&srno=b_1_1&otracker=browse&fm=organic&iid=3313f614-4a76-4c6c-aeb9-1cdd8f2bcf81.MOBHN7A8SZ7F9C7T.SEARCH&ppt=None&ppn=None&ssid=2b0bei8rio0000001793037054654&ov_redirect=true",
+      "asin": null,
+      "replenishment_days": null,
+      "replenishment_remind_at": null,
+      "created_at": "2026-10-26T17:51:09.423Z",
+      "updated_at": "2026-10-26T17:51:09.423Z"
+    },
+    {
+      "id": "9a1ba66e-760f-4391-ad03-f665e6e1a33b",
+      "user_id": "00000000-0000-4000-8000-000000000001",
+      "name": "Demo Wireless Headphones — Model TEST-Q20 1 n 2,499.00 n 449.82 n 2,948.82",
+      "brand": "DemoSound",
+      "model": "TEST-Q20",
+      "category": "Electronics",
+      "seller": "Demo Electronics Seller Pvt. Ltd",
+      "serial_number": "TEST-SN-00012345",
+      "purchase_date": "2026-10-24",
+      "warranty_end": "2027-10-24",
+      "owner_name": "Kapish Gupta",
+      "buying_method": null,
+      "purchase_platform": "Amazon (demo source)",
+      "price_paid": 2948.82,
+      "currency": "INR",
+      "invoice_number": "TEST-INV-2026-10427",
+      "order_id": "TEST-404-1234567-8901234",
+      "warranty_duration_months": 12,
+      "image_url": "https://circlestore.in/product/soundcore-q20i-2180c729",
+      "image_urls": [
+        "https://circlestore.in/product/soundcore-q20i-2180c729"
+      ],
+      "source_url": null,
+      "asin": null,
+      "replenishment_days": null,
+      "replenishment_remind_at": null,
+      "created_at": "2026-10-26T11:46:58.535Z",
+      "updated_at": "2026-10-26T11:46:58.535Z"
+    },
+    {
       "id": "9172b040-54d3-48c3-8641-0b0bf32de5d2",
       "user_id": "00000000-0000-4000-8000-000000000001",
       "name": "Anker Soundcore Life Q30 Wireless ANC Headphones",
@@ -160,6 +220,19 @@
     }
   ],
   "documents": [
+    {
+      "id": "026100c4-ebc2-43f0-8fc1-f6176ad960a1",
+      "user_id": "00000000-0000-4000-8000-000000000001",
+      "product_id": "9a1ba66e-760f-4391-ad03-f665e6e1a33b",
+      "document_kind": "invoice",
+      "storage_path": "00000000-0000-4000-8000-000000000001/e18816b9-e386-43ef-99e5-528064962b47-amazon_demo_test_invoice.pdf",
+      "original_filename": "amazon_demo_test_invoice.pdf",
+      "mime_type": "application/pdf",
+      "size_bytes": 28368,
+      "ingestion_status": "indexed",
+      "ingestion_warning_code": null,
+      "created_at": "2026-10-26T11:46:59.767Z"
+    },
     {
       "id": "doc-001",
       "user_id": "00000000-0000-4000-8000-000000000001",

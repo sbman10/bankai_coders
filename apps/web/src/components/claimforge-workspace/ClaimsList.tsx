@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ArrowLeft, CheckCircle2, Clock3, Clipboard, FileCheck2 } from "lucide-react";
+import { TechHeading } from "../TechText";
 
 export type SavedClaim = {
   id: string;
@@ -34,7 +35,7 @@ export function ClaimsList({ claims, loading, error, onBack }: { claims: SavedCl
   return (
     <div className="page-content subpage-content">
       <button className="back-link" onClick={onBack}><ArrowLeft size={15} /> Back to overview</button>
-      <div className="review-heading"><div><div className="eyebrow"><span className="eyebrow-line" /> YOUR SAVED CLAIMS</div><h1>Claim history.</h1><p>Claim status and results are read from your private Supabase account.</p></div></div>
+      <div className="review-heading"><div><div className="eyebrow"><span className="eyebrow-line" /> YOUR SAVED CLAIMS</div><TechHeading variant="page" as="h1" text="Claim history." fontSize={38} height={54} /><p>Claim status and results are read from your private Supabase account.</p></div></div>
       {error && <p role="alert" className="upload-error">{error}</p>}
       {loading ? <p className="auth-copy">Loading your claims…</p> : claims.length ? <div className="claims-list">
         {claims.map((claim) => <SavedClaimCard claim={claim} key={claim.id} />)}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { AlertTriangle, FileCheck2, FileText, LoaderCircle, Send, ShieldCheck, Sparkles } from "lucide-react";
+import { TechHeading } from "../TechText";
 
 type Product = { id: string; name: string };
 type ProductDocument = {
@@ -138,7 +139,7 @@ export function AssistantChat() {
   return (
     <div className="page-content subpage-content assistant-page">
       <div className="eyebrow"><span className="eyebrow-line" /> DOCUMENT-GROUNDED Q&A</div>
-      <div className="product-page-heading"><div><h1>Ask about your documents.</h1><p>Explore the wording in the documents you choose. Answers are explanations of supplied text, not coverage decisions.</p></div><span className="local-mode-pill">READ ONLY</span></div>
+      <div className="product-page-heading"><div><TechHeading variant="page" as="h1" text="Ask about your documents." fontSize={36} height={52} /><p>Explore the wording in the documents you choose. Answers are explanations of supplied text, not coverage decisions.</p></div><span className="local-mode-pill">READ ONLY</span></div>
       {error && <p className="product-feedback product-feedback-error" role="alert"><AlertTriangle size={15} />{error}</p>}
       <div className="assistant-layout">
         <aside className="assistant-context" aria-label="Document context">

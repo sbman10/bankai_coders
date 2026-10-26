@@ -172,31 +172,80 @@ Marketplace Amazon (demo source)
   });
 
   it("resolves link-only input when only a product URL is provided", async () => {
-    const request = new Request("http://localhost:3000/api/products/extract-invoice", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        productUrl: "https://www.amazon.in/soundcore-Anker-Bluetooth-Headphones-Cancellation/dp/B0CKW4D336",
-      }),
-    });
+    const mockHtml = `
+      <span id="productTitle">soundcore by Anker Q20i Hybrid Active Noise Cancelling Headphones</span>
+      <a id="bylineInfo">Visit the Soundcore Store</a>
+      <img id="landingImage" src="https://m.media-amazon.com/images/I/soundcore.jpg" />
+      <span class="a-price-whole">4,499</span>
+      <table id="productDetails_techSpec_section_1">
+        <tr><th>Brand Name</th><td>Soundcore</td></tr>
+        <tr><th>Model Number</th><td>Q20i</td></tr>
+      </table>
+    `;
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (url: RequestInfo | URL) => {
+      if (String(url).includes("amazon")) {
+        return new Response(mockHtml, { status: 200 });
+      }
+      return originalFetch(url);
+    };
 
-    const response = await POST(request);
-    expect(response.status).toBe(200);
+    try {
+      const request = new Request("http://localhost:3000/api/products/extract-invoice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productUrl: "https://www.amazon.in/soundcore-Anker-Bluetooth-Headphones-Cancellation/dp/B0CKW4D336",
+        }),
+      });
 
-    const json = await response.json();
-    expect(json.success).toBe(true);
-    expect(json.ocrEngine).toBe("link-resolver");
-    expect(json.asin).toBe("B0CKW4D336");
-    expect(json.extracted.brand).toBe("Soundcore");
-    expect(json.invoice.productName).toContain("Soundcore");
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+
+      const json = await response.json();
+      expect(json.success).toBe(true);
+      expect(json.ocrEngine).toBe("link-resolver");
+      expect(json.asin).toBe("B0CKW4D336");
+      expect(json.extracted.brand).toBe("Soundcore");
+      expect(json.extracted.model).toBe("Q20i");
+      expect(json.invoice.productName).toContain("soundcore by Anker Q20i");
+
+      // Verify ZERO hallucinated purchase info
+      expect(json.extracted.purchase_date).toBeNull();
+      expect(json.extracted.order_id).toBeNull();
+      expect(json.extracted.invoice_number).toBeNull();
+      expect(json.extracted.serial_number).toBeNull();
+      expect(json.fieldStatus.purchase_date).toBe("not_found");
+      expect(json.fieldStatus.order_id).toBe("not_found");
+      expect(json.fieldStatus.invoice_number).toBe("not_found");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 
   it("fuses invoice text and product link in hybrid mode", async () => {
-    const request = new Request("http://localhost:3000/api/products/extract-invoice", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        text: `
+    const mockHtml = `
+      <span id="productTitle">soundcore by Anker Q20i Hybrid Active Noise Cancelling Headphones</span>
+      <a id="bylineInfo">Visit the Soundcore Store</a>
+      <img id="landingImage" src="https://m.media-amazon.com/images/I/soundcore.jpg" />
+      <table id="productDetails_techSpec_section_1">
+        <tr><th>Brand Name</th><td>Soundcore</td></tr>
+      </table>
+    `;
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (url: RequestInfo | URL) => {
+      if (String(url).includes("amazon")) {
+        return new Response(mockHtml, { status: 200 });
+      }
+      return originalFetch(url);
+    };
+
+    try {
+      const request = new Request("http://localhost:3000/api/products/extract-invoice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: `
 TAX INVOICE
 Invoice Number: DEL5-12345
 Order ID: 404-9876543-1234567
@@ -205,25 +254,66 @@ Customer: Ayushi Gupta
 Payment: UPI
 Amount: 4499.00
 Seller: Valuecart India Private Ltd
-        `.trim(),
-        productUrl: "https://www.amazon.in/soundcore-Anker-Bluetooth-Headphones-Cancellation/dp/B0CKW4D336",
+          `.trim(),
+          productUrl: "https://www.amazon.in/soundcore-Anker-Bluetooth-Headphones-Cancellation/dp/B0CKW4D336",
+        }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+
+      const json = await response.json();
+      expect(json.success).toBe(true);
+      expect(json.ocrEngine).toBe("hybrid-invoice-link");
+      expect(json.asin).toBe("B0CKW4D336");
+      // Verified invoice facts take priority
+      expect(json.extracted.invoice_number).toBe("DEL5-12345");
+      expect(json.extracted.order_id).toBe("404-9876543-1234567");
+      expect(json.extracted.owner_name).toBe("Ayushi Gupta");
+      expect(json.extracted.price).toBe(4499);
+      // Link enriched details
+      expect(json.extracted.brand).toBe("Soundcore");
+      expect(json.imageUrl).toBe("https://m.media-amazon.com/images/I/soundcore.jpg");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("returns 400 for unsupported or invalid marketplace URL", async () => {
+    const request = new Request("http://localhost:3000/api/products/extract-invoice", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        productUrl: "https://unsupported-store.com/item/12345",
       }),
     });
 
     const response = await POST(request);
-    expect(response.status).toBe(200);
-
+    expect(response.status).toBe(400);
     const json = await response.json();
-    expect(json.success).toBe(true);
-    expect(json.ocrEngine).toBe("hybrid-invoice-link");
-    expect(json.asin).toBe("B0CKW4D336");
-    // Verified invoice facts take priority
-    expect(json.extracted.invoice_number).toBe("DEL5-12345");
-    expect(json.extracted.order_id).toBe("404-9876543-1234567");
-    expect(json.extracted.owner_name).toBe("Ayushi Gupta");
-    expect(json.extracted.price).toBe(4499);
-    // Link enriched details
-    expect(json.extracted.brand).toBe("Soundcore");
+    expect(json.error).toBe("Please enter a valid Amazon, Flipkart or Meesho product URL.");
+  });
+
+  it("returns 422 when marketplace page cannot be accessed", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => new Response("Not Found", { status: 404 });
+
+    try {
+      const request = new Request("http://localhost:3000/api/products/extract-invoice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productUrl: "https://www.amazon.in/dp/B0NONEXIST99",
+        }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(422);
+      const json = await response.json();
+      expect(json.error).toBe("We couldn't retrieve this product page. Please check the URL or enter the product details manually.");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });
 

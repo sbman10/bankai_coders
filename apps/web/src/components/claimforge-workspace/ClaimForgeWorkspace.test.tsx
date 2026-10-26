@@ -46,20 +46,32 @@ describe("ClaimForge customer workflow", () => {
     expect(welcomeHeading).not.toHaveTextContent(/rohan/i);
   });
 
-  it("removes Add Product from sidebar while preserving the prominent header Add Product button", async () => {
+  it("keeps Add Product absent from drawer navigation while accessible via contextual CTAs with return navigation", async () => {
     const user = userEvent.setup();
     render(<ClaimForgeWorkspace />);
 
+    // Test A — Sidebar: Confirm Add Product is absent from the hamburger drawer
     const sidebarNav = screen.getByRole("navigation", { name: /workspace/i });
-    // Sidebar should NOT have an "Add Product" button
     expect(within(sidebarNav).queryByRole("button", { name: /^add product$/i })).not.toBeInTheDocument();
 
-    // Topbar header Add Product button exists and is clickable
-    const headerAddBtn = screen.getByRole("button", { name: /^add product$/i });
-    expect(headerAddBtn).toBeInTheDocument();
+    // Test B — Dashboard: Click "+ Add Product" CTA on dashboard
+    const dashboardAddBtn = screen.getByRole("button", { name: /^add product$/i });
+    expect(dashboardAddBtn).toBeInTheDocument();
+    await user.click(dashboardAddBtn);
 
-    await user.click(headerAddBtn);
+    // Test D — Creation: Dedicated Add Product view is rendered with full options
+    expect(await screen.findByRole("heading", { name: /^add product$/i })).toBeInTheDocument();
+    expect(screen.getByText(/register a purchase invoice|extract details from an invoice/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /back to library/i })).toBeInTheDocument();
+
+    // Test E — Return: Click "Back to library" and confirm saved products page opens
+    await user.click(screen.getByRole("button", { name: /back to library/i }));
     expect(await screen.findByText(/products with a paper trail/i)).toBeInTheDocument();
+
+    // Test C — My Products: Click "+ Add Product" from My Products header and confirm it opens the same interface
+    const libraryAddBtn = screen.getByRole("button", { name: /^add product$/i });
+    await user.click(libraryAddBtn);
+    expect(await screen.findByRole("heading", { name: /^add product$/i })).toBeInTheDocument();
   });
 
   it("navigates to the interactive document assistant and product library", async () => {

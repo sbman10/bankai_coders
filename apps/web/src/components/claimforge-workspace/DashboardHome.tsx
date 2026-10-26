@@ -3,6 +3,7 @@
 
 import React, { useState } from "react";
 import { useGreeting } from "@/lib/time/useGreeting";
+import { TechHeading } from "../TechText";
 import {
   Calendar,
   Check,
@@ -362,16 +363,23 @@ export function DashboardHome({
           {/* Welcome Hero Area */}
           <section className="ownership-hero-row" aria-label="Welcome greeting">
             <div className="hero-copy-block">
-              <h1 className="hero-greeting-heading" suppressHydrationWarning>
-                {greeting.text}{" "}
-                <span
-                  className={greeting.emoji === "👋" ? "wave-hand" : "welcome-emoji"}
-                  role="img"
-                  aria-label={greeting.emojiLabel}
-                >
-                  {greeting.emoji}
-                </span>
-              </h1>
+              <TechHeading
+                variant="page"
+                as="h1"
+                text={greeting.text}
+                fontSize={34}
+                height={50}
+                className="hero-greeting-heading"
+                suffix={
+                  <span
+                    className={greeting.emoji === "👋" ? "wave-hand" : "welcome-emoji"}
+                    role="img"
+                    aria-label={greeting.emojiLabel}
+                  >
+                    {greeting.emoji}
+                  </span>
+                }
+              />
               <p className="hero-brand-tagline">
                 <span className="tagline-static">The things you own.</span>{" "}
                 <span className="tagline-spotlight">The details you forget.</span>
@@ -412,9 +420,16 @@ export function DashboardHome({
           <section className="today-action-card" aria-labelledby="today-card-title">
             <div className="today-card-header">
               <div className="today-title-group">
-                <h2 id="today-card-title" className="today-card-heading">
-                  Today <span className="today-count-paren">({pendingCount})</span>
-                </h2>
+                <TechHeading
+                  variant="section"
+                  as="h2"
+                  id="today-card-title"
+                  className="today-card-heading"
+                  text="Today"
+                  fontSize={20}
+                  height={32}
+                  suffix={<span className="today-count-paren">({pendingCount})</span>}
+                />
                 <div className="today-date-pill">
                   <Calendar size={13} className="date-pill-icon" />
                   <span>Tue, 28 Oct 2026</span>
@@ -483,9 +498,16 @@ export function DashboardHome({
           {/* Your Products Collection */}
           <section className="your-products-section" aria-labelledby="products-section-title">
             <div className="products-section-header">
-              <h2 id="products-section-title" className="products-section-heading">
-                Your Products <span className="products-count-num">(12)</span>
-              </h2>
+              <TechHeading
+                variant="section"
+                as="h2"
+                id="products-section-title"
+                className="products-section-heading"
+                text="Your Products"
+                fontSize={22}
+                height={36}
+                suffix={<span className="products-count-num">(12)</span>}
+              />
 
               <div className="products-filter-strip">
                 <button
@@ -629,9 +651,15 @@ export function DashboardHome({
             <div className="timeline-widget-header">
               <div className="timeline-title-wrap">
                 <Calendar size={16} className="timeline-header-icon" />
-                <h2 id="timeline-card-title" className="timeline-widget-heading">
-                  Your Timeline
-                </h2>
+                <TechHeading
+                  variant="section"
+                  as="h2"
+                  id="timeline-card-title"
+                  className="timeline-widget-heading"
+                  text="Your Timeline"
+                  fontSize={20}
+                  height={32}
+                />
               </div>
               <button
                 type="button"
@@ -727,7 +755,7 @@ export function DashboardHome({
               <button
                 type="button"
                 className="add-product-black-btn"
-                onClick={() => onNavigateTab("products")}
+                onClick={() => onNavigateTab("add-product")}
                 aria-label="Add Product"
               >
                 + Add Product
