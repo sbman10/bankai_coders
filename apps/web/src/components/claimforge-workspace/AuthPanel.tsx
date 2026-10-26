@@ -39,7 +39,7 @@ export function AuthPanel({ onAuthenticated, configured }: { onAuthenticated: (e
   return (
     <main className="auth-page">
       <section className="auth-card">
-        <div className="auth-brand"><span className="brand-mark" aria-hidden="true">cf</span><span className="brand-name">claimforge<span>YOUR PRODUCT OWNERSHIP DESK</span></span></div>
+        <div className="auth-brand"><span className="brand-mark" aria-hidden="true">pv</span><span className="brand-name">product vault<span>YOUR PRODUCT OWNERSHIP DESK</span></span></div>
         <div className="eyebrow"><span className="eyebrow-line" /> PRIVATE WORKSPACE</div>
         <h1>{mode === "sign_in" ? "Welcome back." : "Create your workspace."}</h1>
         <p className="auth-copy">Sign in to save product documents and claims privately to your account.</p>
@@ -53,7 +53,7 @@ export function AuthPanel({ onAuthenticated, configured }: { onAuthenticated: (e
             {message && <p role="status" className="auth-message">{message}</p>}
             <button className="button button-primary auth-submit" type="submit" disabled={busy}>{busy ? "Please wait…" : mode === "sign_in" ? "Sign in" : "Create account"}</button>
             <button className="text-button auth-mode" type="button" onClick={() => { setMode(mode === "sign_in" ? "sign_up" : "sign_in"); setMessage(""); setError(""); }}>
-              {mode === "sign_in" ? "New to ClaimForge? Create an account" : "Already have an account? Sign in"}
+              {mode === "sign_in" ? "New to Product Vault? Create an account" : "Already have an account? Sign in"}
             </button>
           </form>
         )}

@@ -35,7 +35,7 @@
   --text-subtle: #A89F91;
   --text-inverse: #ffffff;
 
-  /* Primary Brand: ClaimForge Radiant Orange */
+  /* Primary Brand: Product Vault Radiant Orange */
   --orange-50: #fff7ed;
   --orange-100: #ffedd5;
   --orange-200: #fed7aa;
@@ -2481,7 +2481,10 @@ body.dark .citation {
   background: var(--surface-elevated);
   color: var(--text-primary);
 }
-.ai-title-wrap {}
+.ai-title-wrap {
+  display: flex;
+  flex-direction: column;
+}
 .ai-title {
   font-size: 1.4rem;
   font-weight: 700;
@@ -3038,6 +3041,7 @@ body.dark .citation {
   margin: 0;
   display: -webkit-box;
   -webkit-line-clamp: 5;
+  line-clamp: 5;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }

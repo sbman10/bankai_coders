@@ -510,7 +510,7 @@ export function AmazonImport({ onCancel, onSaved }: Props) {
           </div>
           <h2 className="ai-card-heading">This product is already in your library</h2>
           <p className="ai-card-body">
-            A product with this ASIN already exists in your ClaimForge library.
+            A product with this ASIN already exists in your Product Vault library.
             Would you like to view it, or import a different product?
           </p>
           <div className="ai-notice-actions">
@@ -759,7 +759,7 @@ export function AmazonImport({ onCancel, onSaved }: Props) {
         <div className="ai-manual-note">
           <ShieldCheck size={14} />
           <span>
-            Nothing is sent to Amazon. Your product details are stored privately in your ClaimForge workspace.
+            Nothing is sent to Amazon. Your product details are stored privately in your Product Vault workspace.
           </span>
         </div>
       )}

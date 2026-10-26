@@ -166,7 +166,7 @@ export function AssistantChat() {
             </ul>}
           </>}
           <p className="assistant-privacy-note"><ShieldCheck size={14} /> Only selected documents from this product are searched.</p>
-          <p className="assistant-provider-note">To answer, ClaimForge sends your question and selected text excerpts to its configured AI provider. Don’t select documents you are not authorized to share.</p>
+          <p className="assistant-provider-note">To answer, Product Vault sends your question and selected text excerpts to its configured AI provider. Don’t select documents you are not authorized to share.</p>
         </aside>
 
         <section className="assistant-conversation" aria-label="Warranty and policy conversation">
@@ -179,7 +179,7 @@ export function AssistantChat() {
           <form className="assistant-composer" onSubmit={ask}>
             <label htmlFor="assistant-question">Ask about your documents</label>
             <textarea id="assistant-question" value={question} onChange={(event) => setQuestion(event.target.value)} maxLength={2000} rows={3} placeholder="Ask about a clause, exclusion, condition, or requirement…" />
-            <div className="assistant-composer-footer"><span>Answers use only selected indexed text and may abstain when it’s unclear.</span><button className="button button-primary" type="submit" disabled={sending || selectedDocumentIds.length === 0 || question.trim().length < 3}><Send size={14} /> {sending ? "Checking…" : "Ask ClaimForge"}</button></div>
+            <div className="assistant-composer-footer"><span>Answers use only selected indexed text and may abstain when it’s unclear.</span><button className="button button-primary" type="submit" disabled={sending || selectedDocumentIds.length === 0 || question.trim().length < 3}><Send size={14} /> {sending ? "Checking…" : "Ask Product Vault"}</button></div>
           </form>
         </section>
       </div>
