@@ -745,7 +745,9 @@ export async function resolveProductLink(
   rawUrl: string,
   options?: ResolveProductLinkOptions
 ): Promise<ProductLinkResolution> {
-  let { platform, marketplace, canonicalUrl, asin } = detectPlatform(rawUrl);
+  const detected = detectPlatform(rawUrl);
+  const { platform, marketplace } = detected;
+  let { canonicalUrl, asin } = detected;
 
   let html: string;
 

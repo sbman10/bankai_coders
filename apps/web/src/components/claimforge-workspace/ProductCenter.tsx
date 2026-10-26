@@ -328,10 +328,12 @@ export function ProductCenter({
   onNavigateView?: (view: ProductCenterView) => void;
   onStartClaim?: () => void;
 }) {
+  const [prevView, setPrevView] = useState(view);
   const [activeView, setActiveView] = useState<ProductCenterView>(view);
-  useEffect(() => {
+  if (view !== prevView) {
+    setPrevView(view);
     setActiveView(view);
-  }, [view]);
+  }
 
   const [products, setProducts] = useState<Product[]>([]);
   const [watches, setWatches] = useState<PriceWatch[]>([]);
@@ -847,7 +849,7 @@ function ProductLibrary({
               <select
                 className="library-sort-select"
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
+                onChange={(e) => setSortBy(e.target.value as "newest" | "oldest" | "name" | "price-desc" | "price-asc" | "warranty")}
                 aria-label="Sort products"
               >
                 <option value="newest">Sort: Newest Added</option>

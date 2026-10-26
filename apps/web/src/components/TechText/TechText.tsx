@@ -1105,4 +1105,5 @@ const TechText = ({
   );
 };
 
+export { TechText };
 export default TechText;
