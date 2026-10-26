@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ClaimForge — Warranty, with a way forward",
+  title: "Product Vault — Warranty, with a way forward",
   description:
     "Organize your warranty evidence, understand the written terms, and prepare your next step.",
 };

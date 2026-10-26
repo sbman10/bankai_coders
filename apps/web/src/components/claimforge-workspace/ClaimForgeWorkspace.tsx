@@ -47,16 +47,16 @@ type View =
 
 function subscribeTheme(callback: () => void) {
   window.addEventListener("storage", callback);
-  window.addEventListener("claimforge-theme-change", callback);
+  window.addEventListener("product-vault-theme-change", callback);
   return () => {
     window.removeEventListener("storage", callback);
-    window.removeEventListener("claimforge-theme-change", callback);
+    window.removeEventListener("product-vault-theme-change", callback);
   };
 }
 
 function getClientThemeSnapshot(): boolean {
   if (typeof window === "undefined") return false;
-  return localStorage.getItem("claimforge-theme") === "dark";
+  return localStorage.getItem("product-vault-theme") === "dark";
 }
 
 function getServerThemeSnapshot(): boolean {
@@ -79,7 +79,7 @@ export function ClaimForgeWorkspace() {
 
   // Synchronize DOM data-theme and body attributes on mount
   useEffect(() => {
-    const isDark = localStorage.getItem("claimforge-theme") === "dark";
+    const isDark = localStorage.getItem("product-vault-theme") === "dark";
     document.documentElement.setAttribute("data-theme", isDark ? "dark" : "light");
     if (isDark) {
       document.body.classList.add("dark");
@@ -145,7 +145,7 @@ export function ClaimForgeWorkspace() {
 
   const toggleTheme = useCallback((newDarkState: boolean) => {
     const themeStr = newDarkState ? "dark" : "light";
-    localStorage.setItem("claimforge-theme", themeStr);
+    localStorage.setItem("product-vault-theme", themeStr);
     if (newDarkState) {
       document.documentElement.setAttribute("data-theme", "dark");
       document.body.classList.add("dark");
@@ -153,7 +153,7 @@ export function ClaimForgeWorkspace() {
       document.documentElement.setAttribute("data-theme", "light");
       document.body.classList.remove("dark");
     }
-    window.dispatchEvent(new Event("claimforge-theme-change"));
+    window.dispatchEvent(new Event("product-vault-theme-change"));
   }, []);
 
   function beginClaim() {
@@ -211,7 +211,7 @@ export function ClaimForgeWorkspace() {
           >
             <ClaimForgeLogoMark className="navbar-logo-cube" />
             <span className="navbar-brand-text">
-              Claim<span className="brand-orange">Forge</span>
+              Product<span className="brand-orange">Vault</span>
             </span>
           </a>
         </div>
@@ -353,7 +353,7 @@ export function ClaimForgeWorkspace() {
             <div className="drawer-brand-lockup">
               <ClaimForgeLogoMark className="drawer-logo-cube" />
               <span className="drawer-brand-name">
-                Claim<span className="brand-orange">Forge</span>
+                Product<span className="brand-orange">Vault</span>
               </span>
             </div>
             <button

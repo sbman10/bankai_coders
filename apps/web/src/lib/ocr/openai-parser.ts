@@ -3,7 +3,7 @@ import type { ExtractedProductFields } from "./types";
 import { parseDateToIso } from "./validator";
 
 const SYSTEM_PROMPT = `
-You are ClaimForge's strict document data extraction specialist.
+You are Product Vault's strict document data extraction specialist.
 Extract product ownership and invoice fields from the provided document text into JSON.
 
 CRITICAL ANTI-HALLUCINATION RULES:

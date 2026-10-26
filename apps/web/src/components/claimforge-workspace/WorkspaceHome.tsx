@@ -59,7 +59,7 @@ export function WorkspaceHome({ onStartClaim, onOpenReview }: { onStartClaim: ()
       </div>
 
       <section className="draft-strip" aria-label="Claim draft status"><div className="draft-icon"><FileText size={19} /></div><div className="draft-copy"><span>READY WHEN YOU ARE</span><strong>Your claim draft is ready to review.</strong><small>Nothing is sent until you approve it.</small></div><button className="button button-dark" onClick={onOpenReview}>Review claim <ArrowUpRight size={15} /></button></section>
-      <footer className="page-footer"><span>CLAIMFORGE · YOUR EVIDENCE, YOUR DECISION</span><span>DEMO CASE · ALL PERSONAL DETAILS ARE FICTIONAL</span></footer>
+      <footer className="page-footer"><span>PRODUCT VAULT · YOUR EVIDENCE, YOUR DECISION</span><span>DEMO CASE · ALL PERSONAL DETAILS ARE FICTIONAL</span></footer>
     </div>
   );
 }
