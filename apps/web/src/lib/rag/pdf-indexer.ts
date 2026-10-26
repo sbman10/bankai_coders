@@ -21,7 +21,7 @@ export function isPdf(bytes: Uint8Array): boolean {
 
 export async function extractPdfPages(bytes: Uint8Array): Promise<ExtractedPage[]> {
   const task = getDocument({
-    data: bytes,
+    data: new Uint8Array(bytes),
     disableFontFace: true,
     useSystemFonts: true,
     verbosity: 0,

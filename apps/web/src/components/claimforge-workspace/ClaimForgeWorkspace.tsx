@@ -246,21 +246,6 @@ export function ClaimForgeWorkspace() {
           </button>
 
           <button
-            className={`nav-item nav-item-amazon ${view === "amazon-import" ? "active" : ""}`}
-            onClick={() => setView("amazon-import")}
-            aria-label="Import from Amazon"
-          >
-            <span className="nav-icon nav-icon-amazon">
-              <svg width="17" height="17" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-                <path d="M5.5 22.5C10.5 27 17.5 28.5 24 26" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round"/>
-                <path d="M24 26L21 23.5M24 26L21.5 28.5" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round"/>
-                <text x="4" y="19" fontFamily="Arial" fontWeight="bold" fontSize="13" fill="currentColor">a</text>
-              </svg>
-            </span>
-            <span className="nav-label">Import from Amazon</span>
-          </button>
-
-          <button
             className={`nav-item ${view === "claims" || view === "review" ? "active" : ""}`}
             onClick={() => { setView("claims"); void loadClaims(); }}
             aria-label="My Claims"
@@ -436,15 +421,7 @@ export function ClaimForgeWorkspace() {
               onBack={() => setView("workspace")}
             />
           ) : view === "amazon-import" ? (
-            <AmazonImport
-              onCancel={() => setView("workspace")}
-              onSaved={(_productId, productName) => {
-                // Navigate to products view and show success
-                setView("products");
-                // In a real connected workspace this would refresh the product list
-                void productName;
-              }}
-            />
+            <ProductCenter view="products" />
           ) : view === "claims" ? (
             <ClaimsList
               claims={claims}
