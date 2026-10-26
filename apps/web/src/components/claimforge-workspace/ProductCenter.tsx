@@ -488,10 +488,10 @@ function ProductLibrary({
   const [revName, setRevName] = useState("");
   const [revBrand, setRevBrand] = useState("");
   const [revModel, setRevModel] = useState("");
-  const [revCategory, setRevCategory] = useState("Electronics");
+  const [revCategory, setRevCategory] = useState("");
   const [revSerial, setRevSerial] = useState("");
   const [revPurchaseDate, setRevPurchaseDate] = useState("");
-  const [revWarrantyMonths, setRevWarrantyMonths] = useState("12");
+  const [revWarrantyMonths, setRevWarrantyMonths] = useState("");
   const [revWarrantyEnd, setRevWarrantyEnd] = useState("");
   const [revPrice, setRevPrice] = useState("");
   const [revCurrency, setRevCurrency] = useState("INR");
@@ -505,14 +505,26 @@ function ProductLibrary({
   const [revSourceUrl, setRevSourceUrl] = useState("");
   const [revAsin, setRevAsin] = useState("");
 
-  function renderStatusBadge(status?: FieldConfidence) {
+  function renderStatusBadge(status?: FieldConfidence, isWebLink = false) {
     if (status === "confident") {
-      return <span className="field-pill field-pill-confident">✓ Confident</span>;
+      return (
+        <span className="field-pill field-pill-confident">
+          {isWebLink ? "✓ FOUND ON PRODUCT PAGE" : "✓ Confident"}
+        </span>
+      );
     }
     if (status === "needs_review") {
-      return <span className="field-pill field-pill-review">⚠️ Needs Review</span>;
+      return (
+        <span className="field-pill field-pill-review">
+          {isWebLink ? "⚠️ NEEDS REVIEW" : "⚠️ Needs Review"}
+        </span>
+      );
     }
-    return <span className="field-pill field-pill-notfound">○ Not Found</span>;
+    return (
+      <span className="field-pill field-pill-notfound">
+        {isWebLink ? "○ NOT FOUND" : "○ Not Found"}
+      </span>
+    );
   }
 
   async function handleAutomatedExtract(selectedFile?: File) {
@@ -550,23 +562,30 @@ function ProductLibrary({
 
       const inv = (data.invoice || {}) as Record<string, unknown>;
       const ext = (data.extracted || {}) as Record<string, unknown>;
+      const isLinkOnly = data.ocrEngine === "link-resolver";
 
       const nameVal = String(ext.product_name ?? inv.productName ?? "").trim();
       const brandVal = String(ext.brand ?? inv.brand ?? "").trim();
       const modelVal = String(ext.model ?? inv.model ?? "").trim();
-      const catVal = String(ext.category ?? inv.category ?? "Electronics").trim();
-      const serialVal = String(ext.serial_number ?? "").trim();
-      const dateVal = String(ext.purchase_date ?? inv.purchaseDate ?? "").trim();
-      const monthsVal = String(data.calculatedWarrantyMonths ?? inv.suggestedWarrantyMonths ?? 12);
-      const endVal = String(data.calculatedWarrantyEnd ?? (dateVal ? calculateWarrantyEnd(dateVal, Number(monthsVal)) : "")).trim();
+      const catVal = String(ext.category ?? inv.category ?? "").trim();
+      const serialVal = isLinkOnly ? "" : String(ext.serial_number ?? "").trim();
+      const dateVal = isLinkOnly ? "" : String(ext.purchase_date ?? inv.purchaseDate ?? "").trim();
+      const monthsVal = data.calculatedWarrantyMonths !== null && data.calculatedWarrantyMonths !== undefined
+        ? String(data.calculatedWarrantyMonths)
+        : (inv.suggestedWarrantyMonths !== null && inv.suggestedWarrantyMonths !== undefined
+          ? String(inv.suggestedWarrantyMonths)
+          : "");
+      const endVal = isLinkOnly
+        ? ""
+        : String(data.calculatedWarrantyEnd ?? (dateVal && monthsVal ? calculateWarrantyEnd(dateVal, Number(monthsVal)) : "")).trim();
       const priceVal = ext.price !== null && ext.price !== undefined ? String(ext.price) : (inv.amount !== null && inv.amount !== undefined ? String(inv.amount) : "");
       const currVal = String(ext.currency ?? inv.currency ?? "INR").trim();
       const sellerVal = String(ext.seller ?? inv.seller ?? "").trim();
-      const ownerVal = String(ext.owner_name ?? inv.ownerName ?? "").trim();
-      const methodVal = String(ext.buying_method ?? inv.buyingMethod ?? "").trim();
+      const ownerVal = isLinkOnly ? "" : String(ext.owner_name ?? inv.ownerName ?? "").trim();
+      const methodVal = isLinkOnly ? "" : String(ext.buying_method ?? inv.buyingMethod ?? "").trim();
       const platVal = String(ext.source_marketplace ?? inv.purchasePlatform ?? "").trim();
-      const invNoVal = String(ext.invoice_number ?? inv.invoiceNumber ?? "").trim();
-      const ordIdVal = String(ext.order_id ?? inv.orderId ?? "").trim();
+      const invNoVal = isLinkOnly ? "" : String(ext.invoice_number ?? inv.invoiceNumber ?? "").trim();
+      const ordIdVal = isLinkOnly ? "" : String(ext.order_id ?? inv.orderId ?? "").trim();
       const imgVal = String(data.imageUrl ?? ext.image_url ?? inv.imageUrl ?? "").trim();
       const srcVal = String(data.sourceUrl ?? ext.source_url ?? inv.sourceUrl ?? "").trim();
       const asinVal = String(data.asin ?? ext.asin ?? inv.asin ?? "").trim();
@@ -834,7 +853,7 @@ function ProductLibrary({
 
                 {productUrl.trim() && (
                   <div className="automated-detected-pill">
-                    {productUrl.toLowerCase().includes("amazon")
+                    {productUrl.toLowerCase().includes("amazon") || productUrl.toLowerCase().includes("amzn.")
                       ? "🛒 Amazon.in Link"
                       : productUrl.toLowerCase().includes("flipkart")
                       ? "🛒 Flipkart Link"
@@ -1027,410 +1046,524 @@ function ProductLibrary({
         )}
 
         {/* ── Document Scanned Review & Confirmation Modal ──────────────── */}
-        {reviewModalOpen && ocrData && (
-          <div className="ocr-review-overlay" role="dialog" aria-modal="true" aria-labelledby="ocr-review-title">
-            <div className="ocr-review-modal">
-              <div className="ocr-review-head">
-                <div className="ocr-review-head-left">
-                  <h2 id="ocr-review-title">
-                    <Sparkles size={19} color="var(--orange-500)" />
-                    Product Details Extracted
-                    <span className="field-pill field-pill-confident">
-                      {ocrData.ocrEngine === "hybrid-invoice-link"
-                        ? "⚡ Hybrid: Invoice OCR + Web Link"
-                        : ocrData.ocrEngine === "link-resolver"
-                        ? "🔗 Web Link Catalog"
-                        : ocrData.ocrEngine === "google-cloud-vision"
-                        ? "Google Cloud Vision"
-                        : "OCR Engine"}
-                    </span>
-                  </h2>
-                  <p>Review the extracted purchase and product details below before confirming. You can adjust any field directly.</p>
-                </div>
-                <button
-                  type="button"
-                  className="card-action-btn"
-                  onClick={handleCancelReview}
-                  aria-label="Close review"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-
-              <div className="ocr-review-body">
-                {/* Product Photograph Preview */}
-                {revImageUrl && (
-                  <div className="ocr-product-photo-preview">
-                    <img
-                      src={revImageUrl}
-                      alt={revName}
-                      className="ocr-preview-img"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLElement).style.display = "none";
-                      }}
-                    />
-                    <div className="ocr-photo-caption">
-                      <span className="photo-verified-badge">
-                        <CheckCircle2 size={15} /> Product Photograph Attached
+        {reviewModalOpen && ocrData && (() => {
+          const isWebLink = ocrData.ocrEngine === "link-resolver";
+          return (
+            <div className="ocr-review-overlay" role="dialog" aria-modal="true" aria-labelledby="ocr-review-title">
+              <div className="ocr-review-modal">
+                <div className="ocr-review-head">
+                  <div className="ocr-review-head-left">
+                    <h2 id="ocr-review-title">
+                      <Sparkles size={19} color="var(--orange-500)" />
+                      Product Details Extracted
+                      <span className="field-pill field-pill-confident">
+                        {ocrData.ocrEngine === "hybrid-invoice-link"
+                          ? "⚡ Hybrid: Invoice OCR + Web Link"
+                          : isWebLink
+                          ? "🔗 Web Link Catalog"
+                          : ocrData.ocrEngine === "google-cloud-vision"
+                          ? "Google Cloud Vision"
+                          : "OCR Engine"}
                       </span>
-                      <small style={{ color: "var(--text-muted)", fontSize: "12px" }}>
-                        {revAsin ? `Catalog image for ASIN ${revAsin}` : "Official product photo fetched from link"}
-                      </small>
-                    </div>
+                    </h2>
+                    <p>
+                      {isWebLink
+                        ? "Review the verified catalog information retrieved from the product page. Purchase records are not on public listings and remain unpopulated unless added manually or from an invoice."
+                        : "Review the extracted purchase and product details below before confirming. You can adjust any field directly."}
+                    </p>
                   </div>
-                )}
-
-                {/* Duplicate Warning Banner */}
-                {ocrData.duplicates && ocrData.duplicates.length > 0 && (
-                  <div className="ocr-banner-duplicate" role="alert">
-                    <AlertTriangle size={18} className="flex-shrink-0" />
-                    <div>
-                      <strong>Possible duplicate product or document detected</strong>
-                      <p>{ocrData.duplicates[0].message} You can still confirm and save if this is an intentional addition.</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Extraction Warnings */}
-                {ocrData.warnings && ocrData.warnings.length > 0 && (
-                  <div className="ocr-banner-warning" role="alert">
-                    <Info size={16} className="flex-shrink-0" />
-                    <div>
-                      <strong>Extraction notes:</strong>
-                      <ul style={{ margin: "4px 0 0 16px", padding: 0 }}>
-                        {ocrData.warnings.map((w, i) => (
-                          <li key={i}>{w}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                )}
-
-                {/* Status Legend */}
-                <div className="ocr-status-legend">
-                  <span style={{ fontWeight: 600 }}>Field confidence:</span>
-                  <span className="field-pill field-pill-confident">✓ Confidently extracted</span>
-                  <span className="field-pill field-pill-review">⚠️ Needs review</span>
-                  <span className="field-pill field-pill-notfound">○ Not found in document</span>
+                  <button
+                    type="button"
+                    className="card-action-btn"
+                    onClick={handleCancelReview}
+                    aria-label="Close review"
+                  >
+                    <X size={18} />
+                  </button>
                 </div>
 
-                {/* Attached Original Document Card */}
-                {invoiceFile && (
-                  <div className="ocr-attached-file-info">
-                    <div className="ocr-attached-file-left">
-                      <FileCheck size={20} color="var(--green-600)" />
-                      <div>
-                        <span>{invoiceFile.name}</span>
-                        <small style={{ display: "block", color: "var(--text-muted)", fontSize: "11.5px" }}>
-                          {(invoiceFile.size / 1024).toFixed(1)} KB · {invoiceFile.type || "Document"}
+                <div className="ocr-review-body">
+                  {/* Product Photograph Preview or Missing Notice */}
+                  {revImageUrl ? (
+                    <div className="ocr-product-photo-preview">
+                      <img
+                        src={revImageUrl}
+                        alt={revName}
+                        className="ocr-preview-img"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLElement).style.display = "none";
+                        }}
+                      />
+                      <div className="ocr-photo-caption">
+                        <span className="photo-verified-badge">
+                          <CheckCircle2 size={15} /> Product Photograph Attached
+                        </span>
+                        <small style={{ color: "var(--text-muted)", fontSize: "12px" }}>
+                          {revAsin ? `Catalog image for ASIN ${revAsin}` : "Official product photo fetched from listing"}
                         </small>
                       </div>
                     </div>
-                    <span className="ocr-attached-badge">
-                      <ShieldCheck size={16} /> Original document will be preserved in secure private storage
+                  ) : isWebLink ? (
+                    <div className="ocr-photo-missing-banner" role="status">
+                      <Info size={18} className="flex-shrink-0" />
+                      <div>
+                        <strong>Product image could not be retrieved</strong>
+                        <p style={{ margin: "2px 0 0", fontSize: "12px" }}>
+                          The marketplace did not expose a direct product photo, or access was restricted. You can enter an image URL directly into the field below, or continue saving the product passport without a photo.
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {/* Duplicate Warning Banner */}
+                  {ocrData.duplicates && ocrData.duplicates.length > 0 && (
+                    <div className="ocr-banner-duplicate" role="alert">
+                      <AlertTriangle size={18} className="flex-shrink-0" />
+                      <div>
+                        <strong>Possible duplicate product or document detected</strong>
+                        <p>{ocrData.duplicates[0].message} You can still confirm and save if this is an intentional addition.</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Extraction Warnings */}
+                  {ocrData.warnings && ocrData.warnings.length > 0 && (
+                    <div className="ocr-banner-warning" role="alert">
+                      <Info size={16} className="flex-shrink-0" />
+                      <div>
+                        <strong>Extraction notes:</strong>
+                        <ul style={{ margin: "4px 0 0 16px", padding: 0 }}>
+                          {ocrData.warnings.map((w, i) => (
+                            <li key={i}>{w}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Status Legend */}
+                  <div className="ocr-status-legend">
+                    <span style={{ fontWeight: 600 }}>{isWebLink ? "Field extraction:" : "Field confidence:"}</span>
+                    <span className="field-pill field-pill-confident">
+                      {isWebLink ? "✓ FOUND ON PRODUCT PAGE" : "✓ Confident"}
+                    </span>
+                    <span className="field-pill field-pill-review">
+                      {isWebLink ? "⚠️ NEEDS REVIEW" : "⚠️ Needs review"}
+                    </span>
+                    <span className="field-pill field-pill-notfound">
+                      {isWebLink ? "○ NOT FOUND" : "○ Not found in document"}
                     </span>
                   </div>
-                )}
 
-                {/* Extracted Fields Form */}
-                <div className="ocr-fields-grid">
-                  {/* Product Name */}
-                  <div className="ocr-field-card">
-                    <div className="ocr-field-header">
-                      <span className="ocr-field-label">Product Name *</span>
-                      {renderStatusBadge(ocrData.fieldStatus?.product_name)}
+                  {/* Attached Original Document Card */}
+                  {invoiceFile && (
+                    <div className="ocr-attached-file-info">
+                      <div className="ocr-attached-file-left">
+                        <FileCheck size={20} color="var(--green-600)" />
+                        <div>
+                          <span>{invoiceFile.name}</span>
+                          <small style={{ display: "block", color: "var(--text-muted)", fontSize: "11.5px" }}>
+                            {(invoiceFile.size / 1024).toFixed(1)} KB · {invoiceFile.type || "Document"}
+                          </small>
+                        </div>
+                      </div>
+                      <span className="ocr-attached-badge">
+                        <ShieldCheck size={16} /> Original document will be preserved in secure private storage
+                      </span>
                     </div>
-                    <input
-                      required
-                      className={`ocr-field-input ${ocrData.fieldStatus?.product_name === "needs_review" ? "has-review" : ""}`}
-                      value={revName}
-                      onChange={(e) => setRevName(e.target.value)}
-                      placeholder="e.g. Wireless Headphones"
-                    />
+                  )}
+
+                  {/* Extracted Fields Form */}
+                  <div className="ocr-fields-grid">
+                    {/* Product Name */}
+                    <div className="ocr-field-card">
+                      <div className="ocr-field-header">
+                        <span className="ocr-field-label">Product Name *</span>
+                        {renderStatusBadge(ocrData.fieldStatus?.product_name, isWebLink)}
+                      </div>
+                      <input
+                        required
+                        className={`ocr-field-input ${ocrData.fieldStatus?.product_name === "needs_review" ? "has-review" : ""}`}
+                        value={revName}
+                        onChange={(e) => setRevName(e.target.value)}
+                        placeholder="e.g. Wireless Headphones"
+                      />
+                    </div>
+
+                    {/* Brand */}
+                    <div className="ocr-field-card">
+                      <div className="ocr-field-header">
+                        <span className="ocr-field-label">Brand</span>
+                        {renderStatusBadge(ocrData.fieldStatus?.brand, isWebLink)}
+                      </div>
+                      <input
+                        className={`ocr-field-input ${ocrData.fieldStatus?.brand === "needs_review" ? "has-review" : ""}`}
+                        value={revBrand}
+                        onChange={(e) => setRevBrand(e.target.value)}
+                        placeholder="e.g. Soundcore"
+                      />
+                    </div>
+
+                    {/* Model */}
+                    <div className="ocr-field-card">
+                      <div className="ocr-field-header">
+                        <span className="ocr-field-label">Model</span>
+                        {renderStatusBadge(ocrData.fieldStatus?.model, isWebLink)}
+                      </div>
+                      <input
+                        className={`ocr-field-input ${ocrData.fieldStatus?.model === "needs_review" ? "has-review" : ""}`}
+                        value={revModel}
+                        onChange={(e) => setRevModel(e.target.value)}
+                        placeholder="e.g. Q20i"
+                      />
+                    </div>
+
+                    {/* Category */}
+                    <div className="ocr-field-card">
+                      <div className="ocr-field-header">
+                        <span className="ocr-field-label">Category</span>
+                        {renderStatusBadge(ocrData.fieldStatus?.category, isWebLink)}
+                      </div>
+                      <input
+                        className="ocr-field-input"
+                        value={revCategory}
+                        onChange={(e) => setRevCategory(e.target.value)}
+                        placeholder="e.g. Headphones, Audio, etc."
+                      />
+                    </div>
+
+                    {/* Seller */}
+                    <div className="ocr-field-card">
+                      <div className="ocr-field-header">
+                        <span className="ocr-field-label">Seller</span>
+                        {renderStatusBadge(ocrData.fieldStatus?.seller, isWebLink)}
+                      </div>
+                      <input
+                        className="ocr-field-input"
+                        value={revSeller}
+                        onChange={(e) => setRevSeller(e.target.value)}
+                        placeholder="Store or seller name"
+                      />
+                    </div>
+
+                    {/* Current Price / Price Paid */}
+                    <div className="ocr-field-card">
+                      <div className="ocr-field-header">
+                        <span className="ocr-field-label">{isWebLink ? "Current Listing Price (₹)" : "Price Paid (₹)"}</span>
+                        {renderStatusBadge(ocrData.fieldStatus?.price, isWebLink)}
+                      </div>
+                      <input
+                        type="number"
+                        min={0}
+                        className={`ocr-field-input ${ocrData.fieldStatus?.price === "needs_review" ? "has-review" : ""}`}
+                        value={revPrice}
+                        onChange={(e) => setRevPrice(e.target.value)}
+                        placeholder="e.g. 3999"
+                      />
+                    </div>
+
+                    {/* Warranty Duration */}
+                    <div className="ocr-field-card">
+                      <div className="ocr-field-header">
+                        <span className="ocr-field-label">Warranty Duration</span>
+                        {renderStatusBadge(ocrData.fieldStatus?.warranty_duration, isWebLink)}
+                      </div>
+                      <select
+                        className="ocr-field-input"
+                        value={revWarrantyMonths}
+                        onChange={(e) => {
+                          setRevWarrantyMonths(e.target.value);
+                          const m = parseInt(e.target.value, 10);
+                          if (!Number.isNaN(m) && revPurchaseDate) {
+                            setRevWarrantyEnd(calculateWarrantyEnd(revPurchaseDate, m));
+                          }
+                        }}
+                      >
+                        <option value="">Not specified / None</option>
+                        <option value="6">6 Months</option>
+                        <option value="12">1 Year (12 Months)</option>
+                        <option value="18">18 Months</option>
+                        <option value="24">2 Years (24 Months)</option>
+                        <option value="36">3 Years (36 Months)</option>
+                        <option value="0">No warranty / Expired</option>
+                      </select>
+                    </div>
+
+                    {/* Marketplace / Platform */}
+                    <div className="ocr-field-card">
+                      <div className="ocr-field-header">
+                        <span className="ocr-field-label">Marketplace / Platform</span>
+                        {renderStatusBadge(ocrData.fieldStatus?.source_marketplace, isWebLink)}
+                      </div>
+                      <input
+                        className="ocr-field-input"
+                        value={revPlatform}
+                        onChange={(e) => setRevPlatform(e.target.value)}
+                        placeholder="Amazon, Flipkart, etc."
+                      />
+                    </div>
+
+                    {/* Product Web Link */}
+                    <div className="ocr-field-card">
+                      <div className="ocr-field-header">
+                        <span className="ocr-field-label">Product Web Link</span>
+                        {revSourceUrl ? (
+                          <span className="field-pill field-pill-confident">✓ Linked</span>
+                        ) : (
+                          <span className="field-pill field-pill-notfound">○ None</span>
+                        )}
+                      </div>
+                      <input
+                        className="ocr-field-input"
+                        value={revSourceUrl}
+                        onChange={(e) => setRevSourceUrl(e.target.value)}
+                        placeholder="https://amazon.in/dp/... or store URL"
+                      />
+                    </div>
+
+                    {/* Product Photo URL */}
+                    <div className="ocr-field-card">
+                      <div className="ocr-field-header">
+                        <span className="ocr-field-label">Product Photo URL</span>
+                        {revImageUrl ? (
+                          <span className="field-pill field-pill-confident">✓ Image</span>
+                        ) : (
+                          <span className="field-pill field-pill-notfound">○ None</span>
+                        )}
+                      </div>
+                      <input
+                        className="ocr-field-input"
+                        value={revImageUrl}
+                        onChange={(e) => setRevImageUrl(e.target.value)}
+                        placeholder="https://... image link"
+                      />
+                    </div>
+
+                    {/* If NOT link-only (i.e. Invoice provided), show invoice fields */}
+                    {!isWebLink && (
+                      <>
+                        {/* Serial Number */}
+                        <div className="ocr-field-card">
+                          <div className="ocr-field-header">
+                            <span className="ocr-field-label">Serial Number</span>
+                            {renderStatusBadge(ocrData.fieldStatus?.serial_number)}
+                          </div>
+                          <input
+                            className={`ocr-field-input ${ocrData.fieldStatus?.serial_number === "not_found" ? "is-empty" : ""}`}
+                            value={revSerial}
+                            onChange={(e) => setRevSerial(e.target.value)}
+                            placeholder="Optional or from label"
+                          />
+                        </div>
+
+                        {/* Purchase Date */}
+                        <div className="ocr-field-card">
+                          <div className="ocr-field-header">
+                            <span className="ocr-field-label">Purchase Date</span>
+                            {renderStatusBadge(ocrData.fieldStatus?.purchase_date)}
+                          </div>
+                          <input
+                            type="date"
+                            className={`ocr-field-input ${ocrData.fieldStatus?.purchase_date === "needs_review" ? "has-review" : ""}`}
+                            value={revPurchaseDate}
+                            onChange={(e) => {
+                              setRevPurchaseDate(e.target.value);
+                              const m = parseInt(revWarrantyMonths, 10);
+                              if (!Number.isNaN(m) && e.target.value) {
+                                setRevWarrantyEnd(calculateWarrantyEnd(e.target.value, m));
+                              }
+                            }}
+                          />
+                        </div>
+
+                        {/* Warranty End Date */}
+                        <div className="ocr-field-card">
+                          <div className="ocr-field-header">
+                            <span className="ocr-field-label">Warranty Expiry</span>
+                            {renderStatusBadge(ocrData.fieldStatus?.warranty_end_date)}
+                          </div>
+                          <input
+                            type="date"
+                            className="ocr-field-input"
+                            value={revWarrantyEnd}
+                            onChange={(e) => setRevWarrantyEnd(e.target.value)}
+                          />
+                        </div>
+
+                        {/* Invoice # */}
+                        <div className="ocr-field-card">
+                          <div className="ocr-field-header">
+                            <span className="ocr-field-label">Invoice Number</span>
+                            {renderStatusBadge(ocrData.fieldStatus?.invoice_number)}
+                          </div>
+                          <input
+                            className="ocr-field-input"
+                            value={revInvoiceNumber}
+                            onChange={(e) => setRevInvoiceNumber(e.target.value)}
+                            placeholder="e.g. TEST-INV-2026-10427"
+                          />
+                        </div>
+
+                        {/* Order ID */}
+                        <div className="ocr-field-card">
+                          <div className="ocr-field-header">
+                            <span className="ocr-field-label">Order ID</span>
+                            {renderStatusBadge(ocrData.fieldStatus?.order_id)}
+                          </div>
+                          <input
+                            className="ocr-field-input"
+                            value={revOrderId}
+                            onChange={(e) => setRevOrderId(e.target.value)}
+                            placeholder="e.g. TEST-404-1234567"
+                          />
+                        </div>
+
+                        {/* Buyer / Owner */}
+                        <div className="ocr-field-card">
+                          <div className="ocr-field-header">
+                            <span className="ocr-field-label">Buyer / Owner</span>
+                            {renderStatusBadge(ocrData.fieldStatus?.owner_name)}
+                          </div>
+                          <input
+                            className="ocr-field-input"
+                            value={revOwnerName}
+                            onChange={(e) => setRevOwnerName(e.target.value)}
+                            placeholder="Buyer name"
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
 
-                  {/* Brand */}
-                  <div className="ocr-field-card">
-                    <div className="ocr-field-header">
-                      <span className="ocr-field-label">Brand</span>
-                      {renderStatusBadge(ocrData.fieldStatus?.brand)}
-                    </div>
-                    <input
-                      className={`ocr-field-input ${ocrData.fieldStatus?.brand === "needs_review" ? "has-review" : ""}`}
-                      value={revBrand}
-                      onChange={(e) => setRevBrand(e.target.value)}
-                      placeholder="e.g. DemoSound"
-                    />
-                  </div>
+                  {/* If Web Link extraction: Distinct section for unavailable purchase/invoice fields */}
+                  {isWebLink && (
+                    <div className="ocr-link-unextracted-section">
+                      <div className="ocr-link-unextracted-header">
+                        <Info size={16} color="var(--orange-500)" />
+                        <span>Fields not available from this product link:</span>
+                      </div>
+                      <p className="ocr-link-unextracted-note">
+                        Product-page catalog information and personal purchase/invoice records are separate sources. Public listings do not contain your personal order or receipt details. You can enter these manually below or upload an invoice anytime:
+                      </p>
+                      <div className="ocr-link-unextracted-grid">
+                        <div className="ocr-unextracted-row">
+                          <span>Purchase Date</span>
+                          <span className="unextracted-tag">○ Not available</span>
+                        </div>
+                        <div className="ocr-unextracted-row">
+                          <span>Order ID</span>
+                          <span className="unextracted-tag">○ Not available</span>
+                        </div>
+                        <div className="ocr-unextracted-row">
+                          <span>Invoice Number</span>
+                          <span className="unextracted-tag">○ Not available</span>
+                        </div>
+                        <div className="ocr-unextracted-row">
+                          <span>Serial Number</span>
+                          <span className="unextracted-tag">○ Not available</span>
+                        </div>
+                        <div className="ocr-unextracted-row">
+                          <span>Purchase Price Paid</span>
+                          <span className="unextracted-tag">○ Not available</span>
+                        </div>
+                      </div>
 
-                  {/* Model */}
-                  <div className="ocr-field-card">
-                    <div className="ocr-field-header">
-                      <span className="ocr-field-label">Model</span>
-                      {renderStatusBadge(ocrData.fieldStatus?.model)}
+                      <details className="ocr-debug-section" style={{ marginTop: 8 }}>
+                        <summary className="ocr-debug-summary">
+                          + Optional: Add personal purchase details now (Invoice #, Order ID, Date, Serial #)
+                        </summary>
+                        <div className="ocr-fields-grid" style={{ marginTop: 12 }}>
+                          <div className="ocr-field-card">
+                            <span className="ocr-field-label">Purchase Date (Optional)</span>
+                            <input
+                              type="date"
+                              className="ocr-field-input"
+                              value={revPurchaseDate}
+                              onChange={(e) => {
+                                setRevPurchaseDate(e.target.value);
+                                const m = parseInt(revWarrantyMonths, 10);
+                                if (!Number.isNaN(m) && e.target.value) {
+                                  setRevWarrantyEnd(calculateWarrantyEnd(e.target.value, m));
+                                }
+                              }}
+                            />
+                          </div>
+                          <div className="ocr-field-card">
+                            <span className="ocr-field-label">Order ID (Optional)</span>
+                            <input
+                              className="ocr-field-input"
+                              value={revOrderId}
+                              onChange={(e) => setRevOrderId(e.target.value)}
+                              placeholder="e.g. 404-1234567"
+                            />
+                          </div>
+                          <div className="ocr-field-card">
+                            <span className="ocr-field-label">Invoice Number (Optional)</span>
+                            <input
+                              className="ocr-field-input"
+                              value={revInvoiceNumber}
+                              onChange={(e) => setRevInvoiceNumber(e.target.value)}
+                              placeholder="e.g. INV-12345"
+                            />
+                          </div>
+                          <div className="ocr-field-card">
+                            <span className="ocr-field-label">Serial Number (Optional)</span>
+                            <input
+                              className="ocr-field-input"
+                              value={revSerial}
+                              onChange={(e) => setRevSerial(e.target.value)}
+                              placeholder="e.g. SN-98765"
+                            />
+                          </div>
+                        </div>
+                      </details>
                     </div>
-                    <input
-                      className={`ocr-field-input ${ocrData.fieldStatus?.model === "needs_review" ? "has-review" : ""}`}
-                      value={revModel}
-                      onChange={(e) => setRevModel(e.target.value)}
-                      placeholder="e.g. TEST-Q20"
-                    />
-                  </div>
+                  )}
 
-                  {/* Category */}
-                  <div className="ocr-field-card">
-                    <div className="ocr-field-header">
-                      <span className="ocr-field-label">Category</span>
-                      {renderStatusBadge(ocrData.fieldStatus?.category)}
+                  {/* Debug Accordion */}
+                  <details className="ocr-debug-section" open={showDebugOcr} onToggle={(e) => setShowDebugOcr(e.currentTarget.open)}>
+                    <summary className="ocr-debug-summary">
+                      ⚙️ Inspect OCR Extraction Details &amp; Raw Text (Debug)
+                    </summary>
+                    <div className="ocr-debug-content">
+                      <strong>Engine:</strong> {ocrData.ocrEngine}<br />
+                      <strong>Raw Text:</strong><br />
+                      {ocrData.rawText || "(No raw text extracted)"}
                     </div>
-                    <input
-                      className="ocr-field-input"
-                      value={revCategory}
-                      onChange={(e) => setRevCategory(e.target.value)}
-                      placeholder="Electronics, Appliances…"
-                    />
-                  </div>
-
-                  {/* Serial Number */}
-                  <div className="ocr-field-card">
-                    <div className="ocr-field-header">
-                      <span className="ocr-field-label">Serial Number</span>
-                      {renderStatusBadge(ocrData.fieldStatus?.serial_number)}
-                    </div>
-                    <input
-                      className={`ocr-field-input ${ocrData.fieldStatus?.serial_number === "not_found" ? "is-empty" : ""}`}
-                      value={revSerial}
-                      onChange={(e) => setRevSerial(e.target.value)}
-                      placeholder="Optional or from label"
-                    />
-                  </div>
-
-                  {/* Price Paid */}
-                  <div className="ocr-field-card">
-                    <div className="ocr-field-header">
-                      <span className="ocr-field-label">Price Paid (₹)</span>
-                      {renderStatusBadge(ocrData.fieldStatus?.price)}
-                    </div>
-                    <input
-                      type="number"
-                      min={0}
-                      className={`ocr-field-input ${ocrData.fieldStatus?.price === "needs_review" ? "has-review" : ""}`}
-                      value={revPrice}
-                      onChange={(e) => setRevPrice(e.target.value)}
-                      placeholder="e.g. 2499"
-                    />
-                  </div>
-
-                  {/* Purchase Date */}
-                  <div className="ocr-field-card">
-                    <div className="ocr-field-header">
-                      <span className="ocr-field-label">Purchase Date</span>
-                      {renderStatusBadge(ocrData.fieldStatus?.purchase_date)}
-                    </div>
-                    <input
-                      type="date"
-                      className={`ocr-field-input ${ocrData.fieldStatus?.purchase_date === "needs_review" ? "has-review" : ""}`}
-                      value={revPurchaseDate}
-                      onChange={(e) => {
-                        setRevPurchaseDate(e.target.value);
-                        const m = parseInt(revWarrantyMonths, 10);
-                        if (!Number.isNaN(m) && e.target.value) {
-                          setRevWarrantyEnd(calculateWarrantyEnd(e.target.value, m));
-                        }
-                      }}
-                    />
-                  </div>
-
-                  {/* Warranty Duration */}
-                  <div className="ocr-field-card">
-                    <div className="ocr-field-header">
-                      <span className="ocr-field-label">Warranty Duration</span>
-                      {renderStatusBadge(ocrData.fieldStatus?.warranty_duration)}
-                    </div>
-                    <select
-                      className="ocr-field-input"
-                      value={revWarrantyMonths}
-                      onChange={(e) => {
-                        setRevWarrantyMonths(e.target.value);
-                        const m = parseInt(e.target.value, 10);
-                        if (!Number.isNaN(m) && revPurchaseDate) {
-                          setRevWarrantyEnd(calculateWarrantyEnd(revPurchaseDate, m));
-                        }
-                      }}
-                    >
-                      <option value="6">6 Months</option>
-                      <option value="12">1 Year (12 Months)</option>
-                      <option value="18">18 Months</option>
-                      <option value="24">2 Years (24 Months)</option>
-                      <option value="36">3 Years (36 Months)</option>
-                      <option value="0">No warranty / Expired</option>
-                    </select>
-                  </div>
-
-                  {/* Warranty End Date */}
-                  <div className="ocr-field-card">
-                    <div className="ocr-field-header">
-                      <span className="ocr-field-label">Warranty Expiry</span>
-                      {renderStatusBadge(ocrData.fieldStatus?.warranty_end_date)}
-                    </div>
-                    <input
-                      type="date"
-                      className="ocr-field-input"
-                      value={revWarrantyEnd}
-                      onChange={(e) => setRevWarrantyEnd(e.target.value)}
-                    />
-                  </div>
-
-                  {/* Invoice # */}
-                  <div className="ocr-field-card">
-                    <div className="ocr-field-header">
-                      <span className="ocr-field-label">Invoice Number</span>
-                      {renderStatusBadge(ocrData.fieldStatus?.invoice_number)}
-                    </div>
-                    <input
-                      className="ocr-field-input"
-                      value={revInvoiceNumber}
-                      onChange={(e) => setRevInvoiceNumber(e.target.value)}
-                      placeholder="e.g. TEST-INV-2026-10427"
-                    />
-                  </div>
-
-                  {/* Order ID */}
-                  <div className="ocr-field-card">
-                    <div className="ocr-field-header">
-                      <span className="ocr-field-label">Order ID</span>
-                      {renderStatusBadge(ocrData.fieldStatus?.order_id)}
-                    </div>
-                    <input
-                      className="ocr-field-input"
-                      value={revOrderId}
-                      onChange={(e) => setRevOrderId(e.target.value)}
-                      placeholder="e.g. TEST-404-1234567"
-                    />
-                  </div>
-
-                  {/* Seller */}
-                  <div className="ocr-field-card">
-                    <div className="ocr-field-header">
-                      <span className="ocr-field-label">Seller</span>
-                      {renderStatusBadge(ocrData.fieldStatus?.seller)}
-                    </div>
-                    <input
-                      className="ocr-field-input"
-                      value={revSeller}
-                      onChange={(e) => setRevSeller(e.target.value)}
-                      placeholder="Store or seller name"
-                    />
-                  </div>
-
-                  {/* Buyer / Owner */}
-                  <div className="ocr-field-card">
-                    <div className="ocr-field-header">
-                      <span className="ocr-field-label">Buyer / Owner</span>
-                      {renderStatusBadge(ocrData.fieldStatus?.owner_name)}
-                    </div>
-                    <input
-                      className="ocr-field-input"
-                      value={revOwnerName}
-                      onChange={(e) => setRevOwnerName(e.target.value)}
-                      placeholder="Buyer name"
-                    />
-                  </div>
-
-                  {/* Marketplace / Platform */}
-                  <div className="ocr-field-card">
-                    <div className="ocr-field-header">
-                      <span className="ocr-field-label">Marketplace / Platform</span>
-                      {renderStatusBadge(ocrData.fieldStatus?.source_marketplace)}
-                    </div>
-                    <input
-                      className="ocr-field-input"
-                      value={revPlatform}
-                      onChange={(e) => setRevPlatform(e.target.value)}
-                      placeholder="Amazon, Flipkart, etc."
-                    />
-                  </div>
-
-                  {/* Product Web Link */}
-                  <div className="ocr-field-card">
-                    <div className="ocr-field-header">
-                      <span className="ocr-field-label">Product Web Link</span>
-                      {revSourceUrl ? (
-                        <span className="field-pill field-pill-confident">✓ Linked</span>
-                      ) : (
-                        <span className="field-pill field-pill-notfound">○ None</span>
-                      )}
-                    </div>
-                    <input
-                      className="ocr-field-input"
-                      value={revSourceUrl}
-                      onChange={(e) => setRevSourceUrl(e.target.value)}
-                      placeholder="https://amazon.in/dp/... or store URL"
-                    />
-                  </div>
-
-                  {/* Product Photo URL */}
-                  <div className="ocr-field-card">
-                    <div className="ocr-field-header">
-                      <span className="ocr-field-label">Product Photo URL</span>
-                      {revImageUrl ? (
-                        <span className="field-pill field-pill-confident">✓ Image</span>
-                      ) : (
-                        <span className="field-pill field-pill-notfound">○ None</span>
-                      )}
-                    </div>
-                    <input
-                      className="ocr-field-input"
-                      value={revImageUrl}
-                      onChange={(e) => setRevImageUrl(e.target.value)}
-                      placeholder="https://... image link"
-                    />
-                  </div>
+                  </details>
                 </div>
 
-                {/* Debug Accordion */}
-                <details className="ocr-debug-section" open={showDebugOcr} onToggle={(e) => setShowDebugOcr(e.currentTarget.open)}>
-                  <summary className="ocr-debug-summary">
-                    ⚙️ Inspect OCR Extraction Details &amp; Raw Text (Debug)
-                  </summary>
-                  <div className="ocr-debug-content">
-                    <strong>Engine:</strong> {ocrData.ocrEngine}<br />
-                    <strong>Raw Text:</strong><br />
-                    {ocrData.rawText || "(No raw text extracted)"}
-                  </div>
-                </details>
-              </div>
-
-              <div className="ocr-review-foot">
-                <button
-                  type="button"
-                  className="button button-subtle"
-                  onClick={handleSwitchToManual}
-                >
-                  <Edit3 size={15} /> Enter details manually
-                </button>
-
-                <div className="ocr-review-actions-right">
+                <div className="ocr-review-foot">
                   <button
                     type="button"
                     className="button button-subtle"
-                    onClick={handleCancelReview}
+                    onClick={handleSwitchToManual}
                   >
-                    Cancel
+                    <Edit3 size={15} /> Enter details manually
                   </button>
-                  <button
-                    type="button"
-                    disabled={busy || !revName.trim()}
-                    className="button button-primary"
-                    onClick={() => void handleConfirmReview()}
-                  >
-                    <CheckCircle2 size={16} /> Confirm &amp; Save
-                  </button>
+
+                  <div className="ocr-review-actions-right">
+                    <button
+                      type="button"
+                      className="button button-subtle"
+                      onClick={handleCancelReview}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy || !revName.trim()}
+                      className="button button-primary"
+                      onClick={() => void handleConfirmReview()}
+                    >
+                      <CheckCircle2 size={16} /> Confirm &amp; Save
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
 
 
