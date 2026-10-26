@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, type FormEvent, type ChangeEvent } from "react";
+import { TechHeading } from "../TechText";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -461,9 +462,14 @@ export function AddProduct({ busy, onAdd, onCancel, onSuccess }: AddProductProps
         <div className="add-product-eyebrow">
           <span className="eyebrow-line" /> NEW PRODUCT PASSPORT
         </div>
-        <h1 className="add-product-heading" aria-label="Add Product">
-          Add a product.
-        </h1>
+        <TechHeading
+          variant="page"
+          as="h1"
+          text="Add Product"
+          fontSize={38}
+          height={54}
+          className="add-product-heading"
+        />
         <p className="add-product-subtitle">
           Start with an invoice, a product link, or enter the details yourself.
         </p>

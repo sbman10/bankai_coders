@@ -29,7 +29,7 @@ import { ProductCenter } from "./ProductCenter";
 import { ClaimsList, type SavedClaim } from "./ClaimsList";
 import { AssistantChat } from "./AssistantChat";
 import { ClaimForgeLogoMark } from "./ProductVisuals";
-import TechText from "../TechText/TechText";
+import { TechHeading } from "../TechText";
 import { sampleClaim, type ClaimIntakePayload, type ClaimSubmission } from "./types";
 
 type View =
@@ -215,38 +215,16 @@ export function ClaimForgeWorkspace() {
             suppressHydrationWarning
           >
             <ClaimForgeLogoMark className="navbar-logo-cube" />
-            <span className="sr-only" suppressHydrationWarning>ProductVault</span>
-            <span className="navbar-brand-text navbar-brand-static-fallback" aria-hidden="true" suppressHydrationWarning>
-              Product<span className="brand-orange">Vault</span>
-            </span>
-            <div className="navbar-brand-techttext-wrap" aria-hidden="true" suppressHydrationWarning>
-              <TechText
-                text="ProductVault"
-                fontSize={35}
-                fontWeight={700}
-                letterSpacing={-0.025}
-                color="#292522"
-                accentColor="#EA580C"
-                align="left"
-                reveal="letter"
-                intro="none"
-                reach={85}
-                softness={0.65}
-                dashLength={3}
-                dashGap={2}
-                strokeWidth={1.8}
-                selection={true}
-                labels={false}
-                guides={false}
-                specks={3}
-                draggable={false}
-                clickKick={false}
-                bounce={0.12}
-                sweep={false}
-                speed={1}
-                charColor={(_char, i) => (i < 7 ? "#292522" : "#EA580C")}
-              />
-            </div>
+            <TechHeading
+              variant="brand"
+              text="ProductVault"
+              fontSize={35}
+              height={52}
+              width={240}
+              accentColor="#EA580C"
+              strokeWidth={1.8}
+              charColor={(_char: string, i: number) => (i < 7 ? "#292522" : "#EA580C")}
+            />
           </a>
         </div>
 

@@ -7367,12 +7367,6 @@ body.dark .citation {
 
 /* 7. Reduced-Motion Preferences */
 @media (prefers-reduced-motion: reduce) {
-  .navbar-brand-techttext-wrap {
-    display: none !important;
-  }
-  .navbar-brand-static-fallback {
-    display: inline-block !important;
-  }
   .library-card-ref,
   .library-card-img,
   .category-filter-pill,

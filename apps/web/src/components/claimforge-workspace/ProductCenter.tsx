@@ -38,7 +38,7 @@ import {
   SunscreenThumb,
   WatchThumb,
 } from "./ProductVisuals";
-import TechText from "../TechText";
+import { TechHeading } from "../TechText";
 import { AddProduct, type ProductPayload } from "./AddProduct";
 
 export type Product = {
@@ -540,43 +540,28 @@ export function ProductCenter({
         <div className="product-page-title-block">
           <div className="eyebrow"><span className="eyebrow-line" /> {heading[0]}</div>
           {activeView === "products" ? (
-            <h1 className="techttext-heading-title">
-              <span className="sr-only">Your Products</span>
-              <span className="techttext-reduced-motion-fallback" aria-hidden="true">
-                Your Products
-              </span>
-              <div className="techttext-heading-wrapper" aria-hidden="true">
-                <TechText
-                  text="Your Products"
-                  fontSize={72}
-                  fontWeight={700}
-                  letterSpacing={-0.035}
-                  color="#292522"
-                  accentColor="#C96A32"
-                  align="left"
-                  reveal="letter"
-                  intro="metrics"
-                  introDuration={1.5}
-                  reach={145}
-                  softness={0.72}
-                  dashLength={4}
-                  dashGap={3}
-                  strokeWidth={1.3}
-                  lineStyle="dashed"
-                  selection={true}
-                  labels={false}
-                  guides={false}
-                  specks={4}
-                  draggable={false}
-                  clickKick={false}
-                  bounce={0.15}
-                  sweep={false}
-                  speed={1}
-                />
-              </div>
-            </h1>
+            <TechHeading
+              variant="page"
+              as="h1"
+              text="Your Products"
+              fontSize={44}
+              height={62}
+              accentColor="#EA580C"
+              strokeWidth={2.0}
+              specks={8}
+              className="techttext-heading-title"
+            />
           ) : (
-            <h1>{heading[1]}</h1>
+            <TechHeading
+              variant="page"
+              as="h1"
+              text={heading[1]}
+              fontSize={40}
+              height={58}
+              accentColor="#EA580C"
+              strokeWidth={2.0}
+              specks={6}
+            />
           )}
           <p className="product-page-subtitle">
             {heading[2]}

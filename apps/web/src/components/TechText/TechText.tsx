@@ -263,10 +263,10 @@ const TechText = ({
       setFont(c, s, view.size);
       if (stroke) {
         c.lineJoin = 'round';
-        c.lineWidth = s.strokeWidth * 2;
+        c.lineWidth = Math.max(2.4, s.strokeWidth * 2);
         c.lineCap = 'butt';
         c.strokeStyle = ink;
-        if (s.lineStyle !== 'solid') c.setLineDash([Math.max(1, s.dashLength), Math.max(1, s.dashGap)]);
+        if (s.lineStyle !== 'solid') c.setLineDash([Math.max(3, s.dashLength), Math.max(2, s.dashGap)]);
         c.strokeText(glyph.char, glyph.x, view.baseline);
         c.setLineDash([]);
         c.globalCompositeOperation = 'destination-out';
@@ -309,34 +309,44 @@ const TechText = ({
       const probe = scratchCtx;
       setFont(probe, s, s.fontSize);
       let m = probe.measureText(s.text);
+      const mLeft = m.actualBoundingBoxLeft ?? 0;
+      const mRight = m.actualBoundingBoxRight ?? m.width ?? 100;
+      const mAscent = m.actualBoundingBoxAscent ?? s.fontSize * 0.8;
+      const mDescent = m.actualBoundingBoxDescent ?? s.fontSize * 0.2;
+      const inkWidth0 = mLeft + mRight;
+      const inkHeight0 = mAscent + mDescent;
       const fit = Math.min(
         1,
-        Math.max(0.1, (width - 16) / Math.max(m.actualBoundingBoxLeft + m.actualBoundingBoxRight, 1)),
-        Math.max(0.1, (height * 0.78) / Math.max(m.actualBoundingBoxAscent + m.actualBoundingBoxDescent, 1))
+        Math.max(0.1, (width - 16) / Math.max(inkWidth0, 1)),
+        Math.max(0.1, (height * 0.78) / Math.max(inkHeight0, 1))
       );
       const size = s.fontSize * fit;
       setFont(probe, s, size);
       m = probe.measureText(s.text);
-      const inkWidth = m.actualBoundingBoxLeft + m.actualBoundingBoxRight;
-      const inkHeight = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
+      const left1 = m.actualBoundingBoxLeft ?? 0;
+      const right1 = m.actualBoundingBoxRight ?? m.width ?? (size * s.text.length * 0.6);
+      const ascent1 = m.actualBoundingBoxAscent ?? size * 0.8;
+      const descent1 = m.actualBoundingBoxDescent ?? size * 0.2;
+      const inkWidth = left1 + right1;
+      const inkHeight = ascent1 + descent1;
       const margin = s.align === 'left' ? 8 : s.align === 'right' ? width - 8 - inkWidth : (width - inkWidth) / 2;
       const start =
         s.align === 'left' ? margin : s.align === 'right' ? width - margin - inkWidth : (width - inkWidth) / 2;
-      const x = start + m.actualBoundingBoxLeft;
-      const baseline = (height - inkHeight) / 2 + m.actualBoundingBoxAscent;
-      const xHeight = baseline - probe.measureText('x').actualBoundingBoxAscent;
-      const capHeight = baseline - probe.measureText('H').actualBoundingBoxAscent;
-      const ascender = baseline - probe.measureText('d').actualBoundingBoxAscent;
-      const descender = baseline + probe.measureText('p').actualBoundingBoxDescent;
-      const top = baseline - m.actualBoundingBoxAscent;
-      const bottom = baseline + m.actualBoundingBoxDescent;
+      const x = start + left1;
+      const baseline = (height - inkHeight) / 2 + ascent1;
+      const xHeight = baseline - (probe.measureText('x').actualBoundingBoxAscent ?? size * 0.5);
+      const capHeight = baseline - (probe.measureText('H').actualBoundingBoxAscent ?? size * 0.7);
+      const ascender = baseline - (probe.measureText('d').actualBoundingBoxAscent ?? size * 0.75);
+      const descender = baseline + (probe.measureText('p').actualBoundingBoxDescent ?? size * 0.2);
+      const top = baseline - ascent1;
+      const bottom = baseline + descent1;
       const inkTop = Math.min(top, capHeight) - 2;
       const inkBottom = Math.max(bottom, baseline) + 2;
       const next: Word = {
         size,
         baseline,
-        left: x - m.actualBoundingBoxLeft,
-        right: x + m.actualBoundingBoxRight,
+        left: x - left1,
+        right: x + right1,
         top,
         bottom,
         lines: [
@@ -362,16 +372,20 @@ const TechText = ({
       chars.forEach((char, i) => {
         prefix += char;
         const own = probe.measureText(char);
+        const ownLeft = own.actualBoundingBoxLeft ?? 0;
+        const ownRight = own.actualBoundingBoxRight ?? own.width;
+        const ownAscent = own.actualBoundingBoxAscent ?? size * 0.8;
+        const ownDescent = own.actualBoundingBoxDescent ?? size * 0.2;
         const gx = x + probe.measureText(prefix).width - own.width;
         if (!char.trim()) return;
         const base = {
           char,
           x: gx,
           box: {
-            x1: gx - own.actualBoundingBoxLeft,
-            y1: baseline - own.actualBoundingBoxAscent,
-            x2: gx + own.actualBoundingBoxRight,
-            y2: baseline + own.actualBoundingBoxDescent
+            x1: gx - ownLeft,
+            y1: baseline - ownAscent,
+            x2: gx + ownRight,
+            y2: baseline + ownDescent
           }
         };
         const kept = previous[glyphs.length];
@@ -396,7 +410,8 @@ const TechText = ({
     };
 
     const glyphAt = (x: number, y: number) => {
-      if (!word || y < word.top - 24 || y > word.bottom + 24) return -1;
+      const padY = Math.max(20, (word ? word.bottom - word.top : 30) * 0.8);
+      if (!word || y < word.top - padY || y > word.bottom + padY) return -1;
       let best = -1;
       let bestDistance = Infinity;
       glyphs.forEach((glyph, i) => {
@@ -807,7 +822,7 @@ const TechText = ({
         targetX = view.left + (view.right - view.left) * (0.5 - 0.5 * Math.cos(clock * 0.45));
         targetY = view.top + (view.bottom - view.top) * (0.45 + 0.1 * Math.sin(clock * 0.8));
       }
-      const active = !introducing && !reducedMotion && (pointer.inside || sweeping || dragging >= 0);
+      const active = !introducing && (pointer.inside || sweeping || dragging >= 0);
       if (active && !placed) {
         lens.x = targetX;
         lens.y = targetY;
@@ -869,10 +884,10 @@ const TechText = ({
       const focus = introducing ? typing : dragging >= 0 ? dragging : active ? glyphAt(lens.x, lens.y) : -1;
       if (focus >= 0 && s.selection) {
         const glyph = glyphs[focus];
-        const bx1 = glyph.box.x1 + glyph.offset.x - 6;
-        const by1 = glyph.box.y1 + glyph.offset.y - 6;
-        const bx2 = glyph.box.x2 + glyph.offset.x + 6;
-        const by2 = glyph.box.y2 + glyph.offset.y + 6;
+        const bx1 = Math.max(1, glyph.box.x1 + glyph.offset.x - 6);
+        const by1 = Math.max(1, glyph.box.y1 + glyph.offset.y - 6);
+        const bx2 = Math.min(width - 1, glyph.box.x2 + glyph.offset.x + 6);
+        const by2 = Math.min(height - 1, glyph.box.y2 + glyph.offset.y + 6);
         if (frame.index < 0 || frame.alpha < 0.02) {
           frame.x1 = bx1;
           frame.y1 = by1;
