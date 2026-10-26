@@ -7,7 +7,13 @@ import { findPotentialDuplicates } from "@/lib/ocr/duplicate-detector";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/configured";
 import { prototypeStore } from "@/lib/store/prototype-store";
-import { resolveProductLink, type ProductLinkResolution } from "@/lib/ecommerce/link-resolver";
+import {
+  resolveProductLink,
+  type ProductLinkResolution,
+  InvalidMarketplaceUrlError,
+  MarketplaceAccessError,
+  PageRetrievalError,
+} from "@/lib/ecommerce/link-resolver";
 import type { ExtractedProductFields, InvoiceExtractionResponse, OcrEngine, OcrRawResult } from "@/lib/ocr/types";
 
 export const runtime = "nodejs";
@@ -85,43 +91,145 @@ function createExtractionFailureResponse(ocrResult: OcrRawResult): NextResponse 
   );
 }
 
+async function handleLinkResolution(productUrl: string): Promise<
+  | { success: true; linkData: ProductLinkResolution }
+  | { success: false; response: NextResponse }
+> {
+  try {
+    const linkData = await resolveProductLink(productUrl);
+    return { success: true, linkData };
+  } catch (err) {
+    if (err instanceof InvalidMarketplaceUrlError) {
+      return {
+        success: false,
+        response: NextResponse.json({ error: err.message }, { status: 400 }),
+      };
+    }
+    if (err instanceof MarketplaceAccessError || err instanceof PageRetrievalError) {
+      return {
+        success: false,
+        response: NextResponse.json({ error: err.message }, { status: 422 }),
+      };
+    }
+    return {
+      success: false,
+      response: NextResponse.json(
+        { error: err instanceof Error ? err.message : "Could not retrieve product link." },
+        { status: 422 }
+      ),
+    };
+  }
+}
+
 function buildResponsePayload(
   rawText: string,
   engine: OcrEngine,
   extracted: ExtractedProductFields,
   duplicates: ReturnType<typeof findPotentialDuplicates>,
   linkData?: ProductLinkResolution | null
-): InvoiceExtractionResponse & { invoice: Record<string, unknown> } {
-  // Merge link details if available
+): InvoiceExtractionResponse & { invoice: Record<string, unknown>; productData?: ProductLinkResolution | null } {
   const merged: ExtractedProductFields = { ...extracted };
 
   if (linkData) {
-    if (!merged.product_name || merged.product_name === "Purchased Product") {
-      merged.product_name = linkData.title || merged.product_name;
-    }
-    if (!merged.brand && linkData.brand) {
-      merged.brand = linkData.brand;
-    }
-    if (!merged.model && linkData.model) {
-      merged.model = linkData.model;
-    }
-    if ((!merged.category || merged.category === "Electronics") && linkData.category) {
-      merged.category = linkData.category;
-    }
-    if (!merged.source_marketplace && linkData.marketplace) {
+    if (engine === "hybrid-invoice-link") {
+      // Product Link takes priority for catalog identity & media
+      if (linkData.productName) {
+        merged.product_name = linkData.productName;
+      }
+      if (linkData.brand) {
+        merged.brand = linkData.brand;
+      }
+      if (linkData.model) {
+        merged.model = linkData.model;
+      }
+      if (linkData.category) {
+        merged.category = linkData.category;
+      }
+      if (linkData.primaryImage) {
+        merged.image_url = linkData.primaryImage;
+        merged.image_urls = linkData.additionalImages || [];
+      }
+      if (linkData.marketplace) {
+        merged.source_marketplace = linkData.marketplace;
+      }
+      merged.asin = linkData.asin || null;
+      merged.source_url = linkData.sourceUrl || linkData.url || null;
+
+      // Seller fallback from link if missing in invoice
+      if (!merged.seller && linkData.seller) {
+        merged.seller = linkData.seller;
+      }
+
+      // Warranty fallback from link if missing in invoice
+      if (!merged.warranty_duration && linkData.warrantyDuration) {
+        merged.warranty_duration = linkData.warrantyDuration;
+      }
+
+      // Note: Verified invoice facts take priority for purchase fields:
+      // purchase_date, price (purchase price paid), order_id, invoice_number, owner_name, buying_method
+    } else if (engine === "link-resolver") {
+      // Pure product-link extraction: only data from the product page!
+      merged.product_name = linkData.productName || null;
+      merged.brand = linkData.brand || null;
+      merged.model = linkData.model || null;
+      merged.category = linkData.category || null;
+      merged.seller = linkData.seller || null;
+      merged.price = linkData.currentPrice?.amount ?? null;
+      merged.currency = linkData.currentPrice?.currency ?? "INR";
+      merged.warranty_duration = linkData.warrantyDuration || null;
       merged.source_marketplace = linkData.marketplace;
+      merged.image_url = linkData.primaryImage || null;
+      merged.image_urls = linkData.additionalImages || [];
+      merged.asin = linkData.asin || null;
+      merged.source_url = linkData.sourceUrl || linkData.url || null;
+
+      // Purchase & invoice fields MUST remain null
+      merged.purchase_date = null;
+      merged.invoice_number = null;
+      merged.order_id = null;
+      merged.serial_number = null;
+      merged.owner_name = null;
+      merged.buying_method = null;
+      merged.quantity = null;
+      merged.warranty_start_date = null;
+      merged.warranty_end_date = null;
     }
-    if (!merged.seller && linkData.seller) {
-      merged.seller = linkData.seller;
-    }
-    merged.image_url = linkData.imageUrl || null;
-    merged.image_urls = linkData.imageUrls || [];
-    merged.asin = linkData.asin || null;
-    merged.source_url = linkData.sourceUrl || null;
   }
 
   const validation = validateExtractedFields(merged);
   const v = validation.validatedFields;
+
+  // When engine is link-resolver, explicitly ensure purchase facts are marked 'not_found'
+  if (engine === "link-resolver") {
+    validation.fieldStatus.purchase_date = "not_found";
+    validation.fieldStatus.invoice_number = "not_found";
+    validation.fieldStatus.order_id = "not_found";
+    validation.fieldStatus.serial_number = "not_found";
+    validation.fieldStatus.owner_name = "not_found";
+    validation.fieldStatus.buying_method = "not_found";
+    validation.fieldStatus.quantity = "not_found";
+    validation.fieldStatus.warranty_start_date = "not_found";
+    validation.fieldStatus.warranty_end_date = "not_found";
+
+    if (linkData) {
+      validation.fieldStatus.product_name =
+        linkData.extractionStatus.productName === "found" ? "confident" : "not_found";
+      validation.fieldStatus.brand =
+        linkData.extractionStatus.brand === "found" ? "confident" : "not_found";
+      validation.fieldStatus.model =
+        linkData.extractionStatus.model === "found" ? "confident" : "not_found";
+      validation.fieldStatus.category =
+        linkData.extractionStatus.category === "found" ? "confident" : "not_found";
+      validation.fieldStatus.seller =
+        linkData.extractionStatus.seller === "found" ? "confident" : "not_found";
+      validation.fieldStatus.price =
+        linkData.extractionStatus.currentPrice === "found" ? "confident" : "not_found";
+      validation.fieldStatus.warranty_duration =
+        linkData.extractionStatus.warrantyDuration === "found" ? "confident" : "not_found";
+      validation.fieldStatus.image_url =
+        linkData.extractionStatus.primaryImage === "found" ? "confident" : "not_found";
+    }
+  }
 
   // Confidence score calculation
   let score = 0.5;
@@ -130,14 +238,13 @@ function buildResponsePayload(
   if (v.price !== null) score += 0.1;
   if (v.purchase_date) score += 0.1;
   if (v.order_id || v.invoice_number) score += 0.1;
-  if (linkData?.imageUrl) score += 0.05;
+  if (linkData?.primaryImage || linkData?.imageUrl) score += 0.05;
 
-  // Format legacy invoice format for existing callers/UI
   const legacyInvoice = {
-    productName: v.product_name || "Purchased Product",
+    productName: v.product_name || "Product",
     brand: v.brand,
     model: v.model,
-    category: v.category || "Electronics",
+    category: v.category,
     ownerName: v.owner_name,
     buyingMethod: v.buying_method,
     purchasePlatform: v.source_marketplace,
@@ -151,7 +258,7 @@ function buildResponsePayload(
     warrantyEnd: validation.calculatedWarrantyEnd,
     rawText: rawText.slice(0, 4000),
     confidence: Math.min(score, 0.98),
-    imageUrl: linkData?.imageUrl || v.image_url || null,
+    imageUrl: linkData?.primaryImage || v.image_url || null,
     asin: linkData?.asin || v.asin || null,
     sourceUrl: linkData?.sourceUrl || v.source_url || null,
   };
@@ -159,6 +266,7 @@ function buildResponsePayload(
   return {
     success: true,
     invoice: legacyInvoice,
+    productData: linkData || null,
     rawText,
     ocrEngine: engine,
     extracted: v,
@@ -167,8 +275,8 @@ function buildResponsePayload(
     calculatedWarrantyEnd: validation.calculatedWarrantyEnd,
     duplicates,
     warnings: validation.warnings,
-    imageUrl: linkData?.imageUrl || v.image_url || null,
-    imageUrls: linkData?.imageUrls || v.image_urls || [],
+    imageUrl: linkData?.primaryImage || v.image_url || null,
+    imageUrls: linkData?.additionalImages || v.image_urls || [],
     asin: linkData?.asin || v.asin || null,
     sourceUrl: linkData?.sourceUrl || v.source_url || null,
   };
@@ -196,28 +304,33 @@ export async function POST(request: Request) {
 
         // Case 1: ONLY Link provided (no file)
         if (!isBlobLike && productUrl) {
-          const linkData = await resolveProductLink(productUrl);
+          const resolution = await handleLinkResolution(productUrl);
+          if (!resolution.success) {
+            return resolution.response;
+          }
+          const linkData = resolution.linkData;
+
           const initialFields: ExtractedProductFields = {
             brand: linkData.brand,
-            product_name: linkData.title || `Product from ${linkData.marketplace}`,
+            product_name: linkData.productName || null,
             model: linkData.model,
-            category: linkData.category || "Electronics",
+            category: linkData.category,
             serial_number: null,
             invoice_number: null,
             order_id: null,
             purchase_date: null,
             seller: linkData.seller,
-            price: linkData.price,
-            currency: "INR",
-            warranty_duration: "12 months",
+            price: linkData.currentPrice?.amount ?? null,
+            currency: linkData.currentPrice?.currency ?? "INR",
+            warranty_duration: linkData.warrantyDuration,
             warranty_start_date: null,
             warranty_end_date: null,
-            quantity: 1,
+            quantity: null,
             source_marketplace: linkData.marketplace,
             owner_name: null,
             buying_method: null,
-            image_url: linkData.imageUrl,
-            image_urls: linkData.imageUrls,
+            image_url: linkData.primaryImage,
+            image_urls: linkData.additionalImages,
             asin: linkData.asin,
             source_url: linkData.sourceUrl,
           };
@@ -266,8 +379,11 @@ export async function POST(request: Request) {
           let linkData: ProductLinkResolution | null = null;
           let finalEngine = ocrResult.engine;
           if (productUrl) {
-            linkData = await resolveProductLink(productUrl, extracted.product_name || ocrResult.text.slice(0, 100));
-            finalEngine = "hybrid-invoice-link";
+            const resolution = await handleLinkResolution(productUrl);
+            if (resolution.success) {
+              linkData = resolution.linkData;
+              finalEngine = "hybrid-invoice-link";
+            }
           }
 
           const existingProducts = await getExistingProducts();
@@ -295,28 +411,33 @@ export async function POST(request: Request) {
 
     // Link only via JSON
     if (productUrl && !body.text && !body.fileBase64) {
-      const linkData = await resolveProductLink(productUrl);
+      const resolution = await handleLinkResolution(productUrl);
+      if (!resolution.success) {
+        return resolution.response;
+      }
+      const linkData = resolution.linkData;
+
       const initialFields: ExtractedProductFields = {
         brand: linkData.brand,
-        product_name: linkData.title || `Product from ${linkData.marketplace}`,
+        product_name: linkData.productName || null,
         model: linkData.model,
-        category: linkData.category || "Electronics",
+        category: linkData.category,
         serial_number: null,
         invoice_number: null,
         order_id: null,
         purchase_date: null,
         seller: linkData.seller,
-        price: linkData.price,
-        currency: "INR",
-        warranty_duration: "12 months",
+        price: linkData.currentPrice?.amount ?? null,
+        currency: linkData.currentPrice?.currency ?? "INR",
+        warranty_duration: linkData.warrantyDuration,
         warranty_start_date: null,
         warranty_end_date: null,
-        quantity: 1,
+        quantity: null,
         source_marketplace: linkData.marketplace,
         owner_name: null,
         buying_method: null,
-        image_url: linkData.imageUrl,
-        image_urls: linkData.imageUrls,
+        image_url: linkData.primaryImage,
+        image_urls: linkData.additionalImages,
         asin: linkData.asin,
         source_url: linkData.sourceUrl,
       };
@@ -333,8 +454,11 @@ export async function POST(request: Request) {
       let linkData: ProductLinkResolution | null = null;
       let engine: OcrEngine = "text-fallback";
       if (productUrl) {
-        linkData = await resolveProductLink(productUrl, extracted.product_name);
-        engine = "hybrid-invoice-link";
+        const resolution = await handleLinkResolution(productUrl);
+        if (resolution.success) {
+          linkData = resolution.linkData;
+          engine = "hybrid-invoice-link";
+        }
       }
       const existingProducts = await getExistingProducts();
       const duplicates = findPotentialDuplicates(extracted, existingProducts);
@@ -363,8 +487,11 @@ export async function POST(request: Request) {
       let linkData: ProductLinkResolution | null = null;
       let engine = ocrResult.engine;
       if (productUrl) {
-        linkData = await resolveProductLink(productUrl, extracted.product_name);
-        engine = "hybrid-invoice-link";
+        const resolution = await handleLinkResolution(productUrl);
+        if (resolution.success) {
+          linkData = resolution.linkData;
+          engine = "hybrid-invoice-link";
+        }
       }
 
       const existingProducts = await getExistingProducts();

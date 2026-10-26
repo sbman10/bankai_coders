@@ -4479,6 +4479,81 @@ body.dark .citation {
   gap: 10px;
 }
 
+/* ── Product Link Unextracted Section (Clear separation of invoice vs web) ── */
+.ocr-link-unextracted-section {
+  padding: 16px 18px;
+  background: var(--bg-card-secondary);
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ocr-link-unextracted-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ocr-link-unextracted-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.ocr-link-unextracted-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px 16px;
+  margin-top: 4px;
+}
+
+.ocr-unextracted-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+}
+
+.ocr-unextracted-row span:first-child {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.unextracted-tag {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--bg-inset);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.ocr-photo-missing-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: var(--radius-lg);
+  color: #d97706;
+  font-size: 13px;
+}
+.dark-theme .ocr-photo-missing-banner {
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.15);
+}
+
 /* ── Unified Automated Flow: Invoice & Product Link ── */
 .automated-inputs-grid {
   display: grid;
