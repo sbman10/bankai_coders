@@ -96,6 +96,7 @@ export type PrototypeDocument = {
   user_id: string;
   product_id: string;
   document_kind: "invoice" | "warranty" | "manual" | "other";
+  document_label?: string | null;
   storage_path: string;
   original_filename: string;
   mime_type: string;
@@ -613,6 +614,7 @@ class PrototypeStore {
   createProductDocument(input: {
     productId: string;
     documentKind: "invoice" | "warranty" | "manual" | "other";
+    documentLabel?: string | null;
     fileName: string;
     mimeType: string;
     sizeBytes: number;
@@ -624,6 +626,7 @@ class PrototypeStore {
       user_id: DEFAULT_USER_ID,
       product_id: input.productId,
       document_kind: input.documentKind,
+      document_label: input.documentLabel?.trim() || null,
       storage_path: input.storagePath ?? `demo/${id}-${input.fileName}`,
       original_filename: input.fileName,
       mime_type: input.mimeType,

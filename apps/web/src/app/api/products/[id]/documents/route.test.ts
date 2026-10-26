@@ -101,4 +101,44 @@ describe("product passport documents", () => {
     expect(response.status).toBe(404);
     expect(documentSelect).not.toHaveBeenCalled();
   });
+
+  it("persists custom documentLabel when attaching an Other Document", async () => {
+    const response = await POST(request({
+      productId,
+      documentKind: "other",
+      documentLabel: "Installation Certificate",
+      storagePath,
+      fileName: "installation-cert.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 4096,
+    }), context);
+
+    expect(response.status).toBe(201);
+    expect(documentInsert).toHaveBeenCalledWith(expect.objectContaining({
+      user_id: userId,
+      product_id: productId,
+      document_kind: "other",
+      document_label: "Installation Certificate",
+      original_filename: "installation-cert.pdf",
+    }));
+  });
+
+  it("normalizes extended document kinds to canonical categories while preserving descriptive label", async () => {
+    const response = await POST(request({
+      productId,
+      documentKind: "extended_warranty",
+      storagePath,
+      fileName: "amc-contract.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 5120,
+    }), context);
+
+    expect(response.status).toBe(201);
+    expect(documentInsert).toHaveBeenCalledWith(expect.objectContaining({
+      user_id: userId,
+      product_id: productId,
+      document_kind: "warranty",
+      document_label: "Extended Warranty / AMC",
+    }));
+  });
 });

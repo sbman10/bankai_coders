@@ -9,7 +9,7 @@ import {
   ChevronRight,
   Clock3,
   Edit3,
-  ExternalLink,
+  Eye,
   FileCheck,
   FileText,
   Info,
@@ -20,6 +20,7 @@ import {
   PackagePlus,
   Plus,
   Search,
+  ShieldAlert,
   ShieldCheck,
   ShoppingBag,
   Sparkles,
@@ -40,6 +41,8 @@ import {
 } from "./ProductVisuals";
 import { TechHeading } from "../TechText";
 import { AddProduct, type ProductPayload } from "./AddProduct";
+import { ProductPassportModal } from "./ProductPassportModal";
+import "./UnifiedTimelineView.css";
 
 export type Product = {
   id: string;
@@ -84,11 +87,12 @@ type Reminder = {
   product: string;
   estimateDays: number;
   remindAt: string;
+  reason?: string;
 };
 
 type ClaimTimelineRecord = { id: string; productId: string; fault: string; status: string; createdAt: string };
 type TimelineEvent = { id: string; date: string; title: string; detail: string; kind: "product" | "claim" | "price" | "reminder" };
-type ProductDocument = { id: string; productId: string; kind: string; fileName: string; mimeType: string; sizeBytes: number; createdAt: string; signedUrl?: string };
+export type ProductDocument = { id: string; productId: string; kind: string; label?: string; fileName: string; mimeType: string; sizeBytes: number; createdAt: string; signedUrl?: string };
 
 export type ProductCenterView = "products" | "add-product" | "prices" | "reminders" | "timeline";
 
@@ -102,7 +106,7 @@ function calculateWarrantyEnd(startDateStr: string, months: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-function getBrandSupportLink(brand?: string): string | undefined {
+export function getBrandSupportLink(brand?: string): string | undefined {
   if (!brand) return undefined;
   const b = brand.toLowerCase();
   if (b.includes("sony")) return "https://www.sony.co.in/electronics/support";
@@ -232,7 +236,7 @@ function getProductStatusBadge(product: Product) {
   if (product.category?.toLowerCase().includes("personal") || product.category?.toLowerCase().includes("care")) {
     return { label: "Restock Soon", cls: "status-pill status-restock" };
   }
-  return { label: "Warranty Unrecorded", cls: "status-pill status-unrecorded" };
+  return { label: "Warranty not recorded", cls: "status-pill status-unrecorded" };
 }
 
 const headings: Record<ProductCenterView, [string, string, string]> = {
@@ -244,7 +248,7 @@ const headings: Record<ProductCenterView, [string, string, string]> = {
   "add-product": ["NEW PRODUCT REGISTRATION", "Add Product", "Extract details from an invoice, paste a product link, or enter information manually."],
   prices: ["MANUAL PRICE WATCH", "Know when the price is right.", "Record the price you see and compare it with your target. No retailer scraping is running."],
   reminders: ["PRODUCT-SPECIFIC REMINDERS", "A nudge on your terms.", "Set a reminder using your own estimated usage period. It appears in your ProductVault timeline."],
-  timeline: ["UNIFIED PRODUCT TIMELINE", "Your complete ownership history.", "Chronological events across all your products, warranties, reminders, and price watches."],
+  timeline: ["UNIFIED PRODUCT TIMELINE", "Your ownership history.", "Every purchase, milestone and product event — all in one place."],
 };
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
@@ -308,7 +312,16 @@ function productDocumentFromRow(row?: Record<string, unknown>): ProductDocument 
   if (!row) {
     return { id: "", productId: "", kind: "", fileName: "", mimeType: "", sizeBytes: 0, createdAt: "" };
   }
-  return { id: String(row.id ?? ""), productId: String(row.product_id ?? ""), kind: String(row.document_kind ?? ""), fileName: String(row.original_filename ?? ""), mimeType: String(row.mime_type ?? ""), sizeBytes: Number(row.size_bytes ?? 0), createdAt: String(row.created_at ?? "") };
+  return {
+    id: String(row.id ?? ""),
+    productId: String(row.product_id ?? ""),
+    kind: String(row.document_kind ?? ""),
+    label: row.document_label ? String(row.document_label) : undefined,
+    fileName: String(row.original_filename ?? ""),
+    mimeType: String(row.mime_type ?? ""),
+    sizeBytes: Number(row.size_bytes ?? 0),
+    createdAt: String(row.created_at ?? ""),
+  };
 }
 
 function reminderFromRow(row: Record<string, unknown>): Reminder {
@@ -316,6 +329,7 @@ function reminderFromRow(row: Record<string, unknown>): Reminder {
   return {
     id: String(row.id), productId: String(row.product_id), product: relationName(row.products),
     estimateDays: estimate ? Number(estimate[1]) : 0, remindAt: String(row.remind_at).slice(0, 10),
+    reason: row.reason ? String(row.reason) : undefined,
   };
 }
 
@@ -458,7 +472,7 @@ export function ProductCenter({
     }
   }
 
-  async function addProductDocument(productId: string, kind: string, file: File): Promise<boolean> {
+  async function addProductDocument(productId: string, kind: string, file: File, label?: string): Promise<boolean> {
     if (!["application/pdf", "image/jpeg", "image/png"].includes(file.type)) throw new Error("Choose a PDF, JPG, or PNG document.");
     if (file.size < 1 || file.size > 10 * 1024 * 1024) throw new Error("Each document must be between 1 byte and 10 MB.");
     const supabase = createBrowserSupabase();
@@ -472,7 +486,15 @@ export function ProductCenter({
     try {
       const result = await api<{ document?: Record<string, unknown> }>(`/api/products/${productId}/documents`, {
         method: "POST",
-        body: JSON.stringify({ documentKind: kind, storagePath, fileName: file.name, mimeType: file.type, sizeBytes: file.size }),
+        body: JSON.stringify({
+          productId,
+          documentKind: kind,
+          documentLabel: label,
+          storagePath,
+          fileName: file.name,
+          mimeType: file.type,
+          sizeBytes: file.size,
+        }),
       });
       if (result?.document) {
         setDocuments((current) => [productDocumentFromRow(result.document), ...current]);
@@ -588,7 +610,7 @@ export function ProductCenter({
       </div>
 
       {!ready ? (
-        <div className="tool-empty" role="status">Loading your account items…</div>
+        <div className="tool-empty" role="status">Loading your ownership records…</div>
       ) : (
         <>
           {error && (
@@ -665,9 +687,9 @@ export function ProductCenter({
                 setTimelineProductId(null);
                 setDocuments([]);
               }}
-              onAddDocument={(kind, file) =>
+              onAddDocument={(kind, file, label) =>
                 perform(async () => {
-                  await addProductDocument(timelineProductId, kind, file);
+                  await addProductDocument(timelineProductId, kind, file, label);
                 })
               }
               onOpenDocument={(document) =>
@@ -686,7 +708,7 @@ export function ProductCenter({
         </>
       )}
       <p className="local-data-note">
-        <AlertTriangle size={14} /> Your product records are private to your account. Price checks are manual; reminders currently appear inside ProductVault.
+        <AlertTriangle size={14} /> Price checks are manual; reminders currently appear inside ProductVault.
       </p>
     </div>
   );
@@ -1336,392 +1358,6 @@ function ProductLibrary({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Dedicated Digital Product Passport Modal Experience
-// ─────────────────────────────────────────────────────────────────────────────
-function ProductPassportModal({
-  product,
-  claims,
-  watches,
-  reminders,
-  documents,
-  documentsLoading,
-  busy,
-  onClose,
-  onAddDocument,
-  onOpenDocument,
-  onRemoveDocument,
-  onStartClaim,
-}: {
-  product: Product;
-  claims: ClaimTimelineRecord[];
-  watches: PriceWatch[];
-  reminders: Reminder[];
-  documents: ProductDocument[];
-  documentsLoading: boolean;
-  busy: boolean;
-  onClose: () => void;
-  onAddDocument: (kind: string, file: File) => Promise<boolean>;
-  onOpenDocument: (document: ProductDocument) => Promise<boolean>;
-  onRemoveDocument: (document: ProductDocument) => Promise<boolean>;
-  onStartClaim?: () => void;
-}) {
-  const [documentKind, setDocumentKind] = useState("invoice");
-  const [documentFile, setDocumentFile] = useState<File | null>(null);
-  const [documentError, setDocumentError] = useState("");
-  const documentInput = useRef<HTMLInputElement>(null);
-
-  const badge = getProductStatusBadge(product);
-
-  const events: TimelineEvent[] = [];
-  if (product.seller || product.serialNumber) {
-    events.push({
-      id: `details-${product.id}`,
-      date: product.purchaseDate || product.createdAt,
-      title: "Product details registered",
-      detail: [product.seller ? `Seller: ${product.seller}` : "", product.serialNumber ? `Serial: ${product.serialNumber}` : ""].filter(Boolean).join(" · "),
-      kind: "product",
-    });
-  }
-  if (product.purchaseDate) {
-    events.push({
-      id: `purchase-${product.id}`,
-      date: product.purchaseDate,
-      title: "Product purchased",
-      detail: product.category,
-      kind: "product",
-    });
-  }
-  if (product.warrantyEnd) {
-    events.push({
-      id: `warranty-${product.id}`,
-      date: product.warrantyEnd,
-      title: "Warranty ends",
-      detail: "Date saved in your product passport",
-      kind: "product",
-    });
-  }
-  for (const claim of claims.filter((item) => item.productId === product.id)) {
-    events.push({
-      id: `claim-${claim.id}`,
-      date: claim.createdAt,
-      title: "Claim started",
-      detail: `${claim.fault} · Status: ${claim.status.replaceAll("_", " ")}`,
-      kind: "claim",
-    });
-  }
-  for (const watch of watches.filter((item) => item.productId === product.id)) {
-    const date = watch.lastCheckedAt || watch.createdAt;
-    if (date) {
-      events.push({
-        id: `price-${watch.id}`,
-        date,
-        title: watch.lastCheckedAt ? "Price checked" : "Price watch created",
-        detail: `Current ₹${watch.currentPrice.toLocaleString("en-IN")} · Target ₹${watch.targetPrice.toLocaleString("en-IN")}${watch.lastCheckedAt ? " · Manual update" : ""}`,
-        kind: "price",
-      });
-    }
-  }
-  for (const reminder of reminders.filter((item) => item.productId === product.id)) {
-    events.push({
-      id: `reminder-${reminder.id}`,
-      date: reminder.remindAt,
-      title: "Reminder scheduled",
-      detail: reminder.estimateDays ? `Based on your ${reminder.estimateDays}-day estimate · in-app reminder` : "Based on your estimate · in-app reminder",
-      kind: "reminder",
-    });
-  }
-  events.sort((a, b) => b.date.localeCompare(a.date));
-
-  const supportUrl = product.sourceUrl || getBrandSupportLink(product.brand);
-
-  return (
-    <div
-      className="passport-modal-overlay"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="product-passport-modal-title"
-    >
-      <div
-        className="passport-modal-sheet passport-modal-large"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Passport Head Lockup */}
-        <div className="passport-modal-head">
-          <div className="passport-head-left">
-            <div className="passport-modal-thumb">
-              <ProductVisual product={product} className="passport-cutout-img" />
-            </div>
-            <div>
-              <div className="passport-brand-tag">
-                {product.brand ? product.brand.toUpperCase() : "DIGITAL PRODUCT PASSPORT"}
-              </div>
-              <h2 id="product-passport-modal-title" className="passport-product-title">
-                {product.name}
-              </h2>
-              {product.model && (
-                <span className="passport-model-subtitle">Model: {product.model}</span>
-              )}
-            </div>
-          </div>
-          <div className="passport-head-actions">
-            <span className={badge.cls}>
-              <span className="status-dot" />
-              {badge.label}
-            </span>
-            <button
-              type="button"
-              className="passport-close-btn"
-              onClick={onClose}
-              aria-label="Close passport"
-            >
-              <X size={18} />
-            </button>
-          </div>
-        </div>
-
-        {/* Passport Body */}
-        <div className="passport-modal-body">
-          {/* Passport Identity & Purchase Details Grid */}
-          <div className="passport-details-grid">
-            <div className="passport-field">
-              <span className="field-label">Category</span>
-              <span className="field-value font-medium">{product.category || "Other"}</span>
-            </div>
-            <div className="passport-field">
-              <span className="field-label">Warranty Status</span>
-              <span className={`status-pill ${badge.cls.replace("status-pill ", "")}`}>
-                {badge.label}
-              </span>
-            </div>
-            <div className="passport-field">
-              <span className="field-label">Serial Number</span>
-              <span className="field-value font-mono">
-                {product.serialNumber ? (
-                  product.serialNumber
-                ) : (
-                  <span className="field-unrecorded">Not recorded</span>
-                )}
-              </span>
-            </div>
-            <div className="passport-field">
-              <span className="field-label">Purchase Date</span>
-              <span className="field-value">
-                {product.purchaseDate ? (
-                  formatDate(product.purchaseDate)
-                ) : (
-                  <span className="field-unrecorded">Not recorded</span>
-                )}
-              </span>
-            </div>
-            <div className="passport-field">
-              <span className="field-label">Warranty Valid Until</span>
-              <span className="field-value font-semibold">
-                {product.warrantyEnd ? (
-                  formatDate(product.warrantyEnd)
-                ) : (
-                  <span className="field-unrecorded">Not recorded</span>
-                )}
-              </span>
-            </div>
-            <div className="passport-field">
-              <span className="field-label">Purchase Price</span>
-              <span className="field-value">
-                {product.pricePaid ? (
-                  `₹${product.pricePaid.toLocaleString("en-IN")}`
-                ) : (
-                  <span className="field-unrecorded">Not recorded</span>
-                )}
-              </span>
-            </div>
-            <div className="passport-field">
-              <span className="field-label">Store / Seller</span>
-              <span className="field-value">
-                {product.seller || product.purchasePlatform || (
-                  <span className="field-unrecorded">Not recorded</span>
-                )}
-              </span>
-            </div>
-            <div className="passport-field">
-              <span className="field-label">Invoice / Order #</span>
-              <span className="field-value font-mono">
-                {product.invoiceNumber || product.orderId || (
-                  <span className="field-unrecorded">Not recorded</span>
-                )}
-              </span>
-            </div>
-            <div className="passport-field">
-              <span className="field-label">Registered Owner</span>
-              <span className="field-value">
-                {product.ownerName || <span className="field-unrecorded">Private Account</span>}
-              </span>
-            </div>
-          </div>
-
-          {/* Official Support Link */}
-          {supportUrl && (
-            <div className="passport-support-row">
-              <span className="support-label">Official Manufacturer Support</span>
-              <a
-                href={supportUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="support-link"
-              >
-                <span>Visit Official Support Portal</span>
-                <ExternalLink size={12} />
-              </a>
-            </div>
-          )}
-
-          {/* Saved Documents Section */}
-          <div className="passport-documents">
-            <div className="passport-documents-heading">
-              <div>
-                <div className="eyebrow"><span className="eyebrow-line" /> PRODUCT DOCUMENTS</div>
-                <h3>Verified Documents Vault</h3>
-              </div>
-              <span className="quiet-count">{documents.length} PRIVATE FILES</span>
-            </div>
-
-            <form
-              className="passport-document-form"
-              onSubmit={async (event) => {
-                event.preventDefault();
-                setDocumentError("");
-                if (!documentFile) {
-                  setDocumentError("Choose a document to attach.");
-                  return;
-                }
-                try {
-                  if (await onAddDocument(documentKind, documentFile)) {
-                    setDocumentFile(null);
-                    if (documentInput.current) documentInput.current.value = "";
-                  }
-                } catch (cause) {
-                  setDocumentError(cause instanceof Error ? cause.message : "The document could not be attached.");
-                }
-              }}
-            >
-              <label>
-                Document type
-                <select value={documentKind} onChange={(event) => setDocumentKind(event.target.value)}>
-                  <option value="invoice">Invoice</option>
-                  <option value="warranty">Warranty terms</option>
-                  <option value="manual">Product manual</option>
-                  <option value="other">Other</option>
-                </select>
-              </label>
-              <label className="passport-file-label">
-                Choose document
-                <input
-                  ref={documentInput}
-                  name="passport-file"
-                  type="file"
-                  accept="application/pdf,image/png,image/jpeg"
-                  onChange={(event) => setDocumentFile(event.target.files?.[0] ?? null)}
-                />
-              </label>
-              <button className="button button-primary" type="submit" disabled={busy}>
-                <Plus size={14} /> Attach document
-              </button>
-            </form>
-            <p className="passport-document-note">PDF, JPG, or PNG · up to 10 MB · stored in your private account.</p>
-            {documentError && <p className="upload-error" role="alert">{documentError}</p>}
-            {documentsLoading ? (
-              <p className="auth-copy" role="status">Loading private documents…</p>
-            ) : documents.length === 0 ? (
-              <p className="tool-empty">No documents attached yet.</p>
-            ) : (
-              <ul className="passport-document-list">
-                {documents.map((document) => (
-                  <li key={document.id}>
-                    <span className="tool-icon"><FileText size={15} /></span>
-                    <span className="passport-document-main">
-                      <strong>{document.fileName}</strong>
-                      <span>{document.kind.replaceAll("_", " ")} · {(document.sizeBytes / 1024).toFixed(0)} KB</span>
-                    </span>
-                    {document.signedUrl ? (
-                      <a className="inline-action-button" href={document.signedUrl} target="_blank" rel="noreferrer">
-                        Open file <ExternalLink size={13} />
-                      </a>
-                    ) : (
-                      <button className="inline-action-button" type="button" disabled={busy} onClick={() => onOpenDocument(document)}>
-                        Prepare private link
-                      </button>
-                    )}
-                    <button
-                      className="tool-icon-button"
-                      type="button"
-                      aria-label={`Remove ${document.fileName}`}
-                      disabled={busy}
-                      onClick={() => onRemoveDocument(document)}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {/* Complete Ownership Timeline */}
-          <div className="passport-timeline-section">
-            <div className="product-timeline-heading">
-              <div>
-                <div className="eyebrow"><span className="eyebrow-line" /> OWNERSHIP HISTORY</div>
-                <h3 id="product-timeline-title">{product.name} timeline</h3>
-                <p>Recorded warranty milestones, claims, manual price checks, and reminders.</p>
-              </div>
-            </div>
-            {events.length === 0 ? (
-              <div className="tool-empty">No timeline events recorded yet.</div>
-            ) : (
-              <ol className="product-timeline-events">
-                {events.map((event) => (
-                  <li className={`product-timeline-event timeline-${event.kind}`} key={event.id}>
-                    <span className="timeline-marker" aria-hidden="true" />
-                    <div className="timeline-event-copy">
-                      <span className="timeline-event-date">{formatDate(event.date.slice(0, 10))}</span>
-                      <strong>{event.title}</strong>
-                      <span>{event.detail}</span>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </div>
-
-          {/* Modal Actions */}
-          <div className="passport-modal-actions">
-            {onStartClaim && (
-              <button
-                type="button"
-                className="passport-claim-btn"
-                onClick={() => {
-                  onClose();
-                  onStartClaim();
-                }}
-              >
-                <span>Claim Under Warranty</span>
-                <ArrowRight size={14} />
-              </button>
-            )}
-            <button
-              type="button"
-              className="passport-timeline-btn"
-              onClick={onClose}
-            >
-              <span>Close Passport</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Manual Price Tracker Subpage
 // ─────────────────────────────────────────────────────────────────────────────
 function PriceTracker({
@@ -1944,12 +1580,59 @@ function ReminderList({
 
 function formatDate(value: string) {
   if (!value) return "";
+  const parts = value.slice(0, 10).split("-");
+  if (parts.length === 3) {
+    const year = Number(parts[0]);
+    const month = Number(parts[1]) - 1;
+    const day = Number(parts[2]);
+    const date = new Date(year, month, day);
+    if (!Number.isNaN(date.getTime())) {
+      return date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+    }
+  }
   const date = new Date(`${value}T12:00:00`);
   return Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
 function todayInIndia() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+}
+
+type TimelineEventItem = {
+  id: string;
+  date: string;
+  title: string;
+  detail: string;
+  kind: "purchase" | "registration" | "warranty-active" | "warranty-expired" | "claim" | "price" | "reminder";
+  typeLabel: string;
+  statusTag?: string;
+  isFuture: boolean;
+  productName: string;
+  productId: string;
+  category?: string;
+  imageUrl?: string;
+  seller?: string;
+};
+
+function getTimelineMarkerIcon(kind: TimelineEventItem["kind"]) {
+  switch (kind) {
+    case "purchase":
+      return <ShoppingBag size={16} aria-hidden="true" />;
+    case "registration":
+      return <FileCheck size={16} aria-hidden="true" />;
+    case "warranty-active":
+      return <ShieldCheck size={16} aria-hidden="true" />;
+    case "warranty-expired":
+      return <ShieldAlert size={16} aria-hidden="true" />;
+    case "claim":
+      return <FileText size={16} aria-hidden="true" />;
+    case "price":
+      return <TrendingDown size={16} aria-hidden="true" />;
+    case "reminder":
+      return <Bell size={16} aria-hidden="true" />;
+    default:
+      return <Clock3 size={16} aria-hidden="true" />;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1969,30 +1652,75 @@ function UnifiedTimelineView({
   onSelectProduct: (productId: string) => void;
 }) {
   const [filterProductId, setFilterProductId] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
-  const events: (TimelineEvent & { productName?: string; productId: string })[] = [];
+  const today = todayInIndia();
+  const events: TimelineEventItem[] = [];
 
   for (const product of products) {
     if (product.purchaseDate) {
       events.push({
         id: `purchase-${product.id}`,
-        date: product.purchaseDate,
+        date: product.purchaseDate.slice(0, 10),
         title: "Product purchased",
-        detail: [product.seller ? `From ${product.seller}` : "", product.pricePaid ? `₹${product.pricePaid.toLocaleString("en-IN")}` : ""].filter(Boolean).join(" · ") || product.category,
-        kind: "product",
+        detail: [
+          product.seller ? `From ${product.seller}` : "",
+          product.pricePaid ? `₹${product.pricePaid.toLocaleString("en-IN")}` : "",
+          product.buyingMethod || product.purchasePlatform || "",
+        ].filter(Boolean).join(" · ") || product.category,
+        kind: "purchase",
+        typeLabel: "Purchase",
+        isFuture: false,
         productName: product.name,
         productId: product.id,
+        category: product.category,
+        imageUrl: product.imageUrl,
+        seller: product.seller,
       });
     }
+
+    if (product.createdAt) {
+      const regDate = product.createdAt.slice(0, 10);
+      const isDistinct = !product.purchaseDate || regDate !== product.purchaseDate.slice(0, 10);
+      if (isDistinct) {
+        events.push({
+          id: `registration-${product.id}`,
+          date: regDate,
+          title: "Product registered",
+          detail: `Added to ProductVault digital library · ${[product.brand, product.model || product.category].filter(Boolean).join(" ")}`,
+          kind: "registration",
+          typeLabel: "Registration",
+          isFuture: false,
+          productName: product.name,
+          productId: product.id,
+          category: product.category,
+          imageUrl: product.imageUrl,
+          seller: product.seller,
+        });
+      }
+    }
+
     if (product.warrantyEnd) {
+      const wEnd = product.warrantyEnd.slice(0, 10);
+      const isFuture = wEnd >= today;
       events.push({
         id: `warranty-${product.id}`,
-        date: product.warrantyEnd,
-        title: "Warranty coverage ends",
-        detail: "Standard manufacturer coverage expiry",
-        kind: "product",
+        date: wEnd,
+        title: isFuture ? "Active warranty coverage" : "Warranty coverage ended",
+        detail: isFuture
+          ? (product.warrantyDurationMonths
+              ? `Standard manufacturer ${product.warrantyDurationMonths}-month coverage valid through ${formatDate(wEnd)}`
+              : `Standard manufacturer coverage valid through ${formatDate(wEnd)}`)
+          : `Standard manufacturer coverage expired on ${formatDate(wEnd)}`,
+        kind: isFuture ? "warranty-active" : "warranty-expired",
+        typeLabel: "Warranty",
+        statusTag: isFuture ? "Upcoming Milestone" : "Coverage Expired",
+        isFuture,
         productName: product.name,
         productId: product.id,
+        category: product.category,
+        imageUrl: product.imageUrl,
+        seller: product.seller,
       });
     }
   }
@@ -2005,8 +1733,14 @@ function UnifiedTimelineView({
       title: "Warranty claim filed",
       detail: `${claim.fault} · Status: ${claim.status.replaceAll("_", " ")}`,
       kind: "claim",
+      typeLabel: "Claim",
+      statusTag: claim.status.replaceAll("_", " "),
+      isFuture: false,
       productName: prod?.name ?? "Product",
       productId: claim.productId,
+      category: prod?.category ?? "Electronics",
+      imageUrl: prod?.imageUrl,
+      seller: prod?.seller,
     });
   }
 
@@ -2014,87 +1748,218 @@ function UnifiedTimelineView({
     const prod = products.find((p) => p.id === watch.productId);
     const date = (watch.lastCheckedAt || watch.createdAt || "").slice(0, 10);
     if (date) {
+      const isTargetReached = watch.currentPrice <= watch.targetPrice;
       events.push({
         id: `watch-${watch.id}`,
         date,
         title: watch.lastCheckedAt ? "Price checked" : "Price watch activated",
-        detail: `Target ₹${watch.targetPrice.toLocaleString("en-IN")} · Current ₹${watch.currentPrice.toLocaleString("en-IN")}`,
+        detail: `Target ₹${watch.targetPrice.toLocaleString("en-IN")} · Current ₹${watch.currentPrice.toLocaleString("en-IN")}${isTargetReached ? " (Target reached!)" : ""}`,
         kind: "price",
+        typeLabel: "Price Watch",
+        statusTag: isTargetReached ? "Target reached" : "Tracking",
+        isFuture: false,
         productName: prod?.name ?? watch.name,
         productId: watch.productId,
+        category: prod?.category ?? "Electronics",
+        imageUrl: prod?.imageUrl,
+        seller: prod?.seller,
       });
     }
   }
 
   for (const reminder of reminders) {
     const prod = products.find((p) => p.id === reminder.productId);
+    const remDate = reminder.remindAt.slice(0, 10);
+    const isFuture = remDate >= today;
     events.push({
       id: `reminder-${reminder.id}`,
-      date: reminder.remindAt.slice(0, 10),
-      title: "Replenishment reminder",
-      detail: reminder.estimateDays ? `Estimated ${reminder.estimateDays}-day usage period` : "In-app reminder",
+      date: remDate,
+      title: isFuture ? "Upcoming replenishment reminder" : "Replenishment reminder",
+      detail: reminder.reason || (reminder.estimateDays ? `Estimated ${reminder.estimateDays}-day usage interval` : "In-app reminder"),
       kind: "reminder",
+      typeLabel: "Reminder",
+      statusTag: isFuture ? "Upcoming Reminder" : "Completed",
+      isFuture,
       productName: prod?.name ?? reminder.product,
       productId: reminder.productId,
+      category: prod?.category ?? "Other",
+      imageUrl: prod?.imageUrl,
+      seller: prod?.seller,
     });
   }
 
   const uniqueEvents = Array.from(new Map(events.map((e) => [e.id, e])).values());
   uniqueEvents.sort((a, b) => b.date.localeCompare(a.date));
 
-  const filteredEvents = filterProductId === "all"
-    ? uniqueEvents
-    : uniqueEvents.filter((e) => e.productId === filterProductId);
+  const filteredEvents = uniqueEvents.filter((e) => {
+    if (filterProductId !== "all" && e.productId !== filterProductId) {
+      return false;
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      const matchTitle = e.title.toLowerCase().includes(q);
+      const matchDetail = e.detail.toLowerCase().includes(q);
+      const matchProd = e.productName.toLowerCase().includes(q);
+      const matchSeller = e.seller ? e.seller.toLowerCase().includes(q) : false;
+      const matchStatus = e.statusTag ? e.statusTag.toLowerCase().includes(q) : false;
+      return matchTitle || matchDetail || matchProd || matchSeller || matchStatus;
+    }
+    return true;
+  });
 
   return (
-    <section className="product-timeline unified-timeline-full" aria-labelledby="unified-timeline-title">
-      <div className="product-timeline-heading">
-        <div>
-          <div className="eyebrow"><span className="eyebrow-line" /> UNIFIED HISTORY</div>
-          <h2 id="unified-timeline-title">All Product Ownership Events</h2>
-          <p>Chronological history across purchases, warranty cards, service plans, reminders, and price watches.</p>
-        </div>
-        {products.length > 0 && (
-          <div className="timeline-filter-select-wrap">
-            <label htmlFor="timeline-product-filter" className="sr-only">Filter by product</label>
-            <select
-              id="timeline-product-filter"
-              value={filterProductId}
-              onChange={(e) => setFilterProductId(e.target.value)}
-              className="timeline-product-select"
-            >
-              <option value="all">All Products ({uniqueEvents.length} events)</option>
-              {products.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
+    <section className="unified-timeline-view" aria-label="Unified product timeline">
+      {/* Event Toolbar */}
+      <div className="timeline-toolbar">
+        <div className="timeline-toolbar-controls">
+          <div className="timeline-search-box">
+            <Search size={14} className="timeline-search-icon" aria-hidden="true" />
+            <input
+              type="search"
+              className="timeline-search-input"
+              placeholder="Search events by keyword, product, or seller…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              aria-label="Search events"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                className="timeline-search-clear"
+                onClick={() => setSearchQuery("")}
+                aria-label="Clear search"
+              >
+                <X size={13} aria-hidden="true" />
+              </button>
+            )}
           </div>
-        )}
+
+          {products.length > 0 && (
+            <div className="timeline-product-select-wrap">
+              <label htmlFor="timeline-product-filter" className="sr-only">Filter by product</label>
+              <select
+                id="timeline-product-filter"
+                value={filterProductId}
+                onChange={(e) => setFilterProductId(e.target.value)}
+                className="timeline-product-select"
+              >
+                <option value="all">All Products ({uniqueEvents.length} events)</option>
+                {products.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+
+        <div className="timeline-counter-badge" role="status">
+          <strong>{filteredEvents.length}</strong> {filteredEvents.length === 1 ? "event" : "events"}
+        </div>
       </div>
 
       {filteredEvents.length === 0 ? (
-        <div className="tool-empty">No ownership events found. Add your products, price watches, or reminders to build your timeline.</div>
+        <div className="timeline-empty-card">
+          <div className="timeline-empty-icon" aria-hidden="true">
+            <Search size={24} />
+          </div>
+          <h3>No ownership events found</h3>
+          <p>
+            {searchQuery
+              ? `No events match "${searchQuery}". Try a different keyword or reset filters.`
+              : "No events recorded for the selected product yet."}
+          </p>
+          {(searchQuery || filterProductId !== "all") && (
+            <button
+              type="button"
+              className="button button-outline"
+              onClick={() => {
+                setSearchQuery("");
+                setFilterProductId("all");
+              }}
+            >
+              Reset Filters
+            </button>
+          )}
+        </div>
       ) : (
-        <ol className="product-timeline-events">
-          {filteredEvents.map((event) => (
-            <li className={`product-timeline-event timeline-${event.kind}`} key={event.id}>
-              <span className="timeline-marker" aria-hidden="true" />
-              <div className="timeline-event-copy">
-                <span className="timeline-event-date">{formatDate(event.date)}</span>
-                <strong>{event.title}</strong>
-                <span>{event.detail}</span>
-              </div>
-              <button
-                type="button"
-                className="tool-icon-button"
-                title={`Open passport for ${event.productName}`}
-                onClick={() => onSelectProduct(event.productId)}
-              >
-                <ExternalLink size={13} />
-              </button>
-            </li>
-          ))}
-        </ol>
+        <div className="timeline-stream">
+          {filteredEvents.map((event) => {
+            const prod = products.find((p) => p.id === event.productId) || {
+              id: event.productId,
+              name: event.productName,
+              brand: "",
+              model: "",
+              category: event.category || "Other",
+              seller: event.seller || "",
+              serialNumber: "",
+              purchaseDate: "",
+              warrantyEnd: "",
+              createdAt: "",
+            };
+
+            return (
+              <article className="timeline-node" key={event.id} aria-label={`${event.title} - ${event.productName}`}>
+                {/* Date & Milestone Column */}
+                <div className="timeline-node-time">
+                  <span className="timeline-date-chip" data-testid="timeline-date-chip">
+                    {formatDate(event.date)}
+                  </span>
+                  {event.isFuture ? (
+                    <span className="timeline-badge-milestone timeline-badge-upcoming">
+                      <Sparkles size={10} aria-hidden="true" />
+                      {event.statusTag || "Upcoming"}
+                    </span>
+                  ) : event.kind === "warranty-expired" ? (
+                    <span className="timeline-badge-milestone timeline-badge-expired">
+                      {event.statusTag || "Expired"}
+                    </span>
+                  ) : null}
+                </div>
+
+                {/* Center Marker on Rail */}
+                <div className="timeline-marker-wrap">
+                  <div className={`timeline-marker-circle marker-${event.kind}`}>
+                    {getTimelineMarkerIcon(event.kind)}
+                  </div>
+                </div>
+
+                {/* Event Card */}
+                <div className="timeline-card">
+                  <header className="timeline-card-header">
+                    <div className="timeline-product-pill">
+                      <div className="timeline-product-thumb">
+                        <ProductVisual product={prod} className="w-full h-full object-cover" />
+                      </div>
+                      <span className="timeline-product-name">{event.productName}</span>
+                    </div>
+
+                    <span className="timeline-type-tag">{event.typeLabel}</span>
+                  </header>
+
+                  <div className="timeline-card-body">
+                    <h3 className="timeline-event-title" data-testid="timeline-event-title">
+                      {event.title}
+                    </h3>
+                    <p className="timeline-event-detail">{event.detail}</p>
+                  </div>
+
+                  <footer className="timeline-card-footer">
+                    <button
+                      type="button"
+                      className="timeline-action-btn"
+                      onClick={() => onSelectProduct(event.productId)}
+                      aria-label={`View Passport for ${event.productName}`}
+                    >
+                      <Eye size={13} aria-hidden="true" />
+                      <span>View Passport</span>
+                      <ChevronRight size={13} aria-hidden="true" />
+                    </button>
+                  </footer>
+                </div>
+              </article>
+            );
+          })}
+        </div>
       )}
     </section>
   );
