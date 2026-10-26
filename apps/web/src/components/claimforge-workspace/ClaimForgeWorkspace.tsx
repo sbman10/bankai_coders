@@ -29,6 +29,7 @@ import { ProductCenter } from "./ProductCenter";
 import { ClaimsList, type SavedClaim } from "./ClaimsList";
 import { AssistantChat } from "./AssistantChat";
 import { ClaimForgeLogoMark } from "./ProductVisuals";
+import TechText from "../TechText/TechText";
 import { sampleClaim, type ClaimIntakePayload, type ClaimSubmission } from "./types";
 
 type View =
@@ -37,6 +38,7 @@ type View =
   | "review"
   | "claims"
   | "products"
+  | "add-product"
   | "amazon-import"
   | "assistant"
   | "prices"
@@ -208,11 +210,43 @@ export function ClaimForgeWorkspace() {
               e.preventDefault();
               setView("workspace");
             }}
+            aria-label="ProductVault Dashboard"
+            title="ProductVault"
+            suppressHydrationWarning
           >
             <ClaimForgeLogoMark className="navbar-logo-cube" />
-            <span className="navbar-brand-text">
+            <span className="sr-only" suppressHydrationWarning>ProductVault</span>
+            <span className="navbar-brand-text navbar-brand-static-fallback" aria-hidden="true" suppressHydrationWarning>
               Product<span className="brand-orange">Vault</span>
             </span>
+            <div className="navbar-brand-techttext-wrap" aria-hidden="true" suppressHydrationWarning>
+              <TechText
+                text="ProductVault"
+                fontSize={35}
+                fontWeight={700}
+                letterSpacing={-0.025}
+                color="#292522"
+                accentColor="#EA580C"
+                align="left"
+                reveal="letter"
+                intro="none"
+                reach={85}
+                softness={0.65}
+                dashLength={3}
+                dashGap={2}
+                strokeWidth={1.8}
+                selection={true}
+                labels={false}
+                guides={false}
+                specks={3}
+                draggable={false}
+                clickKick={false}
+                bounce={0.12}
+                sweep={false}
+                speed={1}
+                charColor={(_char, i) => (i < 7 ? "#292522" : "#EA580C")}
+              />
+            </div>
           </a>
         </div>
 
@@ -341,6 +375,7 @@ export function ClaimForgeWorkspace() {
       <div
         className={`navigation-drawer-overlay ${drawerOpen ? "is-open" : ""}`}
         onClick={() => setDrawerOpen(false)}
+        suppressHydrationWarning
       >
         <aside
           className="navigation-drawer-panel"
@@ -348,6 +383,7 @@ export function ClaimForgeWorkspace() {
           role="dialog"
           aria-modal="true"
           aria-label="Navigation drawer"
+          suppressHydrationWarning
         >
           <div className="drawer-header">
             <div className="drawer-brand-lockup">
@@ -367,8 +403,9 @@ export function ClaimForgeWorkspace() {
           </div>
 
           {/* Main Drawer Navigation Links */}
-          <nav className="drawer-nav-list" aria-label="Workspace">
+          <nav className="drawer-nav-list" aria-label="Workspace" suppressHydrationWarning>
             <button
+              key="drawer-nav-workspace"
               type="button"
               className={`drawer-nav-link ${view === "workspace" ? "active" : ""}`}
               onClick={() => handleNavigate("workspace")}
@@ -378,6 +415,7 @@ export function ClaimForgeWorkspace() {
             </button>
 
             <button
+              key="drawer-nav-products"
               type="button"
               className={`drawer-nav-link ${view === "products" ? "active" : ""}`}
               onClick={() => handleNavigate("products")}
@@ -388,6 +426,7 @@ export function ClaimForgeWorkspace() {
             </button>
 
             <button
+              key="drawer-nav-timeline"
               type="button"
               className={`drawer-nav-link ${view === "timeline" ? "active" : ""}`}
               onClick={() => handleNavigate("timeline")}
@@ -398,6 +437,7 @@ export function ClaimForgeWorkspace() {
             </button>
 
             <button
+              key="drawer-nav-prices"
               type="button"
               className={`drawer-nav-link ${view === "prices" ? "active" : ""}`}
               onClick={() => handleNavigate("prices")}
@@ -408,6 +448,7 @@ export function ClaimForgeWorkspace() {
             </button>
 
             <button
+              key="drawer-nav-reminders"
               type="button"
               className={`drawer-nav-link ${view === "reminders" ? "active" : ""}`}
               onClick={() => handleNavigate("reminders")}
@@ -421,6 +462,7 @@ export function ClaimForgeWorkspace() {
             <div className="drawer-section-heading">Tools &amp; Assistant</div>
 
             <button
+              key="drawer-nav-assistant"
               type="button"
               className={`drawer-nav-link ${view === "assistant" ? "active" : ""}`}
               onClick={() => handleNavigate("assistant")}
@@ -431,6 +473,7 @@ export function ClaimForgeWorkspace() {
             </button>
 
             <button
+              key="drawer-nav-amazon-import"
               type="button"
               className={`drawer-nav-link ${view === "amazon-import" ? "active" : ""}`}
               onClick={() => handleNavigate("amazon-import")}
@@ -441,6 +484,7 @@ export function ClaimForgeWorkspace() {
             </button>
 
             <button
+              key="drawer-nav-claims"
               type="button"
               className={`drawer-nav-link ${view === "claims" ? "active" : ""}`}
               onClick={() => handleNavigate("claims")}
@@ -452,6 +496,7 @@ export function ClaimForgeWorkspace() {
             </button>
 
             <button
+              key="drawer-nav-intake"
               type="button"
               className={`drawer-nav-link ${view === "intake" ? "active" : ""}`}
               onClick={() => {
@@ -465,6 +510,7 @@ export function ClaimForgeWorkspace() {
             </button>
 
             <button
+              key="drawer-nav-review"
               type="button"
               className={`drawer-nav-link ${view === "review" ? "active" : ""}`}
               onClick={() => {
@@ -480,6 +526,7 @@ export function ClaimForgeWorkspace() {
             <div className="drawer-section-heading">Account &amp; Settings</div>
 
             <button
+              key="drawer-nav-settings"
               type="button"
               className={`drawer-nav-link ${view === "settings" ? "active" : ""}`}
               onClick={() => handleNavigate("settings")}
@@ -490,6 +537,7 @@ export function ClaimForgeWorkspace() {
             </button>
 
             <button
+              key="drawer-nav-help"
               type="button"
               className={`drawer-nav-link ${view === "help" ? "active" : ""}`}
               onClick={() => handleNavigate("help")}
@@ -530,8 +578,12 @@ export function ClaimForgeWorkspace() {
           />
         ) : view === "assistant" ? (
           <AssistantChat />
-        ) : view === "products" || view === "prices" || view === "reminders" || view === "timeline" ? (
-          <ProductCenter view={view} />
+        ) : view === "products" || view === "add-product" || view === "prices" || view === "reminders" || view === "timeline" ? (
+          <ProductCenter
+            view={view}
+            onNavigateView={(nextView) => setView(nextView as View)}
+            onStartClaim={() => beginClaim()}
+          />
         ) : view === "settings" || view === "help" ? (
           <PublicDemoNotice onBack={() => setView("workspace")} currentView={view} />
         ) : (
