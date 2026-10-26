@@ -727,7 +727,7 @@ export function DashboardHome({
               <button
                 type="button"
                 className="add-product-black-btn"
-                onClick={() => onNavigateTab("products")}
+                onClick={() => onNavigateTab("add-product")}
                 aria-label="Add Product"
               >
                 + Add Product

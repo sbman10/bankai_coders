@@ -70,7 +70,7 @@ afterEach(() => {
 describe("account-backed product tools", () => {
   it("saves a product to the signed-in account", async () => {
     const user = userEvent.setup();
-    render(<ProductCenter view="products" />);
+    render(<ProductCenter view="add-product" />);
 
     // Switch to manual entry tab
     await user.click(await screen.findByRole("tab", { name: /add manually/i }));
@@ -83,7 +83,7 @@ describe("account-backed product tools", () => {
     await user.type(screen.getByLabelText("Serial number"), "SN-123456");
     await user.click(screen.getByRole("button", { name: /add product/i }));
 
-    expect(await screen.findByText("Desk lamp")).toBeInTheDocument();
+    expect((await screen.findAllByText("Desk lamp")).length).toBeGreaterThanOrEqual(1);
     expect(fetchMock).toHaveBeenCalledWith("/api/products", expect.objectContaining({ method: "POST" }));
     const createRequest = fetchMock.mock.calls.find(([url, init]) => url === "/api/products" && init?.method === "POST");
     expect(JSON.parse(String(createRequest?.[1]?.body))).toEqual(expect.objectContaining({ brand: "Auralis", model: "Pulse 2", seller: "Example Store", serialNumber: "SN-123456" }));
@@ -183,7 +183,7 @@ describe("account-backed product tools", () => {
 
   it("uploads an invoice, autofills details via AI OCR extraction, and creates a passport", async () => {
     const user = userEvent.setup();
-    render(<ProductCenter view="products" />);
+    render(<ProductCenter view="add-product" />);
 
     // In automated mode, upload an invoice file
     const fileInput = await screen.findByLabelText(/upload invoice file/i);
@@ -206,7 +206,7 @@ describe("account-backed product tools", () => {
     // Click Confirm & Save in review dialog
     await user.click(within(modal).getByRole("button", { name: /confirm & save/i }));
 
-    expect(await screen.findByText("Soundcore Life Q30")).toBeInTheDocument();
+    expect((await screen.findAllByText("Soundcore Life Q30")).length).toBeGreaterThanOrEqual(1);
     expect(fetchMock).toHaveBeenCalledWith("/api/products", expect.objectContaining({ method: "POST" }));
     const postCall = fetchMock.mock.calls.find(([u, i]) => u === "/api/products" && i?.method === "POST");
     expect(JSON.parse(String(postCall?.[1]?.body))).toEqual(expect.objectContaining({
@@ -285,7 +285,7 @@ describe("account-backed product tools", () => {
     });
 
     const user = userEvent.setup();
-    render(<ProductCenter view="products" />);
+    render(<ProductCenter view="add-product" />);
 
     // Upload the demo invoice
     const fileInput = await screen.findByLabelText(/upload invoice file/i);
@@ -381,7 +381,7 @@ describe("account-backed product tools", () => {
     });
 
     const user = userEvent.setup();
-    render(<ProductCenter view="products" />);
+    render(<ProductCenter view="add-product" />);
 
     // Enter product URL only
     const urlInput = await screen.findByLabelText(/product web link/i);
@@ -411,6 +411,69 @@ describe("account-backed product tools", () => {
       sourceUrl: "https://www.amazon.in/dp/B0D421F3XX",
       asin: "B0D421F3XX",
     }));
+  });
+
+  it("exclusively displays saved products in My Products library without inline creation forms", async () => {
+    render(<ProductCenter view="products" />);
+
+    // Renders the Digital Product Passport Library header
+    expect(await screen.findByRole("heading", { name: /your products/i })).toBeInTheDocument();
+    expect(screen.getByText(/your product library|product passports/i)).toBeInTheDocument();
+
+    // Displays the saved product
+    expect(await screen.findByText("Daily sunscreen")).toBeInTheDocument();
+
+    // Renders search and category controls
+    expect(screen.getByPlaceholderText(/search by product name, brand, or model/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "All (1)" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /sort products/i })).toBeInTheDocument();
+
+    // Verifies inline creation form and extraction tools are completely removed
+    expect(screen.queryByLabelText(/upload invoice file/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/product web link/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /add manually/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /extract details from invoice/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/account sync/i)).not.toBeInTheDocument();
+  });
+
+  it("opens dedicated Product Passport showing actual available details without fabricating missing data", async () => {
+    const user = userEvent.setup();
+    render(<ProductCenter view="products" />);
+
+    // Click to open product passport
+    const openPassportBtn = await screen.findByRole("button", { name: /view timeline for daily sunscreen/i });
+    await user.click(openPassportBtn);
+
+    // Dedicated Product Passport dialog opens
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("heading", { name: "Daily sunscreen" })).toBeInTheDocument();
+
+    // Shows actual available data
+    expect(within(dialog).getByText("Personal care")).toBeInTheDocument();
+
+    // Missing data is displayed as Not recorded, never fabricated as verified
+    const unrecordedFields = within(dialog).getAllByText(/not recorded/i);
+    expect(unrecordedFields.length).toBeGreaterThan(0);
+
+    // Contains Verified Documents Vault and Timeline
+    expect(within(dialog).getByText(/verified documents vault/i)).toBeInTheDocument();
+    expect(within(dialog).getByRole("heading", { name: /daily sunscreen timeline/i })).toBeInTheDocument();
+  });
+
+  it("displays thoughtful empty state with CTA to Add Product when no products match search", async () => {
+    const user = userEvent.setup();
+    const onNavigateView = vi.fn();
+    render(<ProductCenter view="products" onNavigateView={onNavigateView} />);
+
+    const searchInput = await screen.findByPlaceholderText(/search by product name, brand, or model/i);
+    await user.type(searchInput, "NonExistentGadget123");
+
+    expect(await screen.findByRole("heading", { name: /no products found/i })).toBeInTheDocument();
+    const addProductCtas = screen.getAllByRole("button", { name: /add product/i });
+    expect(addProductCtas.length).toBeGreaterThanOrEqual(1);
+
+    await user.click(addProductCtas[addProductCtas.length - 1]);
+    expect(onNavigateView).toHaveBeenCalledWith("add-product");
   });
 });
 
