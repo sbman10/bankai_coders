@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ClaimForgeWorkspace } from "./ClaimForgeWorkspace";
@@ -31,13 +31,35 @@ afterEach(() => {
 });
 
 describe("ClaimForge customer workflow", () => {
-  it("opens the fictional public demo without checking auth or requesting private data", async () => {
+  it("opens the fictional preview without public demo badge or checking auth", async () => {
     render(<ClaimForgeWorkspace />);
 
-    expect(await screen.findAllByText(/public demo/i)).not.toHaveLength(0);
+    // PUBLIC DEMO badge is completely removed from the sidebar
+    expect(screen.queryByText(/public demo/i)).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /make the next step/i })).toBeInTheDocument();
     expect(fetch).not.toHaveBeenCalledWith("/api/auth");
     expect(fetch).not.toHaveBeenCalledWith("/api/claims", expect.anything());
+
+    // Intelligent welcome greeting renders without any hardcoded username
+    const welcomeHeading = screen.getByRole("heading", { level: 1 });
+    expect(welcomeHeading).toHaveTextContent(/good (morning|afternoon|evening)|up late/i);
+    expect(welcomeHeading).not.toHaveTextContent(/rohan/i);
+  });
+
+  it("removes Add Product from sidebar while preserving the prominent header Add Product button", async () => {
+    const user = userEvent.setup();
+    render(<ClaimForgeWorkspace />);
+
+    const sidebarNav = screen.getByRole("navigation", { name: /workspace/i });
+    // Sidebar should NOT have an "Add Product" button
+    expect(within(sidebarNav).queryByRole("button", { name: /^add product$/i })).not.toBeInTheDocument();
+
+    // Topbar header Add Product button exists and is clickable
+    const headerAddBtn = screen.getByRole("button", { name: /^add product$/i });
+    expect(headerAddBtn).toBeInTheDocument();
+
+    await user.click(headerAddBtn);
+    expect(await screen.findByText(/products with a paper trail/i)).toBeInTheDocument();
   });
 
   it("navigates to the interactive document assistant and product library", async () => {
@@ -66,7 +88,8 @@ describe("ClaimForge customer workflow", () => {
     render(<ClaimForgeWorkspace />);
 
     await user.click(screen.getByRole("button", { name: /^timeline$/i }));
-    expect(await screen.findByText(/all product ownership events|ownership history/i)).toBeInTheDocument();
+    const timelineHeadings = await screen.findAllByText(/all product ownership events|ownership history/i);
+    expect(timelineHeadings[0]).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /^price watch$/i }));
     expect(await screen.findByText(/know when the price is right/i)).toBeInTheDocument();

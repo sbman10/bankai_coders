@@ -1,23 +1,25 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import {
   Bell,
+  ChevronDown,
   ChevronLeft,
   FileText,
   GitCommit,
   HelpCircle,
   Home,
   LockKeyhole,
+  Menu,
   Moon,
   Package,
-  PackagePlus,
-  Plus,
   Search,
   Settings,
   ShieldCheck,
+  ShoppingBag,
   Sun,
   TrendingDown,
+  X,
 } from "lucide-react";
 import { ClaimIntake } from "./ClaimIntake";
 import { ClaimReview } from "./ClaimReview";
@@ -43,36 +45,58 @@ type View =
   | "settings"
   | "help";
 
+function subscribeTheme(callback: () => void) {
+  window.addEventListener("storage", callback);
+  window.addEventListener("claimforge-theme-change", callback);
+  return () => {
+    window.removeEventListener("storage", callback);
+    window.removeEventListener("claimforge-theme-change", callback);
+  };
+}
+
+function getClientThemeSnapshot(): boolean {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem("claimforge-theme") === "dark";
+}
+
+function getServerThemeSnapshot(): boolean {
+  return false;
+}
+
 export function ClaimForgeWorkspace() {
   const [view, setView] = useState<View>("workspace");
   const [claim, setClaim] = useState<ClaimSubmission>(sampleClaim);
   const [approved, setApproved] = useState(false);
-  const [isDarkTheme, setIsDarkTheme] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem("claimforge-theme") === "dark";
-  });
+  const isDarkTheme = useSyncExternalStore(
+    subscribeTheme,
+    getClientThemeSnapshot,
+    getServerThemeSnapshot
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // Initialize theme from system or saved preference
+  // Synchronize DOM data-theme and body attributes on mount
   useEffect(() => {
-    const savedTheme = localStorage.getItem("claimforge-theme");
-    if (savedTheme === "dark") {
-      document.documentElement.setAttribute("data-theme", "dark");
+    const isDark = localStorage.getItem("claimforge-theme") === "dark";
+    document.documentElement.setAttribute("data-theme", isDark ? "dark" : "light");
+    if (isDark) {
       document.body.classList.add("dark");
     } else {
-      document.documentElement.setAttribute("data-theme", "light");
       document.body.classList.remove("dark");
     }
 
-    // Keyboard shortcut for Cmd/Ctrl + K
+    // Keyboard shortcut for Cmd/Ctrl + K and Escape for drawer
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         const searchInput = document.getElementById("header-search-input");
         searchInput?.focus();
+      }
+      if (e.key === "Escape") {
+        setDrawerOpen(false);
+        setNotificationsOpen(false);
       }
     };
 
@@ -119,18 +143,18 @@ export function ClaimForgeWorkspace() {
     };
   }, [view]);
 
-  function toggleTheme(newDarkState: boolean) {
-    setIsDarkTheme(newDarkState);
+  const toggleTheme = useCallback((newDarkState: boolean) => {
+    const themeStr = newDarkState ? "dark" : "light";
+    localStorage.setItem("claimforge-theme", themeStr);
     if (newDarkState) {
       document.documentElement.setAttribute("data-theme", "dark");
       document.body.classList.add("dark");
-      localStorage.setItem("claimforge-theme", "dark");
     } else {
       document.documentElement.setAttribute("data-theme", "light");
       document.body.classList.remove("dark");
-      localStorage.setItem("claimforge-theme", "light");
     }
-  }
+    window.dispatchEvent(new Event("claimforge-theme-change"));
+  }, []);
 
   function beginClaim() {
     setApproved(false);
@@ -138,6 +162,7 @@ export function ClaimForgeWorkspace() {
   }
 
   async function submitClaim(nextClaim: ClaimIntakePayload, _idempotencyKey?: string): Promise<void> {
+    void _idempotencyKey;
     setApproved(false);
     setClaim({
       product: nextClaim.product,
@@ -150,304 +175,377 @@ export function ClaimForgeWorkspace() {
     setView("review");
   }
 
+  function handleNavigate(targetView: View) {
+    if (targetView === "claims") void loadClaims();
+    setView(targetView);
+    setDrawerOpen(false);
+  }
+
   return (
-    <div className={`app-shell ${isDarkTheme ? "dark-theme" : "light-theme"} ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-      {/* Left Sidebar */}
-      <aside className="sidebar" aria-label="Main navigation">
-        <div className="sidebar-header">
-          <a className="brand" href="#home" onClick={() => setView("workspace")}>
-            <ClaimForgeLogoMark className="brand-cube-logo" />
-            <div className="brand-text">
-              <span className="brand-name">ClaimForge</span>
-              <span className="brand-tagline">Your Products. Always Covered.</span>
-            </div>
+    <div
+      className={`app-shell ${isDarkTheme ? "dark-theme" : "light-theme"}`}
+      suppressHydrationWarning
+    >
+      {/* Top Horizontal Navigation Bar (Image A) */}
+      <header className="workspace-top-navbar" role="banner">
+        <div className="navbar-left-group">
+          <button
+            type="button"
+            className="navbar-hamburger-btn"
+            onClick={() => setDrawerOpen(true)}
+            aria-label="Open navigation menu"
+            title="Open menu"
+          >
+            <Menu size={20} />
+          </button>
+
+          <div className="navbar-vdivider" aria-hidden="true" />
+
+          <a
+            className="navbar-brand-link"
+            href="#home"
+            onClick={(e) => {
+              e.preventDefault();
+              setView("workspace");
+            }}
+          >
+            <ClaimForgeLogoMark className="navbar-logo-cube" />
+            <span className="navbar-brand-text">
+              Claim<span className="brand-orange">Forge</span>
+            </span>
           </a>
-          <button
-            className="sidebar-collapse-btn"
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            <ChevronLeft size={16} />
-          </button>
         </div>
 
-        <div className="workspace-badge-row">
-          <span className="demo-pill">PUBLIC DEMO</span>
-        </div>
-
-        <nav className="nav-list" aria-label="Workspace">
-          {/* Primary Navigation — Product Ownership Priority */}
-          <button
-            className={`nav-item ${view === "workspace" ? "active" : ""}`}
-            onClick={() => setView("workspace")}
-          >
-            <span className="nav-icon"><Home size={17} /></span>
-            <span className="nav-label">Dashboard</span>
-          </button>
-
-          <button
-            className={`nav-item ${view === "products" ? "active" : ""}`}
-            onClick={() => setView("products")}
-            aria-label="Products"
-          >
-            <span className="nav-icon"><Package size={17} /></span>
-            <span className="nav-label">My Products</span>
-          </button>
-
-          <button
-            className="nav-item"
-            onClick={() => setView("products")}
-            aria-label="Add Product"
-          >
-            <span className="nav-icon"><PackagePlus size={17} /></span>
-            <span className="nav-label">Add Product</span>
-          </button>
-
-          <button
-            className={`nav-item ${view === "timeline" ? "active" : ""}`}
-            onClick={() => setView("timeline")}
-            aria-label="Timeline"
-          >
-            <span className="nav-icon"><GitCommit size={17} /></span>
-            <span className="nav-label">Timeline</span>
-          </button>
-
-          <button
-            className={`nav-item ${view === "prices" ? "active" : ""}`}
-            onClick={() => setView("prices")}
-            aria-label="Price Watch"
-          >
-            <span className="nav-icon"><TrendingDown size={17} /></span>
-            <span className="nav-label">Price Watch</span>
-          </button>
-
-          <button
-            className={`nav-item ${view === "reminders" ? "active" : ""}`}
-            onClick={() => setView("reminders")}
-            aria-label="Reminders"
-          >
-            <span className="nav-icon"><Bell size={17} /></span>
-            <span className="nav-label">Reminders</span>
-            <span className="nav-count-badge">3</span>
-          </button>
-
-          {/* Secondary Tools & Experimental Features */}
-          <div className="nav-section-label">
-            <span>Tools &amp; Assistant</span>
+        {/* Center Pill-Shaped Search Bar */}
+        <div className={`navbar-search-pill ${searchFocused ? "is-focused" : ""}`}>
+          <Search size={16} className="search-pill-icon" />
+          <input
+            id="header-search-input"
+            type="search"
+            className="search-pill-input"
+            placeholder="Search your products, documents, or ask anything..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
+            aria-label="Search products, documents, or ask anything"
+          />
+          <div className="search-shortcut-pill" title="Press Ctrl+K or ⌘K">
+            <span className="kbd-symbol">⌘</span>
+            <span>K</span>
           </div>
 
-          <button
-            className={`nav-item ${view === "assistant" ? "active" : ""}`}
-            onClick={() => setView("assistant")}
-            aria-label="Ask documents"
-          >
-            <span className="nav-icon"><FileText size={17} /></span>
-            <span className="nav-label">Documents Q&amp;A</span>
-          </button>
-
-          <button
-            className={`nav-item ${view === "claims" || view === "review" ? "active" : ""}`}
-            onClick={() => { setView("claims"); void loadClaims(); }}
-            aria-label="My Claims"
-          >
-            <span className="nav-icon"><ShieldCheck size={17} /></span>
-            <span className="nav-label">Warranty Claims</span>
-            {claims.length > 0 && <span className="nav-count-badge">{claims.length}</span>}
-          </button>
-        </nav>
-
-        {/* Pinned Bottom Footer Navigation */}
-        <div className="sidebar-footer-nav">
-          <button
-            className={`nav-item ${view === "settings" ? "active" : ""}`}
-            onClick={() => setView("settings")}
-            aria-label="Settings"
-          >
-            <span className="nav-icon"><Settings size={17} /></span>
-            <span className="nav-label">Settings</span>
-          </button>
-
-          <button
-            className={`nav-item ${view === "help" ? "active" : ""}`}
-            onClick={() => setView("help")}
-            aria-label="Help & Support"
-          >
-            <span className="nav-icon"><HelpCircle size={17} /></span>
-            <span className="nav-label">Help &amp; Support</span>
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Area */}
-      <div className="main-viewport">
-        {/* Topbar */}
-        <header className="topbar">
-          {/* Search bar */}
-          <div className={`search-container ${searchFocused ? "focused" : ""}`}>
-            <Search size={16} className="search-icon" />
-            <input
-              id="header-search-input"
-              type="search"
-              className="search-input"
-              placeholder="Search your products, documents, or ask anything..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onFocus={() => setSearchFocused(true)}
-              onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
-              aria-label="Search products and documents"
-            />
-            <div className="search-shortcut" title="Press Ctrl+K or Cmd+K to search">
-              <span className="kbd-symbol">⌘</span>
-              <span>K</span>
+          {/* Quick search popover preview */}
+          {searchFocused && searchQuery && (
+            <div className="search-popover-dropdown">
+              <div
+                className="search-dropdown-item"
+                onClick={() => {
+                  setView("products");
+                  setSearchQuery("");
+                }}
+              >
+                <Package size={14} />
+                <span>Search for &quot;{searchQuery}&quot; in Products Library</span>
+              </div>
+              <div
+                className="search-dropdown-item"
+                onClick={() => {
+                  setView("assistant");
+                  setSearchQuery("");
+                }}
+              >
+                <FileText size={14} />
+                <span>Ask Document Assistant about &quot;{searchQuery}&quot;</span>
+              </div>
             </div>
+          )}
+        </div>
 
-            {/* Quick search drop-down if typing */}
-            {searchFocused && searchQuery && (
-              <div className="search-popover">
-                <div className="search-popover-item" onClick={() => { setView("workspace"); setSearchQuery(""); }}>
-                  <Package size={14} />
-                  <span>Sony WH-1000XM5 — Active Warranty (Electronics)</span>
+        {/* Right Controls: Theme, Notifications, Profile */}
+        <div className="navbar-right-group">
+          {/* Circular Theme Toggle */}
+          <button
+            type="button"
+            className="navbar-circle-btn theme-toggle-btn"
+            onClick={() => toggleTheme(!isDarkTheme)}
+            aria-label={isDarkTheme ? "Switch to light mode" : "Switch to dark mode"}
+            title={isDarkTheme ? "Switch to light mode" : "Switch to dark mode"}
+            suppressHydrationWarning
+          >
+            {isDarkTheme ? <Moon size={16} /> : <Sun size={16} />}
+          </button>
+
+          {/* Notifications Bell */}
+          <div className="notification-bell-wrap">
+            <button
+              type="button"
+              className="navbar-circle-btn notification-bell-btn"
+              onClick={() => setNotificationsOpen(!notificationsOpen)}
+              aria-label="Notifications"
+              title="Notifications"
+            >
+              <Bell size={16} />
+              <span className="bell-count-dot">3</span>
+            </button>
+
+            {notificationsOpen && (
+              <div className="notifications-dropdown-menu" role="menu">
+                <div className="notifications-head">
+                  <strong>Notifications</strong>
+                  <button
+                    type="button"
+                    className="notif-close-link"
+                    onClick={() => setNotificationsOpen(false)}
+                  >
+                    Close
+                  </button>
                 </div>
-                <div className="search-popover-item" onClick={() => { setView("workspace"); setSearchQuery(""); }}>
-                  <Package size={14} />
-                  <span>LG Refrigerator — AMC Active (Appliances)</span>
+                <div className="notif-row unread">
+                  <span className="notif-status-dot red" />
+                  <div>
+                    <strong>LG Refrigerator AMC Due</strong>
+                    <p>Renewal is due in 14 days. Review your plan.</p>
+                  </div>
                 </div>
-                <div className="search-popover-item" onClick={() => { setView("workspace"); setSearchQuery(""); }}>
-                  <FileText size={14} />
-                  <span>Pulse2_warranty_terms.pdf — Document on file</span>
+                <div className="notif-row unread">
+                  <span className="notif-status-dot green" />
+                  <div>
+                    <strong>Sony WH-1000XM5 Price Drop</strong>
+                    <p>Dropped to ₹24,990 (₹3,000 below purchase price).</p>
+                  </div>
+                </div>
+                <div className="notif-row unread">
+                  <span className="notif-status-dot amber" />
+                  <div>
+                    <strong>Minimalist Sunscreen Restock</strong>
+                    <p>Estimated refill needed in 8 days.</p>
+                  </div>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Topbar Right Controls */}
-          <div className="topbar-right">
-            {/* Dark/Light Theme Toggle Pill */}
-            <div className="theme-toggle-pill" role="radiogroup" aria-label="Theme selection">
-              <button
-                type="button"
-                className={`theme-btn ${!isDarkTheme ? "active" : ""}`}
-                onClick={() => toggleTheme(false)}
-                aria-label="Light mode"
-                title="Switch to light mode"
-              >
-                <Sun size={15} />
-              </button>
-              <button
-                type="button"
-                className={`theme-btn ${isDarkTheme ? "active" : ""}`}
-                onClick={() => toggleTheme(true)}
-                aria-label="Dark mode"
-                title="Switch to dark mode"
-              >
-                <Moon size={15} />
-              </button>
+          {/* User Profile Avatar with neutral Workspace name and chevron */}
+          <div className="navbar-user-profile-pill" role="button" tabIndex={0}>
+            <div className="user-initial-avatar">
+              <span>W</span>
             </div>
+            <span className="user-display-name">Workspace</span>
+            <ChevronDown size={14} className="profile-chevron-icon" />
+          </div>
+        </div>
+      </header>
 
-            {/* Notifications Bell */}
-            <div className="notification-wrap">
-              <button
-                type="button"
-                className="topbar-icon-btn notification-btn"
-                onClick={() => setNotificationsOpen(!notificationsOpen)}
-                aria-label="Notifications"
-              >
-                <Bell size={18} />
-                <span className="bell-badge">3</span>
-              </button>
-
-              {notificationsOpen && (
-                <div className="notifications-dropdown" role="menu">
-                  <div className="notifications-head">
-                    <strong>Notifications</strong>
-                    <button className="text-link-xs" onClick={() => setNotificationsOpen(false)}>
-                      Close
-                    </button>
-                  </div>
-                  <div className="notif-item unread">
-                    <span className="notif-dot red" />
-                    <div>
-                      <strong>LG Refrigerator AMC Due</strong>
-                      <p>Renewal is due in 14 days. Review your plan.</p>
-                    </div>
-                  </div>
-                  <div className="notif-item unread">
-                    <span className="notif-dot green" />
-                    <div>
-                      <strong>Sony WH-1000XM5 Price Drop</strong>
-                      <p>Dropped to ₹24,990 (₹3,000 below purchase price).</p>
-                    </div>
-                  </div>
-                  <div className="notif-item unread">
-                    <span className="notif-dot amber" />
-                    <div>
-                      <strong>Minimalist Sunscreen Restock</strong>
-                      <p>Estimated refill needed in 8 days.</p>
-                    </div>
-                  </div>
-                </div>
-              )}
+      {/* Slide-out Navigation Drawer (Hamburger Menu) */}
+      <div
+        className={`navigation-drawer-overlay ${drawerOpen ? "is-open" : ""}`}
+        onClick={() => setDrawerOpen(false)}
+      >
+        <aside
+          className="navigation-drawer-panel"
+          onClick={(e) => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Navigation drawer"
+        >
+          <div className="drawer-header">
+            <div className="drawer-brand-lockup">
+              <ClaimForgeLogoMark className="drawer-logo-cube" />
+              <span className="drawer-brand-name">
+                Claim<span className="brand-orange">Forge</span>
+              </span>
             </div>
-
-            {/* Header "+ Add Product" quick action button */}
             <button
-              className="topbar-add-btn"
-              onClick={() => setView("products")}
-              aria-label="Add Product"
+              type="button"
+              className="drawer-close-btn"
+              onClick={() => setDrawerOpen(false)}
+              aria-label="Close navigation"
             >
-              <Plus size={15} />
-              <span>Add Product</span>
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* Main Drawer Navigation Links */}
+          <nav className="drawer-nav-list" aria-label="Workspace">
+            <button
+              type="button"
+              className={`drawer-nav-link ${view === "workspace" ? "active" : ""}`}
+              onClick={() => handleNavigate("workspace")}
+            >
+              <Home size={17} />
+              <span>Dashboard</span>
             </button>
 
-            {/* User Profile */}
-            <div className="user-profile-btn" role="button" tabIndex={0}>
-              <div className="user-avatar-circle">
-                <span>R</span>
-              </div>
-              <span className="user-name">Rohan</span>
-            </div>
-          </div>
-        </header>
+            <button
+              type="button"
+              className={`drawer-nav-link ${view === "products" ? "active" : ""}`}
+              onClick={() => handleNavigate("products")}
+              aria-label="Products"
+            >
+              <Package size={17} />
+              <span>My Products</span>
+            </button>
 
-        {/* View Switcher Container */}
-        <main className="content-container" id="home">
-          {view === "intake" ? (
-            <ClaimIntake onCancel={() => setView("workspace")} onSubmit={submitClaim} />
-          ) : view === "review" ? (
-            <ClaimReview
-              claim={claim}
-              approved={approved}
-              onApprove={() => setApproved(true)}
-              onBack={() => setView("workspace")}
-            />
-          ) : view === "amazon-import" ? (
-            <ProductCenter view="products" />
-          ) : view === "claims" ? (
-            <ClaimsList
-              claims={claims}
-              loading={claimsLoading}
-              error={claimsError}
-              onBack={() => setView("workspace")}
-            />
-          ) : view === "assistant" ? (
-            <AssistantChat />
-          ) : view === "products" || view === "prices" || view === "reminders" || view === "timeline" ? (
-            <ProductCenter view={view} />
-          ) : view === "settings" || view === "help" ? (
-            <PublicDemoNotice onBack={() => setView("workspace")} currentView={view} />
-          ) : (
-            <DashboardHome
-              onStartClaim={beginClaim}
-              onOpenReview={() => setView("review")}
-              onNavigateTab={(tab) => {
-                if (tab === "claims") void loadClaims();
-                setView(tab as View);
+            <button
+              type="button"
+              className={`drawer-nav-link ${view === "timeline" ? "active" : ""}`}
+              onClick={() => handleNavigate("timeline")}
+              aria-label="Timeline"
+            >
+              <GitCommit size={17} />
+              <span>Timeline</span>
+            </button>
+
+            <button
+              type="button"
+              className={`drawer-nav-link ${view === "prices" ? "active" : ""}`}
+              onClick={() => handleNavigate("prices")}
+              aria-label="Price Watch"
+            >
+              <TrendingDown size={17} />
+              <span>Price Watch</span>
+            </button>
+
+            <button
+              type="button"
+              className={`drawer-nav-link ${view === "reminders" ? "active" : ""}`}
+              onClick={() => handleNavigate("reminders")}
+              aria-label="Reminders"
+            >
+              <Bell size={17} />
+              <span>Reminders</span>
+              <span className="drawer-badge-count">3</span>
+            </button>
+
+            <div className="drawer-section-heading">Tools &amp; Assistant</div>
+
+            <button
+              type="button"
+              className={`drawer-nav-link ${view === "assistant" ? "active" : ""}`}
+              onClick={() => handleNavigate("assistant")}
+              aria-label="Ask documents"
+            >
+              <FileText size={17} />
+              <span>Documents Q&amp;A</span>
+            </button>
+
+            <button
+              type="button"
+              className={`drawer-nav-link ${view === "amazon-import" ? "active" : ""}`}
+              onClick={() => handleNavigate("amazon-import")}
+              aria-label="Import from Amazon"
+            >
+              <ShoppingBag size={17} />
+              <span>Import from Amazon</span>
+            </button>
+
+            <button
+              type="button"
+              className={`drawer-nav-link ${view === "claims" ? "active" : ""}`}
+              onClick={() => handleNavigate("claims")}
+              aria-label="My Claims"
+            >
+              <ShieldCheck size={17} />
+              <span>Warranty Claims</span>
+              {claims.length > 0 && <span className="drawer-badge-count">{claims.length}</span>}
+            </button>
+
+            <button
+              type="button"
+              className={`drawer-nav-link ${view === "intake" ? "active" : ""}`}
+              onClick={() => {
+                setDrawerOpen(false);
+                beginClaim();
               }}
-              isDarkTheme={isDarkTheme}
-            />
-          )}
-        </main>
+              aria-label="Start a claim"
+            >
+              <ShieldCheck size={17} />
+              <span>Start a claim</span>
+            </button>
+
+            <button
+              type="button"
+              className={`drawer-nav-link ${view === "review" ? "active" : ""}`}
+              onClick={() => {
+                setDrawerOpen(false);
+                setView("review");
+              }}
+              aria-label="Review claim"
+            >
+              <FileText size={17} />
+              <span>Review claim</span>
+            </button>
+
+            <div className="drawer-section-heading">Account &amp; Settings</div>
+
+            <button
+              type="button"
+              className={`drawer-nav-link ${view === "settings" ? "active" : ""}`}
+              onClick={() => handleNavigate("settings")}
+              aria-label="Settings"
+            >
+              <Settings size={17} />
+              <span>Settings</span>
+            </button>
+
+            <button
+              type="button"
+              className={`drawer-nav-link ${view === "help" ? "active" : ""}`}
+              onClick={() => handleNavigate("help")}
+              aria-label="Help & Support"
+            >
+              <HelpCircle size={17} />
+              <span>Help &amp; Support</span>
+            </button>
+          </nav>
+        </aside>
       </div>
+
+      {/* Main Page Viewport Container */}
+      <main className="workspace-main-viewport" id="home">
+        {view === "intake" ? (
+          <ClaimIntake onCancel={() => setView("workspace")} onSubmit={submitClaim} />
+        ) : view === "review" ? (
+          <ClaimReview
+            claim={claim}
+            approved={approved}
+            onApprove={() => setApproved(true)}
+            onBack={() => setView("workspace")}
+          />
+        ) : view === "amazon-import" ? (
+          <AmazonImport
+            onCancel={() => setView("workspace")}
+            onSaved={(_productId, productName) => {
+              setView("products");
+              void productName;
+            }}
+          />
+        ) : view === "claims" ? (
+          <ClaimsList
+            claims={claims}
+            loading={claimsLoading}
+            error={claimsError}
+            onBack={() => setView("workspace")}
+          />
+        ) : view === "assistant" ? (
+          <AssistantChat />
+        ) : view === "products" || view === "prices" || view === "reminders" || view === "timeline" ? (
+          <ProductCenter view={view} />
+        ) : view === "settings" || view === "help" ? (
+          <PublicDemoNotice onBack={() => setView("workspace")} currentView={view} />
+        ) : (
+          <DashboardHome
+            onStartClaim={beginClaim}
+            onOpenReview={() => setView("review")}
+            onNavigateTab={(tab) => {
+              if (tab === "claims") void loadClaims();
+              setView(tab as View);
+            }}
+            isDarkTheme={isDarkTheme}
+          />
+        )}
+      </main>
     </div>
   );
 }
@@ -472,20 +570,20 @@ function PublicDemoNotice({ onBack, currentView }: { onBack: () => void; current
         <ChevronLeft size={16} /> Back to dashboard
       </button>
       <div className="eyebrow">
-        <span className="eyebrow-line" /> PUBLIC DEMO · {currentTitle.toUpperCase()}
+        <span className="eyebrow-line" /> {currentTitle.toUpperCase()}
       </div>
       <h1 id="public-demo-notice-title">Private account features are turned off.</h1>
       <p className="page-lede">
-        Products, saved claims, document Q&amp;A, price watches, reminders, and private uploads need an account-owned workspace. This public demo does not connect those features to shared data.
+        Products, saved claims, document Q&amp;A, price watches, reminders, and private uploads need an account-owned workspace.
       </p>
       <div className="demo-notice-card">
         <div className="demo-notice-icon">
           <LockKeyhole size={20} />
         </div>
         <div>
-          <strong>Explore the public demo safely</strong>
+          <strong>Explore the interactive workspace</strong>
           <p className="local-data-note">
-            You can explore the interactive dashboard, view product warranties and price drop alerts, or create a temporary claim preview. Nothing you enter or select is uploaded or saved to any external server.
+            You can explore the interactive dashboard, view product passports, warranties, price watches, and product timelines.
           </p>
         </div>
       </div>

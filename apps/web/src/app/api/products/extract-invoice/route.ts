@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/configured";
 import { prototypeStore } from "@/lib/store/prototype-store";
 import { resolveProductLink, type ProductLinkResolution } from "@/lib/ecommerce/link-resolver";
-import type { ExtractedProductFields, InvoiceExtractionResponse, OcrEngine } from "@/lib/ocr/types";
+import type { ExtractedProductFields, InvoiceExtractionResponse, OcrEngine, OcrRawResult } from "@/lib/ocr/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -51,6 +51,38 @@ async function getExistingProducts(): Promise<Array<{ id: string; name: string; 
     invoice_number: p.invoice_number,
     serial_number: p.serial_number,
   }));
+}
+
+function createExtractionFailureResponse(ocrResult: OcrRawResult): NextResponse {
+  if (ocrResult.errorType === "server_configuration_error") {
+    return NextResponse.json(
+      {
+        error: "Server document extraction service encountered an initialization failure. Please enter details manually or try again later.",
+        engine: ocrResult.engine,
+        debugError: process.env.NODE_ENV !== "production" ? ocrResult.debugError : undefined,
+      },
+      { status: 500 }
+    );
+  }
+  if (ocrResult.errorType === "corrupt_document") {
+    return NextResponse.json(
+      {
+        error: "The uploaded file appears to be damaged or not a valid document.",
+        engine: ocrResult.engine,
+        debugError: process.env.NODE_ENV !== "production" ? ocrResult.debugError : undefined,
+      },
+      { status: 400 }
+    );
+  }
+  return NextResponse.json(
+    {
+      error:
+        "Couldn't read this document clearly. Try uploading a higher-resolution image or a clearer scan, or enter details manually.",
+      debugError: process.env.NODE_ENV !== "production" ? ocrResult.debugError : undefined,
+      engine: ocrResult.engine,
+    },
+    { status: 422 }
+  );
 }
 
 function buildResponsePayload(
@@ -224,15 +256,7 @@ export async function POST(request: Request) {
           console.log("[OCR ROUTE] OCR result:", { engine: ocrResult.engine, textLength: ocrResult.text.length });
 
           if (!ocrResult.text || ocrResult.text.trim().length === 0) {
-            return NextResponse.json(
-              {
-                error:
-                  "Couldn't read this document clearly. Try uploading a higher-resolution image or a clearer scan, or enter details manually.",
-                debugError: ocrResult.debugError,
-                engine: ocrResult.engine,
-              },
-              { status: 422 }
-            );
+            return createExtractionFailureResponse(ocrResult);
           }
 
           // Perform Structured Extraction
@@ -331,6 +355,9 @@ export async function POST(request: Request) {
       const mimeType = typeof body.mimeType === "string" ? body.mimeType : "application/pdf";
 
       const ocrResult = await performDocumentOcr(bytes, filename, mimeType);
+      if (!ocrResult.text || ocrResult.text.trim().length === 0) {
+        return createExtractionFailureResponse(ocrResult);
+      }
       const extracted = await extractFieldsFromText(ocrResult.text);
 
       let linkData: ProductLinkResolution | null = null;
@@ -350,7 +377,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ error: "Provide an invoice file, invoice text, or product link." }, { status: 400 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to extract product details.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[extract-invoice route] Unexpected failure:", error);
+    return NextResponse.json(
+      { error: "Failed to extract product details. Please try again or enter details manually." },
+      { status: 500 }
+    );
   }
 }

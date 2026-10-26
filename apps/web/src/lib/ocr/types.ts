@@ -13,6 +13,7 @@ export type OcrRawResult = {
   fileName: string;
   engine: OcrEngine;
   debugError?: string;
+  errorType?: "unreadable_document" | "server_configuration_error" | "corrupt_document" | "unsupported_format";
 };
 
 export type ExtractedProductFields = {

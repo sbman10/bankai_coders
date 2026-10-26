@@ -117,8 +117,23 @@ export async function POST(request: Request) {
     if (documentsError) return NextResponse.json({ error: "The selected documents could not be checked." }, { status: 503 });
     if (!documents || documents.length !== body.documentIds.length) return NextResponse.json({ error: "One or more selected documents could not be found." }, { status: 404 });
 
-    const { data: evidence, error: searchError } = await supabase.rpc("search_selected_document_chunks", {
-      p_query_text: body.question.trim(),
+    const { data: embeddingResult, error: embeddingError } = await supabase.functions.invoke("embed-text", {
+      body: { text: body.question.trim() },
+    });
+    if (embeddingError || !isRecord(embeddingResult) ||
+      embeddingResult.modelAlias !== "gte-small" ||
+      embeddingResult.modelRepository !== "Supabase/gte-small" ||
+      embeddingResult.modelRevision !== null ||
+      embeddingResult.dimension !== 384 ||
+      embeddingResult.pooling !== "mean" ||
+      embeddingResult.normalized !== true ||
+      !Array.isArray(embeddingResult.embedding) || embeddingResult.embedding.length !== 384 ||
+      embeddingResult.embedding.some((value) => typeof value !== "number" || !Number.isFinite(value))) {
+      return NextResponse.json({ error: "Semantic document search is unavailable. Please try again later." }, { status: 503 });
+    }
+
+    const { data: evidence, error: searchError } = await supabase.rpc("search_selected_document_chunks_by_embedding", {
+      p_query_embedding: embeddingResult.embedding,
       p_product_id: body.productId,
       p_document_ids: body.documentIds,
       p_result_limit: 8,

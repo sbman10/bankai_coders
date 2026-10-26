@@ -1,5 +1,19 @@
 import { createHash } from "node:crypto";
-import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
+import { getDocument, GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf.mjs";
+import * as pdfjsWorker from "pdfjs-dist/legacy/build/pdf.worker.mjs";
+
+if (typeof globalThis !== "undefined") {
+  // @ts-expect-error global worker for Node environment
+  globalThis.pdfjsWorker = pdfjsWorker;
+}
+
+if (typeof GlobalWorkerOptions !== "undefined") {
+  try {
+    GlobalWorkerOptions.workerSrc = "pdfjs-dist/legacy/build/pdf.worker.mjs";
+  } catch {
+    // Ignore if already set
+  }
+}
 
 export type ExtractedPage = { pageNumber: number; text: string };
 export type IndexedChunk = {
@@ -47,6 +61,38 @@ export async function extractPdfPages(bytes: Uint8Array): Promise<ExtractedPage[
     return pages;
   } finally {
     await task.destroy();
+  }
+}
+
+/**
+ * Renders the first N pages of a PDF to PNG buffers for OCR fallback (scanned / image-only PDFs).
+ * Uses @napi-rs/canvas if available.
+ */
+export async function renderPdfPagesToBuffers(bytes: Uint8Array, maxPages = 3): Promise<Buffer[]> {
+  try {
+    const { createCanvas } = await import("@napi-rs/canvas");
+    const task = getDocument({
+      data: new Uint8Array(bytes),
+      disableFontFace: true,
+      verbosity: 0,
+    });
+    const doc = await task.promise;
+    const pageCount = Math.min(doc.numPages, maxPages);
+    const buffers: Buffer[] = [];
+    for (let i = 1; i <= pageCount; i++) {
+      const page = await doc.getPage(i);
+      const viewport = page.getViewport({ scale: 2.0 });
+      const canvas = createCanvas(viewport.width, viewport.height);
+      const context = canvas.getContext("2d");
+      // @ts-expect-error napi-rs canvas context compatibility with pdfjs
+      await page.render({ canvasContext: context, viewport }).promise;
+      buffers.push(canvas.toBuffer("image/png"));
+    }
+    await task.destroy();
+    return buffers;
+  } catch (err) {
+    console.warn("[PDF RENDER] Canvas page rendering not available for scanned fallback:", err);
+    return [];
   }
 }
 

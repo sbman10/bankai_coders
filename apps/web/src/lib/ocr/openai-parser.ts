@@ -167,7 +167,7 @@ export function parseOcrHeuristically(text: string): ExtractedProductFields {
     }
 
     // Sold By (single-line)
-    const soldMatch = line.match(/^(?:Sold\s*By|Seller|Retailer|Merchant)\s*[:\-]\s*(.+)$/i);
+    const soldMatch = line.match(/^(?:Sold\s*By|Seller|Retailer|Merchant)\s*[:\-]?\s*(.+)$/i);
     if (soldMatch && !result.seller) {
       const val = cleanCapture(soldMatch[1]);
       if (val && !/^(?:gstin|pan|cin)\b/i.test(val)) {

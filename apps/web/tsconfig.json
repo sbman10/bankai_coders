@@ -34,7 +34,7 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/dev/types/**/*.ts"
-  ],
+, "../../supabase/functions/_shared/document-processing-worker.ts"  ],
   "exclude": [
     "node_modules"
   ]

@@ -1,102 +1,184 @@
 # ClaimForge Product Requirements Document
 
-**Status:** Draft for pitch and first prototype planning  
-**Owner:** Product team  
-**Last updated:** 2026-10-19
+**Status:** Draft for pitch and MVP planning
+**Owner:** Product team
+**Last updated:** 2026-10-25
 
 ## 1. Product summary
 
-ClaimForge helps a consumer turn a faulty device and scattered purchase/warranty documents into a clear, evidence-backed warranty claim. It extracts relevant terms, checks them against the user's purchase and failure details, identifies missing evidence, prepares a support message, and tracks follow-ups. A person reviews and approves all external communication.
+ClaimForge is a product and coverage assistant that helps people make informed decisions before and after they buy. Before purchase, a user can ask plain-language questions about a product’s warranty, protection plan, or an insurance policy/service—for example, exclusions, waiting periods, required documents, and how claims are filed. Answers must be grounded in the relevant documents or official source material, with citations and clear uncertainty.
+
+After purchase, ClaimForge helps the user keep product details and documents together, track a price manually, set replenishment or service reminders, and understand and prepare a warranty claim. The user remains in control of all external communication and claim submissions.
+
+**Product promise:** Turn product ownership into peace of mind—from understanding coverage before you buy to managing products and claims afterward.
 
 ## 2. Problem
 
-A customer with a defective device often has to find the right warranty document, interpret exclusions and duration, locate proof of purchase, understand the manufacturer's claim process, and follow up after a rejection or silence. ClaimForge reduces this coordination work while keeping the user in control.
+Before buying, people may struggle to compare dense warranty, protection-plan, or insurance terms. Marketing summaries can omit exclusions, waiting periods, deductibles, claim limits, and required evidence. After buying, receipts and policy documents become scattered, while price changes, replenishment dates, service needs, and claim steps are easy to forget.
 
-## 3. Target user and first scenario
+ClaimForge reduces this work by organizing source documents, answering questions with traceable evidence, and helping the user take the next step without presenting an AI answer as a binding coverage decision.
 
-**Primary user:** A consumer in India who bought an electronic device and wants to pursue a manufacturer warranty claim without knowing the process.
+## 3. Target users and scenarios
 
-**Demo scenario:** The user bought headphones eight months ago; one side stops working. They upload a purchase invoice and the applicable warranty terms, describe the failure, and receive a plain-language eligibility assessment, a checklist of evidence, and a ready-to-review claim draft.
+**Primary user:** A consumer who wants to understand the terms attached to a product or service before committing, and manage the purchase afterward.
 
-This India-first framing is an assumption for the pitch/demo and should be revisited if the event expects another market.
+**Pre-purchase scenario:** A user is considering headphones with an extended protection plan, or an insurance service. They provide or select the relevant policy/terms and ask: “Does accidental damage appear to be covered?”, “Is there a waiting period?”, or “What documents would I need to make a claim?” ClaimForge gives a cited explanation or says the supplied evidence is insufficient.
+
+**Post-purchase demo scenario:** A user bought headphones eight months ago; one side stops working. They upload the invoice and applicable warranty terms, describe the fault, and receive relevant cited terms, an evidence checklist, and a reviewable claim draft.
+
+**Everyday ownership scenario:** A user records a sunscreen purchase, its price, and an estimated 1.5-month usage period. ClaimForge can show the manually recorded price and remind the user in-app when it may be time to replenish it.
+
+The India-first market framing is an assumption for the pitch/demo. Terms, regulations, and appropriate sources may differ by country and insurance product; the launch market must be confirmed before broader rollout.
 
 ## 4. Goals
 
-- Help the user understand which supplied warranty clauses appear relevant and why.
-- Identify gaps in documents or claim details before the user contacts support.
-- Produce a concise, editable claim draft that cites the user's own evidence.
-- Track claim status and suggest a timely follow-up.
-- Demonstrate reliable automation with n8n while preserving explicit user approval.
+- Let users ask pre-purchase questions about supplied product warranty, protection-plan, and insurance/service policy documents.
+- Ground policy explanations in retrieved source text and show the document name plus page/section for each material statement.
+- Make uncertainty visible; ask a focused follow-up or abstain when evidence is missing, incomplete, illegible, or conflicting.
+- Help users organize purchased products, receipts, warranty/policy documents, and key dates in one ownership record.
+- Support manual price entries and user-set service or replenishment reminders.
+- Help users understand post-purchase claim steps, identify missing evidence, and prepare an editable claim draft.
+- Preserve explicit human approval before any claim, complaint, settlement response, or personal document is sent externally.
+- Demonstrate how n8n can orchestrate selected events while Supabase remains the durable source of truth for app data.
 
-## 5. Non-goals for the first demo
+## 5. Non-goals
 
-- Guaranteeing coverage, repair, replacement, refund, or claim success.
-- Giving legal advice or interpreting consumer law as a binding decision.
-- Sending a claim, accepting a settlement, or sharing documents without user approval.
-- Supporting every manufacturer, product category, country, or warranty format.
-- Submitting claims into manufacturer portals or making purchases/payments.
+- Guaranteeing that a product, repair, treatment, loss, or event is covered or that a claim will succeed.
+- Giving legal, financial, or insurance-broker advice, recommending a policy as suitable, or making a binding interpretation of a contract.
+- Replacing the insurer, warranty provider, regulator, lawyer, or official claims process.
+- Inventing or assuming policy terms when no applicable source is available.
+- Automatically buying products, changing/cancelling policies, submitting claims, accepting settlements, or sharing user documents.
+- Supporting every country, insurer, manufacturer, policy format, or product category in the first demo.
+- Automated web price scraping or claiming a live price without a verified source and timestamp.
+- Treating n8n execution logs as the user’s product, claim, document, or policy record.
 
-## 6. First-demo scope
+## 6. First-demo and MVP scope
 
-### Inputs
+### 6.1 Pre-purchase: policy and coverage Q&A
 
-- Invoice image or PDF.
-- Warranty document or official warranty URL supplied by the user.
-- User's description of the fault and when it began.
-- Optional contact email for a draft recipient; never infer or invent it.
+**Inputs**
 
-### Outputs
+- A policy, warranty, protection-plan document, or official URL supplied or explicitly selected by the user.
+- The product/service or plan the user is asking about.
+- The user's question; optional context needed to interpret the question, clearly labeled as user-provided.
 
-- Extracted purchase date, product/brand/model, seller, and invoice identifier when legible.
-- Relevant warranty clauses with page/section references.
-- A transparent assessment: `likely within stated term`, `unclear`, or `appears outside stated term`; this is not a coverage decision.
-- A missing-information/evidence checklist.
-- A claim email draft for user review, with supporting facts linked to the provided documents.
-- A claim record with status and a user-approved follow-up reminder.
+**Outputs**
 
-### Demo boundary
+- A concise plain-language response tied to the supplied material.
+- Source citations with document name and page/section where available.
+- A typed evidence outcome such as `supported by supplied terms`, `conditional`, `insufficient evidence`, or `conflicting terms`.
+- A focused follow-up when a key fact is missing, such as purchase date, location, plan tier, or event details.
+- A clear separation between quoted/extracted policy facts, user-provided facts, and ClaimForge's explanation or inference.
 
-Use a clearly labeled sample case and documents unless the presenter has permission to use a real user's data. Do not place real personal information in screenshots or slides.
+**Rules**
 
-## 7. User journey
+- Do not decide or promise that a future event will be covered. Explain what the source says and what remains conditional or unknown.
+- If the user has not supplied or selected an applicable source, ask for one or direct them to verify with the provider; do not fabricate an answer from generic model knowledge.
+- For insurance questions, explain wording and claim steps only. Do not recommend purchase, estimate a likelihood of approval, or give a binding coverage determination.
 
-1. User starts a claim and describes the device fault.
-2. User uploads invoice and warranty terms (or supplies an official product warranty link).
-3. System extracts key fields and asks about unreadable or missing details.
-4. System compares the dates and reported issue with cited warranty language; it explains uncertainty and exclusions.
-5. System returns the evidence checklist and claim draft.
-6. User edits and approves the draft.
-7. n8n performs only the approved delivery/reminder action configured for the demo; it records the result and schedules a follow-up with user consent.
+### 6.2 Post-purchase: product ownership and claim preparation
 
-## 8. Product behavior and safeguards
+**Inputs**
 
-- Distinguish facts extracted from documents, user-provided statements, and system inferences.
-- Cite source document and page/section for each warranty statement; do not invent clauses.
-- If a document is missing, illegible, contradictory, or incomplete, ask for clarification or mark the result `unclear`.
-- Never claim a manufacturer will approve coverage.
-- Require a human approval step before sending or sharing any claim content.
-- Minimize stored personal data; provide a deletion path in the implemented product.
-- Treat uploaded text as untrusted data, not as instructions to the automation.
-- Do not expose invoice identifiers, addresses, phone numbers, or emails in public demos.
+- Product name, brand/model, category, purchase date, and seller when known.
+- Invoice image/PDF and warranty or protection document/official URL, as available.
+- User's description of a fault/event and when it occurred.
+- Optional manually entered price and expected replenishment/service date.
 
-## 9. Success measures for prototype evaluation
+**Outputs**
 
-Measure these on a small, disclosed test set; do not present targets as achieved results before testing:
+- Product ownership record with linked documents and important dates.
+- Extracted purchase and product facts only where legible, with review/correction for uncertain fields.
+- Relevant cited clauses and an evidence/next-step checklist.
+- A transparent claim-assessment explanation, not an approval decision.
+- Editable support/claim draft and a claim record.
+- In-app reminders for user-set follow-up, service, warranty, or replenishment dates.
+- Manually recorded price history; entries must show their user-entered source/date and must not be presented as live market data.
 
-- Correct extraction of purchase date and product identity.
-- Whether every eligibility statement maps to a quoted/cited warranty clause.
-- Whether the evidence checklist identifies intentionally omitted required items.
-- Time from upload to reviewable claim draft.
-- Whether users understand that the assessment is not an approval guarantee.
-- Percentage of outgoing drafts approved without factual correction (report sample size and method).
+### 6.3 Demo boundary
 
-## 10. n8n role
+Use clearly labeled fictional/sample documents unless permission has been given to use real personal data. Redact names, addresses, invoice identifiers, phone numbers, and emails in screenshots and presentations.
 
-n8n orchestrates intake, document-processing steps, AI extraction/classification calls, human approval, approved message delivery, and reminder scheduling. Deterministic validation and state transitions should be explicit workflow steps; AI should be used for document understanding and drafting. The exact node/provider choices belong in the technical design and must be checked against the current n8n documentation.
+## 7. User journeys
+
+### Journey A: Ask before buying
+
+1. User chooses a product, protection plan, warranty, or insurance/service policy to understand.
+2. User uploads or selects the relevant document or official source.
+3. User asks a question in the policy assistant.
+4. ClaimForge retrieves only the selected, available sources and checks whether they support an answer.
+5. ClaimForge returns an explanation with citations and an evidence outcome, or asks a clarifying question/abstains.
+6. User verifies important terms with the provider before purchase; ClaimForge does not make the purchase decision.
+7. If the user buys the product/service, they may add it to their ownership records.
+
+### Journey B: Prepare a post-purchase claim
+
+1. User creates or selects a product and describes the fault/event.
+2. User uploads an invoice and applicable warranty/policy terms to private storage, or selects existing documents.
+3. ClaimForge extracts legible details and asks the user to correct or clarify uncertain data.
+4. ClaimForge explains the relevant source terms and missing evidence, with citations.
+5. ClaimForge prepares an editable claim draft and records its status.
+6. User reviews and explicitly approves any external communication immediately before it is sent. If sending is not configured, the user copies the draft.
+7. Claim status and follow-up reminders are shown from the app's saved records.
+
+### Journey C: Manage a product over time
+
+1. User records a purchase and optionally enters its price, expected usage duration, or service date.
+2. ClaimForge adds documents and dates to that product's ownership record.
+3. The app shows manually tracked price entries and schedules in-app reminders based on the user's dates.
+4. The user edits or dismisses reminders and maintains their own product record.
+
+## 8. Product behavior, evidence, and safeguards
+
+- Restrict retrieval and product/document access to the signed-in owner and the sources selected for that question.
+- Bind citations to stored/retrieved document chunks; do not show model-invented page numbers, section labels, or quotes.
+- Distinguish document facts, user statements, and system inferences in both stored data and the interface.
+- Return `insufficient evidence` or ask a follow-up when documents are missing, unreadable, stale, contradictory, or not applicable to the user's plan/location/date.
+- Show source identity and version/date when available. Do not assume a product page or policy URL is current unless that has been checked.
+- Treat uploaded files and extracted text as untrusted content, never as instructions to the system or workflow.
+- Keep invoices and policy documents private. Do not send file bytes, OCR text, retrieved policy passages, long-lived public URLs, or secrets to n8n.
+- Minimize personal data and provide a deletion path in the implemented product.
+- Require recorded, explicit user approval immediately before any external claim/complaint communication. AI output alone cannot authorize sending.
+- Make clear that explanations are informational and are not a binding insurer/manufacturer decision or legal/financial advice.
+- Keep demo data fictional or properly consented and redacted.
+
+## 9. MVP success measures
+
+Measure on a small, disclosed test set; report sample size and method. Do not present unmeasured targets as achieved results.
+
+**Pre-purchase Q&A**
+
+- Whether each material answer statement is supported by the cited selected source.
+- Citation correctness for document/page/section metadata.
+- Whether the system abstains or asks a useful follow-up when evidence is missing or conflicting.
+- Whether users understand the difference between a source-grounded explanation and a coverage guarantee/recommendation.
+
+**Post-purchase claims and ownership**
+
+- Correct extraction of purchase date and product identity on the test set.
+- Whether the evidence checklist identifies intentionally omitted required information.
+- Time from document upload to a reviewable result/draft.
+- Whether users catch and correct uncertain extracted facts before approval.
+- Whether a user can add/edit/delete a product, update a manual price entry, and set/cancel an in-app reminder.
+- Whether any external communication is blocked until explicit user approval.
+
+## 10. n8n and system responsibilities
+
+- **Next.js:** user interface and server-side API boundary. It verifies the signed-in session, validates requests, checks ownership, and controls when an automation may be called.
+- **Supabase:** durable source of truth for user-scoped products, documents' metadata, claims, reminders, and processing/status records; private Storage holds document files. Database and Storage policies must enforce owner access.
+- **n8n:** intended orchestration for selected website-triggered events and scheduled business reminders. A website action should call an authenticated n8n Webhook through the Next.js server route. Recurring tasks can begin from a Schedule Trigger. n8n receives only minimum identifiers/metadata and may call a protected app callback for safe status updates if configured.
+- **Status and logs:** the app reads claim/product/reminder state from Supabase. n8n execution logs help operators diagnose workflow runs; they do not replace app records and should not contain document content or secrets.
+- **RAG document Q&A/ingestion:** answering is intended to stay on the authenticated Next.js path with owner- and selection-scoped retrieval. Document ingestion/embedding worker design is separate and remains proposed until the queue, Edge Function, and database flow are verified. Do not put the chatbot's critical answer path in n8n.
+
+**Current implementation truth:** the `claimforge app api` workflow is inactive and acknowledgement-only; it is not a completed claim-processing integration. Product price entries are manual, reminders are in-app, and no automated price scraping or outbound notification should be described as connected unless separately verified. The RAG migration/worker is not live-verified.
 
 ## 11. Open decisions
 
-- Confirm the intended launch/demo market and applicable consumer protection regime.
-- Choose storage, document extraction, LLM, email, and reminder providers.
-- Decide whether the first demo sends an email or only produces a copyable draft.
-- Agree the public interfaces and test seams before implementation or test writing, following the TDD handoff rules.
+- Confirm launch geography and what policy/service categories the prototype may discuss.
+- Decide how users provide sources: upload, official URL, or both; define source freshness/version checks.
+- Confirm whether the initial pre-purchase assistant answers only from user-selected material or also from a vetted public-source catalog.
+- Select approved OCR, embedding, and language-model providers, and document processing/data-residency constraints.
+- Decide whether the first demo creates a copyable claim draft only or supports an explicitly approved delivery action.
+- Define reminder delivery scope: in-app only for MVP, or another channel after consent and configuration.
+- Define and verify n8n webhook authentication, payload contract, idempotency, callback authorization, and safe execution-data retention before activating a workflow.
+- Agree public behavior seams before implementation or test writing; keep the MVP limited to confirmed product behavior.

@@ -1,54 +1,6 @@
 {
   "products": [
     {
-      "id": "0cd94515-cf3e-4947-ac38-6028c4c9dce5",
-      "user_id": "00000000-0000-4000-8000-000000000001",
-      "name": "soundcore by Anker Q20i Wireless Bluetooth Over-Ear",
-      "brand": "Soundcore",
-      "model": "Anker Q20i",
-      "category": "Electronics",
-      "seller": "VALUECART PRIVATE LIMITED",
-      "serial_number": null,
-      "purchase_date": "2025-05-19",
-      "warranty_end": "2026-05-19",
-      "owner_name": "Ayushi Gupta",
-      "buying_method": "UPI",
-      "purchase_platform": "Amazon.in",
-      "price_paid": 4499,
-      "currency": "INR",
-      "invoice_number": "DEL5-38993",
-      "order_id": "404-9226303-3588325",
-      "warranty_duration_months": 12,
-      "replenishment_days": null,
-      "replenishment_remind_at": null,
-      "created_at": "2026-10-26T08:39:32.245Z",
-      "updated_at": "2026-10-26T08:39:32.245Z"
-    },
-    {
-      "id": "bbc14ccd-8991-4cef-8c79-0c2b70fcc5c3",
-      "user_id": "00000000-0000-4000-8000-000000000001",
-      "name": "soundcore by Anker Q20i Wireless Bluetooth Over-Ear",
-      "brand": "Soundcore",
-      "model": "Anker Q20i",
-      "category": "Electronics",
-      "seller": "GREEN IDEAS TECHNOLOGY PRIVATE",
-      "serial_number": null,
-      "purchase_date": "2026-10-14",
-      "warranty_end": "2027-10-14",
-      "owner_name": "MEGATRONICS SYSTEMS INDIA LLP",
-      "buying_method": "Cash on Delivery",
-      "purchase_platform": "Amazon.in",
-      "price_paid": 4499,
-      "currency": "INR",
-      "invoice_number": "DEL5-20608",
-      "order_id": "408-5734337-3930738",
-      "warranty_duration_months": 12,
-      "replenishment_days": null,
-      "replenishment_remind_at": null,
-      "created_at": "2026-10-26T08:39:10.455Z",
-      "updated_at": "2026-10-26T08:39:10.455Z"
-    },
-    {
       "id": "9172b040-54d3-48c3-8641-0b0bf32de5d2",
       "user_id": "00000000-0000-4000-8000-000000000001",
       "name": "Anker Soundcore Life Q30 Wireless ANC Headphones",
@@ -103,22 +55,6 @@
       "replenishment_remind_at": "2024-11-05",
       "created_at": "2023-11-20T14:15:00Z",
       "updated_at": "2023-11-20T14:15:00Z"
-    },
-    {
-      "id": "33333333-3333-4333-8333-333333333333",
-      "user_id": "00000000-0000-4000-8000-000000000001",
-      "name": "Minimalist SPF 50 PA++++ Sunscreen 50g",
-      "brand": "Minimalist",
-      "model": "SPF50-50G",
-      "category": "Personal Care",
-      "seller": "Nykaa E-Retail",
-      "serial_number": "SN-MIN-44120",
-      "purchase_date": "2024-09-01",
-      "warranty_end": "2025-09-01",
-      "replenishment_days": 60,
-      "replenishment_remind_at": "2024-10-31",
-      "created_at": "2024-09-01T09:00:00Z",
-      "updated_at": "2024-09-01T09:00:00Z"
     },
     {
       "id": "44444444-4444-4444-8444-444444444444",
@@ -182,19 +118,6 @@
       "products": {
         "name": "LG 655L Frost-Free Side-by-Side Refrigerator"
       }
-    },
-    {
-      "id": "rem-002",
-      "user_id": "00000000-0000-4000-8000-000000000001",
-      "product_id": "33333333-3333-4333-8333-333333333333",
-      "remind_at": "2024-10-31T09:00:00Z",
-      "channel": "in_app",
-      "reason": "Minimalist Sunscreen bottle refill due (estimated 60-day interval)",
-      "status": "scheduled",
-      "created_at": "2024-09-01T09:00:00Z",
-      "products": {
-        "name": "Minimalist SPF 50 PA++++ Sunscreen 50g"
-      }
     }
   ],
   "claims": [
@@ -237,32 +160,6 @@
     }
   ],
   "documents": [
-    {
-      "id": "bd723ed5-89c5-4f32-85f6-163aaf2dedc0",
-      "user_id": "00000000-0000-4000-8000-000000000001",
-      "product_id": "0cd94515-cf3e-4947-ac38-6028c4c9dce5",
-      "document_kind": "invoice",
-      "storage_path": "00000000-0000-4000-8000-000000000001/94e04ae1-191b-4fd3-a073-d4591e384865-invoice_260527_222429-1-.pdf",
-      "original_filename": "invoice_260527_222429 (1).pdf",
-      "mime_type": "application/pdf",
-      "size_bytes": 42174,
-      "ingestion_status": "indexed",
-      "ingestion_warning_code": null,
-      "created_at": "2026-10-26T08:39:32.526Z"
-    },
-    {
-      "id": "e3299ed8-e2b9-4aeb-9c69-a0123e95258c",
-      "user_id": "00000000-0000-4000-8000-000000000001",
-      "product_id": "bbc14ccd-8991-4cef-8c79-0c2b70fcc5c3",
-      "document_kind": "invoice",
-      "storage_path": "00000000-0000-4000-8000-000000000001/11b29379-6a25-40fd-87e1-4ff9542abe7e-invoice2.pdf",
-      "original_filename": "invoice2.pdf",
-      "mime_type": "application/pdf",
-      "size_bytes": 134018,
-      "ingestion_status": "indexed",
-      "ingestion_warning_code": null,
-      "created_at": "2026-10-26T08:39:11.762Z"
-    },
     {
       "id": "doc-001",
       "user_id": "00000000-0000-4000-8000-000000000001",
