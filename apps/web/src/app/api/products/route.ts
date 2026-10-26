@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { isRecord, JsonBodyError, readJsonBody } from "@/lib/http/read-json-body";
 import { createClient } from "@/lib/supabase/server";
 
-const productFields = "id, name, category, brand, model, seller, serial_number, purchase_date, warranty_end, replenishment_days, replenishment_remind_at, created_at, updated_at";
+const productFields = "id, name, category, brand, model, seller, serial_number, purchase_date, warranty_end, replenishment_days, replenishment_remind_at, owner_name, buying_method, purchase_platform, price_paid, currency, invoice_number, order_id, warranty_duration_months, image_url, source_url, asin, created_at, updated_at";
 
 function validDate(value: unknown): value is string | null {
   if (value === null || value === "") return true;
@@ -18,11 +18,15 @@ function optionalText(value: unknown, max: number): string | null | undefined {
   return value.trim();
 }
 
-function productInput(body: Record<string, unknown>, partial = false): Record<string, string | null> | null {
+function productInput(body: Record<string, unknown>, partial = false): Record<string, unknown> | null {
   const name = optionalText(body.name, 160);
   const textFields = [
     ["category", "category", 80], ["brand", "brand", 120], ["model", "model", 120],
     ["seller", "seller", 160], ["serialNumber", "serial_number", 120],
+    ["ownerName", "owner_name", 120], ["buyingMethod", "buying_method", 80],
+    ["purchasePlatform", "purchase_platform", 80], ["currency", "currency", 10],
+    ["invoiceNumber", "invoice_number", 120], ["orderId", "order_id", 120],
+    ["imageUrl", "image_url", 1000], ["sourceUrl", "source_url", 1000], ["asin", "asin", 20],
   ] as const;
   const optionalFields = textFields.map(([key, column, max]) => {
     const value = body[key] === undefined && !partial ? null : optionalText(body[key], max);
@@ -34,11 +38,19 @@ function productInput(body: Record<string, unknown>, partial = false): Record<st
   if (!partial && !name) return null;
   if (partial && name === undefined && optionalFields.every((field) => field.value === undefined) && purchaseDate === undefined && warrantyEnd === undefined) return null;
 
-  const input: Record<string, string | null> = {};
+  const input: Record<string, unknown> = {};
   if (name !== undefined) input.name = name;
   for (const field of optionalFields) if (field.value !== undefined) input[field.column] = field.value;
   if (purchaseDate !== undefined) input.purchase_date = purchaseDate || null;
   if (warrantyEnd !== undefined) input.warranty_end = warrantyEnd || null;
+
+  if (typeof body.pricePaid === "number" && !Number.isNaN(body.pricePaid)) {
+    input.price_paid = body.pricePaid;
+  }
+  if (typeof body.warrantyDurationMonths === "number" && !Number.isNaN(body.warrantyDurationMonths)) {
+    input.warranty_duration_months = Math.round(body.warrantyDurationMonths);
+  }
+
   return input;
 }
 
@@ -100,13 +112,24 @@ export async function POST(request: Request) {
       if (!input) return NextResponse.json({ error: "Enter a product name and valid ownership dates." }, { status: 400 });
       const product = prototypeStore.createProduct({
         name: input.name as string,
-        brand: input.brand,
-        model: input.model,
+        brand: input.brand as string | null | undefined,
+        model: input.model as string | null | undefined,
         category: (input.category as string) || "Other",
-        seller: input.seller,
-        serial_number: input.serial_number,
-        purchase_date: input.purchase_date,
-        warranty_end: input.warranty_end,
+        seller: input.seller as string | null | undefined,
+        serial_number: input.serial_number as string | null | undefined,
+        purchase_date: input.purchase_date as string | null | undefined,
+        warranty_end: input.warranty_end as string | null | undefined,
+        owner_name: input.owner_name as string | null | undefined,
+        buying_method: input.buying_method as string | null | undefined,
+        purchase_platform: input.purchase_platform as string | null | undefined,
+        price_paid: input.price_paid as number | null | undefined,
+        currency: (input.currency as string) || "INR",
+        invoice_number: input.invoice_number as string | null | undefined,
+        order_id: input.order_id as string | null | undefined,
+        warranty_duration_months: input.warranty_duration_months as number | null | undefined,
+        image_url: input.image_url as string | null | undefined,
+        source_url: input.source_url as string | null | undefined,
+        asin: input.asin as string | null | undefined,
       });
       return NextResponse.json({ product }, { status: 201, headers: { "Cache-Control": "private, no-store" } });
     }

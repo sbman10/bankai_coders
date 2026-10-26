@@ -13,6 +13,18 @@ export type PrototypeProduct = {
   serial_number: string | null;
   purchase_date: string | null;
   warranty_end: string | null;
+  owner_name?: string | null;
+  buying_method?: string | null;
+  purchase_platform?: string | null;
+  price_paid?: number | null;
+  currency?: string | null;
+  invoice_number?: string | null;
+  order_id?: string | null;
+  warranty_duration_months?: number | null;
+  image_url?: string | null;
+  image_urls?: string[] | null;
+  source_url?: string | null;
+  asin?: string | null;
   replenishment_days?: number | null;
   replenishment_remind_at?: string | null;
   created_at: string;
@@ -345,6 +357,18 @@ class PrototypeStore {
     serial_number?: string | null;
     purchase_date?: string | null;
     warranty_end?: string | null;
+    owner_name?: string | null;
+    buying_method?: string | null;
+    purchase_platform?: string | null;
+    price_paid?: number | null;
+    currency?: string | null;
+    invoice_number?: string | null;
+    order_id?: string | null;
+    warranty_duration_months?: number | null;
+    image_url?: string | null;
+    image_urls?: string[] | null;
+    source_url?: string | null;
+    asin?: string | null;
   }): PrototypeProduct {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
@@ -359,6 +383,18 @@ class PrototypeStore {
       serial_number: input.serial_number ?? null,
       purchase_date: input.purchase_date ?? null,
       warranty_end: input.warranty_end ?? null,
+      owner_name: input.owner_name ?? null,
+      buying_method: input.buying_method ?? null,
+      purchase_platform: input.purchase_platform ?? null,
+      price_paid: input.price_paid ?? null,
+      currency: input.currency ?? "INR",
+      invoice_number: input.invoice_number ?? null,
+      order_id: input.order_id ?? null,
+      warranty_duration_months: input.warranty_duration_months ?? null,
+      image_url: input.image_url ?? null,
+      image_urls: input.image_urls ?? (input.image_url ? [input.image_url] : null),
+      source_url: input.source_url ?? null,
+      asin: input.asin ?? null,
       replenishment_days: null,
       replenishment_remind_at: null,
       created_at: now,
