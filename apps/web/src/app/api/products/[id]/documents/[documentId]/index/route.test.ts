@@ -1,7 +1,7 @@
 import { Blob } from "node:buffer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { createAdminClient, createClient } = vi.hoisted(() => ({ createAdminClient: vi.fn(), createClient: vi.fn() }));
+const { createAdminClient, createClient, functionsInvoke } = vi.hoisted(() => ({ createAdminClient: vi.fn(), createClient: vi.fn(), functionsInvoke: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ createClient }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient }));
 
@@ -74,6 +74,7 @@ beforeEach(() => {
     auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: userId } }, error: null }) },
     from: vi.fn(() => ({ select: vi.fn(() => docQuery) })),
     storage: { from: vi.fn(() => ({ download })) },
+    functions: { invoke: functionsInvoke },
   });
   createAdminClient.mockReturnValue({
     from: vi.fn((table: string) => table === "product_documents"
@@ -90,6 +91,11 @@ beforeEach(() => {
   });
   download.mockResolvedValue({ data: null, error: null });
   insertChunks.mockResolvedValue({ error: null });
+  functionsInvoke.mockResolvedValue({ data: {
+    embeddings: [Array.from({ length: 384 }, () => 0.125)], modelAlias: "gte-small",
+    modelRepository: "Supabase/gte-small", modelRevision: null, dimension: 384,
+    pooling: "mean", normalized: true,
+  }, error: null });
 });
 
 describe("POST /api/products/[id]/documents/[documentId]/index", () => {
@@ -107,9 +113,25 @@ describe("POST /api/products/[id]/documents/[documentId]/index", () => {
     expect(response.status).toBe(200);
     expect(result).toMatchObject({ status: "indexed", pagesIndexed: 1 });
     expect(insertChunks).toHaveBeenCalledWith(expect.arrayContaining([
-      expect.objectContaining({ user_id: userId, document_id: documentId, page_number: 1, content: expect.stringContaining("manufacturing defects") }),
+      expect.objectContaining({ user_id: userId, document_id: documentId, page_number: 1, content: expect.stringContaining("manufacturing defects"), embedding: expect.any(Array), embedding_model_alias: "gte-small" }),
     ]));
+    expect(functionsInvoke).toHaveBeenCalledWith("embed-text", { body: { texts: expect.arrayContaining([expect.stringContaining("manufacturing defects")]) } });
     expect(updatePayload).toHaveBeenLastCalledWith(expect.objectContaining({ ingestion_status: "indexed" }));
+  });
+
+  it("does not publish a searchable index when embeddings are unavailable", async () => {
+    const bytes = syntheticPdf("Synthetic policy text for a failed embedding request.");
+    documentRow.storage_path = `${userId}/document.pdf`;
+    documentRow.mime_type = "application/pdf";
+    documentRow.size_bytes = bytes.byteLength;
+    download.mockResolvedValue({ data: new Blob([bytes]), error: null });
+    functionsInvoke.mockResolvedValue({ data: null, error: { message: "synthetic provider error" } });
+
+    const response = await POST(makeRequest(), { params: Promise.resolve({ id: productId, documentId }) });
+
+    expect(response.status).toBe(503);
+    expect(insertChunks).not.toHaveBeenCalled();
+    expect(updatePayload).not.toHaveBeenCalledWith(expect.objectContaining({ ingestion_status: "indexed" }));
   });
 
   it("marks a native-text PDF with an empty page for review without publishing chunks", async () => {

@@ -27,7 +27,7 @@ export type IndexedChunk = {
 
 const MAX_PDF_PAGES = 100;
 const MAX_PAGE_TEXT = 40_000;
-const MAX_CHUNK_TEXT = 2_500;
+const MAX_CHUNK_TEXT = 400;
 
 export function isPdf(bytes: Uint8Array): boolean {
   return bytes.byteLength >= 5 && new TextDecoder().decode(bytes.subarray(0, 5)) === "%PDF-";
@@ -115,8 +115,15 @@ function sectionHeading(line: string): { level: number; path: string } | null {
 function contentPieces(text: string): string[] {
   const pieces: string[] = [];
   let remaining = text;
-  while (remaining.length > MAX_CHUNK_TEXT) {
-    const limit = MAX_CHUNK_TEXT;
+  while (new TextEncoder().encode(remaining).length > MAX_CHUNK_TEXT) {
+    let limit = 0;
+    let bytes = 0;
+    for (const character of remaining) {
+      const size = new TextEncoder().encode(character).length;
+      if (bytes + size > MAX_CHUNK_TEXT) break;
+      bytes += size;
+      limit += character.length;
+    }
     const minimumBoundary = Math.floor(limit / 2);
     const prefix = remaining.slice(0, limit + 1);
     const rowBoundary = prefix.lastIndexOf("\n", limit);

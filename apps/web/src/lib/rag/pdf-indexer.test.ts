@@ -71,5 +71,6 @@ describe("chunkExtractedPages", () => {
     expect(chunks.length).toBeGreaterThan(1);
     expect(chunks.every((chunk) => chunk.content.length <= 2500)).toBe(true);
     expect(chunks.map((chunk) => chunk.content).join("")).toBe(source);
+    expect(chunks.every((chunk) => new TextEncoder().encode(chunk.content).length <= 400)).toBe(true);
   });
 });

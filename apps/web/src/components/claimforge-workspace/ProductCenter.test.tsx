@@ -50,6 +50,7 @@ beforeEach(() => {
     if (url === "/api/claims" && method === "GET") return response({ claims: [] });
     if (url === `/api/products/${productId}/documents` && method === "GET") return response({ documents: [] });
     if (url.match(/\/api\/products\/[^/]+\/documents$/) && method === "POST") return response({ document: { id: "doc-1", product_id: body.productId ?? productId, document_kind: body.documentKind, storage_path: body.storagePath, original_filename: body.fileName, mime_type: body.mimeType, size_bytes: body.sizeBytes, created_at: "2026-10-22T08:00:00Z" } }, 201);
+    if (url.match(/\/api\/products\/[^/]+\/documents\/[^/]+\/index$/) && method === "POST") return response({ status: "indexed" });
     if (url === `/api/products/${productId}/documents/doc-1` && method === "GET") return response({ url: "https://storage.example/private-download" });
     if (url === `/api/products/${productId}/documents/doc-1` && method === "DELETE") return response({ removed: true });
     if (url === "/api/products" && method === "POST") return response({ product: { id: createdProductId, name: body.name, brand: body.brand, model: body.model, category: body.category, seller: body.seller, serial_number: body.serialNumber, purchase_date: body.purchaseDate, warranty_end: body.warrantyEnd, owner_name: body.ownerName, buying_method: body.buyingMethod, purchase_platform: body.purchasePlatform, price_paid: body.pricePaid } }, 201);
@@ -75,15 +76,16 @@ describe("account-backed product tools", () => {
     // Switch to manual entry tab
     await user.click(await screen.findByRole("tab", { name: /add manually/i }));
 
-    await user.type(await screen.findByLabelText(/product name/i), "Desk lamp");
+    await user.type(await screen.findByLabelText(/product name/i), "Toy car");
     await user.type(screen.getByLabelText("Brand"), "Auralis");
     await user.type(screen.getByLabelText("Model"), "Pulse 2");
-    await user.type(screen.getByLabelText(/category/i), "Home");
+    await user.type(screen.getByLabelText("Category"), "Toys");
     await user.type(screen.getByLabelText("Seller"), "Example Store");
     await user.type(screen.getByLabelText("Serial number"), "SN-123456");
     await user.click(screen.getByRole("button", { name: /add product/i }));
 
-    expect((await screen.findAllByText("Desk lamp")).length).toBeGreaterThanOrEqual(1);
+    expect((await screen.findAllByText("Toy car")).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByRole("img", { name: "Toy car category illustration" }).length).toBeGreaterThan(0);
     expect(fetchMock).toHaveBeenCalledWith("/api/products", expect.objectContaining({ method: "POST" }));
     const createRequest = fetchMock.mock.calls.find(([url, init]) => url === "/api/products" && init?.method === "POST");
     expect(JSON.parse(String(createRequest?.[1]?.body))).toEqual(expect.objectContaining({ brand: "Auralis", model: "Pulse 2", seller: "Example Store", serialNumber: "SN-123456" }));
@@ -176,6 +178,7 @@ describe("account-backed product tools", () => {
     expect(await screen.findByText("warranty.pdf")).toBeInTheDocument();
     expect(storageUpload).toHaveBeenCalledWith(expect.stringMatching(/^f9d28d2e-50c4-4c1c-a23c-60a5af4eb3f1\//), expect.any(File), expect.objectContaining({ contentType: "application/pdf", upsert: false }));
     expect(fetchMock).toHaveBeenCalledWith(`/api/products/${productId}/documents`, expect.objectContaining({ method: "POST" }));
+    expect(fetchMock).toHaveBeenCalledWith(`/api/products/${productId}/documents/doc-1/index`, expect.objectContaining({ method: "POST" }));
 
     await user.click(screen.getByRole("button", { name: /prepare private link/i }));
     expect(await screen.findByRole("link", { name: /open file/i })).toHaveAttribute("href", "https://storage.example/private-download");
@@ -230,6 +233,8 @@ describe("account-backed product tools", () => {
           success: true,
           ocrEngine: "google-cloud-vision",
           rawText: "Invoice # TEST-INV-2026-10427",
+          imageUrl: "https://images.example/headphones.jpg",
+          sourceUrl: "https://catalog.example.com/first",
           extracted: {
             brand: "DemoSound",
             product_name: "Demo Wireless Headphones",
@@ -329,6 +334,8 @@ describe("account-backed product tools", () => {
       name: "Demo Wireless Headphones",
       brand: "DemoSound",
       model: "TEST-Q20-CONFIRMED",
+      imageUrl: "https://images.example/headphones.jpg",
+      sourceUrl: "https://catalog.example.com/first",
       orderId: "TEST-404-1234567-8901234",
       invoiceNumber: "TEST-INV-2026-10427",
       ownerName: "Kapish Gupta",
@@ -338,7 +345,7 @@ describe("account-backed product tools", () => {
     }));
   });
 
-  it("extracts catalog specs and product image when only a product link is provided", async () => {
+  it("extracts catalog specs from a product link and explains when the listing image is unavailable", async () => {
     fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       const method = init?.method ?? "GET";
@@ -347,7 +354,7 @@ describe("account-backed product tools", () => {
         return response({
           success: true,
           ocrEngine: "link-resolver",
-          imageUrl: "https://m.media-amazon.com/images/I/soundcore.jpg",
+          imageUrl: null,
           sourceUrl: "https://www.amazon.in/dp/B0D421F3XX",
           asin: "B0D421F3XX",
           extracted: {
@@ -390,10 +397,10 @@ describe("account-backed product tools", () => {
     // Click fetch button
     await user.click(screen.getByRole("button", { name: /fetch details from product link/i }));
 
-    // Review modal opens with link-resolver details & image
+    // Review modal opens with link-resolver details and does not claim a photo when the listing returned none.
     expect(await screen.findByRole("heading", { name: /product details extracted/i })).toBeInTheDocument();
     expect(screen.getByText(/Web Link Catalog/i)).toBeInTheDocument();
-    expect(screen.getByText(/Product Photograph Attached/i)).toBeInTheDocument();
+    expect(screen.getByText(/Product image could not be retrieved/i)).toBeInTheDocument();
 
     const modal = screen.getByRole("dialog");
     const nameInput = within(modal).getByDisplayValue("Soundcore by Anker Life Q20i") as HTMLInputElement;
@@ -407,7 +414,7 @@ describe("account-backed product tools", () => {
     expect(JSON.parse(String(postCall?.[1]?.body))).toEqual(expect.objectContaining({
       name: "Soundcore by Anker Life Q20i",
       brand: "Soundcore",
-      imageUrl: "https://m.media-amazon.com/images/I/soundcore.jpg",
+      imageUrl: null,
       sourceUrl: "https://www.amazon.in/dp/B0D421F3XX",
       asin: "B0D421F3XX",
     }));

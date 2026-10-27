@@ -14,6 +14,7 @@ beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url === "/api/auth" && !init?.method) return { ok: true, json: async () => ({ user: { id: "user-test-1", email: "demo@example.com" } }) };
+    if (url === "/api/account/profile" && !init?.method) return { ok: true, json: async () => ({ profile: { displayName: "Kapish", hasAvatar: false } }) };
     if (url === "/api/claims" && !init?.method) return { ok: true, json: async () => ({ claims: [] }) };
     if (url === "/api/claims" && init?.method === "POST") return { ok: true, json: async () => ({ claim: { id: "claim-test-1", status: "received" }, automation: "not_configured" }) };
     if (url === "/api/products" && !init?.method) return { ok: true, json: async () => ({ products: [] }) };
@@ -31,6 +32,16 @@ afterEach(() => {
 });
 
 describe("ClaimForge customer workflow", () => {
+  it("opens the signed-in account menu and its real profile settings page", async () => {
+    const user = userEvent.setup();
+    render(<ClaimForgeWorkspace userEmail="kapish@example.com" onSignOut={vi.fn()} />);
+
+    await user.click(await screen.findByRole("button", { name: /account menu/i }));
+    await user.click(screen.getByRole("menuitem", { name: /account settings/i }));
+    expect(await screen.findByRole("heading", { name: /your account/i })).toBeInTheDocument();
+    expect(await screen.findByDisplayValue("kapish@example.com")).toBeDisabled();
+  });
+
   it("opens the fictional preview without public demo badge or checking auth", async () => {
     render(<ClaimForgeWorkspace />);
 

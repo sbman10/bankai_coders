@@ -72,6 +72,11 @@ describe("document-grounded assistant answer route", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
+  it("rejects questions that exceed the embedding model input bound", async () => {
+    const response = await POST(request(validBody({ question: "w".repeat(401) })));
+    expect(response.status).toBe(400);
+  });
+
   it("does not retrieve when any selected document is not owned by the user and product", async () => {
     documentIn.mockResolvedValueOnce({ data: [], error: null });
     const response = await POST(request(validBody()));

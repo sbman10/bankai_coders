@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const MAX_INDEX_CHUNKS = 96;
+const EMBEDDING_BATCH_SIZE = 32;
 type RouteContext = { params: Promise<{ id: string; documentId: string }> };
 
 async function setIngestionState(
@@ -87,6 +89,29 @@ export async function POST(_request: Request, context: RouteContext) {
 
     const chunks = chunkExtractedPages(pages);
     if (chunks.length === 0) return needsReview(admin, user.id, productId, documentId, "text_not_found");
+    if (chunks.length > MAX_INDEX_CHUNKS) return needsReview(admin, user.id, productId, documentId, "document_exceeds_index_limit");
+
+    const vectors: number[][] = [];
+    for (let offset = 0; offset < chunks.length; offset += EMBEDDING_BATCH_SIZE) {
+      const batch = chunks.slice(offset, offset + EMBEDDING_BATCH_SIZE);
+      const { data, error } = await supabase.functions.invoke("embed-text", {
+        body: { texts: batch.map((chunk) => chunk.content) },
+      });
+      const valid = !error && data && typeof data === "object" &&
+        data.modelAlias === "gte-small" && data.modelRepository === "Supabase/gte-small" &&
+        data.modelRevision === null && data.dimension === 384 && data.pooling === "mean" &&
+        data.normalized === true && Array.isArray(data.embeddings) &&
+        data.embeddings.length === batch.length && data.embeddings.every((vector: unknown) =>
+          Array.isArray(vector) && vector.length === 384 && vector.every((value) => typeof value === "number" && Number.isFinite(value)));
+      if (!valid) {
+        await setIngestionState(admin, user.id, productId, documentId, {
+          ingestion_status: "failed", ingestion_warning_code: "embedding_unavailable",
+        });
+        return NextResponse.json({ error: "Document embeddings are unavailable. Please retry later." }, { status: 503 });
+      }
+      vectors.push(...data.embeddings);
+    }
+
     const nextVersion = (document.index_version ?? 0) + 1;
     const { error: cleanupError } = await admin.from("document_chunks").delete()
       .eq("user_id", user.id).eq("document_id", documentId).eq("index_version", nextVersion);
@@ -98,7 +123,7 @@ export async function POST(_request: Request, context: RouteContext) {
       return NextResponse.json({ error: "A previous indexing attempt could not be cleared safely." }, { status: 503 });
     }
 
-    const { error: insertError } = await admin.from("document_chunks").insert(chunks.map((chunk) => ({
+    const { error: insertError } = await admin.from("document_chunks").insert(chunks.map((chunk, index) => ({
       user_id: user.id,
       document_id: documentId,
       page_number: chunk.page_number,
@@ -108,6 +133,14 @@ export async function POST(_request: Request, context: RouteContext) {
       content_hash: chunk.content_hash,
       extraction_confidence: chunk.extraction_confidence,
       index_version: nextVersion,
+      embedding: vectors[index],
+      embedding_provider: "supabase_edge_runtime",
+      embedding_model_alias: "gte-small",
+      embedding_model_repository: "Supabase/gte-small",
+      embedding_model_revision: null,
+      embedding_dimension: 384,
+      embedding_pooling: "mean",
+      embedding_normalized: true,
     })));
     if (insertError) {
       await setIngestionState(admin, user.id, productId, documentId, {

@@ -119,6 +119,22 @@ export function HeadphoneThumb({ className = "w-10 h-10" }: { className?: string
   );
 }
 
+export function ToyCarThumb({ className = "w-10 h-10" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <circle cx="40" cy="40" r="38" fill="#F1F5F9" className="thumb-bg" />
+      <path d="M18 44L22 33C23 30 26 28 29 28H49C52 28 55 30 57 33L62 43C65 44 67 47 67 50V55H13V50C13 47 15 45 18 44Z" fill="#F97316" stroke="#C2410C" strokeWidth="2" />
+      <path d="M27 31H48C50 31 52 32 53 35L56 42H21L24 35C25 33 25 31 27 31Z" fill="#BAE6FD" />
+      <path d="M40 31V42" stroke="#7DD3FC" strokeWidth="2" />
+      <circle cx="25" cy="54" r="6" fill="#1E293B" />
+      <circle cx="25" cy="54" r="2.5" fill="#CBD5E1" />
+      <circle cx="55" cy="54" r="6" fill="#1E293B" />
+      <circle cx="55" cy="54" r="2.5" fill="#CBD5E1" />
+      <path d="M15 47H20M60 47H66" stroke="#FDE68A" strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 // 2. LG Refrigerator Visual
 export function RefrigeratorThumb({ className = "w-10 h-10" }: { className?: string }) {
   return (

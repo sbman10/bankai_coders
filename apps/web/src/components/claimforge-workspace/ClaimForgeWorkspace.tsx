@@ -28,9 +28,14 @@ import { AmazonImport } from "./AmazonImport";
 import { ProductCenter } from "./ProductCenter";
 import { ClaimsList, type SavedClaim } from "./ClaimsList";
 import { AssistantChat } from "./AssistantChat";
+import { AccountMenu } from "./AccountMenu";
+import { AccountSettings } from "./AccountSettings";
 import { ClaimForgeLogoMark } from "./ProductVisuals";
 import { TechHeading } from "../TechText";
 import { sampleClaim, type ClaimIntakePayload, type ClaimSubmission } from "./types";
+import { readCookiePreferences, THEME_PREFERENCE_KEY } from "@/lib/cookie-consent";
+
+let temporaryTheme: "light" | "dark" | null = null;
 
 type View =
   | "workspace"
@@ -50,22 +55,25 @@ type View =
 function subscribeTheme(callback: () => void) {
   window.addEventListener("storage", callback);
   window.addEventListener("product-vault-theme-change", callback);
+  window.addEventListener("product-vault-cookie-consent-change", callback);
   return () => {
     window.removeEventListener("storage", callback);
     window.removeEventListener("product-vault-theme-change", callback);
+    window.removeEventListener("product-vault-cookie-consent-change", callback);
   };
 }
 
 function getClientThemeSnapshot(): boolean {
   if (typeof window === "undefined") return false;
-  return localStorage.getItem("product-vault-theme") === "dark";
+  if (readCookiePreferences()?.preferences) return localStorage.getItem(THEME_PREFERENCE_KEY) === "dark";
+  return temporaryTheme === "dark";
 }
 
 function getServerThemeSnapshot(): boolean {
   return false;
 }
 
-export function ClaimForgeWorkspace() {
+export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: string; onSignOut?: () => void | Promise<void> } = {}) {
   const [view, setView] = useState<View>("workspace");
   const [claim, setClaim] = useState<ClaimSubmission>(sampleClaim);
   const [approved, setApproved] = useState(false);
@@ -81,7 +89,7 @@ export function ClaimForgeWorkspace() {
 
   // Synchronize DOM data-theme and body attributes on mount
   useEffect(() => {
-    const isDark = localStorage.getItem("product-vault-theme") === "dark";
+    const isDark = getClientThemeSnapshot();
     document.documentElement.setAttribute("data-theme", isDark ? "dark" : "light");
     if (isDark) {
       document.body.classList.add("dark");
@@ -147,7 +155,9 @@ export function ClaimForgeWorkspace() {
 
   const toggleTheme = useCallback((newDarkState: boolean) => {
     const themeStr = newDarkState ? "dark" : "light";
-    localStorage.setItem("product-vault-theme", themeStr);
+    temporaryTheme = themeStr;
+    if (readCookiePreferences()?.preferences) localStorage.setItem(THEME_PREFERENCE_KEY, themeStr);
+    else localStorage.removeItem(THEME_PREFERENCE_KEY);
     if (newDarkState) {
       document.documentElement.setAttribute("data-theme", "dark");
       document.body.classList.add("dark");
@@ -338,14 +348,19 @@ export function ClaimForgeWorkspace() {
             )}
           </div>
 
-          {/* User Profile Avatar with neutral Workspace name and chevron */}
-          <div className="navbar-user-profile-pill" role="button" tabIndex={0}>
-            <div className="user-initial-avatar">
-              <span>W</span>
+          {userEmail ? (
+            <AccountMenu
+              email={userEmail}
+              onOpenSettings={() => setView("settings")}
+              onSignOut={onSignOut}
+            />
+          ) : (
+            <div className="navbar-user-profile-pill" aria-label="Workspace preview">
+              <span className="user-initial-avatar"><span>W</span></span>
+              <span className="user-display-name">Workspace</span>
+              <ChevronDown size={14} className="profile-chevron-icon" />
             </div>
-            <span className="user-display-name">Workspace</span>
-            <ChevronDown size={14} className="profile-chevron-icon" />
-          </div>
+          )}
         </div>
       </header>
 
@@ -562,6 +577,8 @@ export function ClaimForgeWorkspace() {
             onNavigateView={(nextView) => setView(nextView as View)}
             onStartClaim={() => beginClaim()}
           />
+        ) : view === "settings" && userEmail ? (
+          <AccountSettings email={userEmail} onBack={() => setView("workspace")} />
         ) : view === "settings" || view === "help" ? (
           <PublicDemoNotice onBack={() => setView("workspace")} currentView={view} />
         ) : (

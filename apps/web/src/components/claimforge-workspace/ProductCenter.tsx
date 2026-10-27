@@ -31,13 +31,7 @@ import {
 } from "lucide-react";
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
 import {
-  HeadphoneThumb,
-  LaptopThumb,
-  PhoneThumb,
-  RefrigeratorThumb,
-  SneakerThumb,
-  SunscreenThumb,
-  WatchThumb,
+  ToyCarThumb,
 } from "./ProductVisuals";
 import { TechHeading } from "../TechText";
 import { AddProduct, type ProductPayload } from "./AddProduct";
@@ -131,6 +125,7 @@ export function ProductVisual({
   className?: string;
 }) {
   const [imgError, setImgError] = useState(false);
+  const q = `${product.name} ${product.brand} ${product.model} ${product.category}`.toLowerCase();
 
   const resolvedSrc = useMemo(() => {
     // 1. User/Scraped provided direct image URL
@@ -139,8 +134,6 @@ export function ProductVisual({
     }
 
     // 2. Resolve to genuine product cutouts in /products
-    const q = `${product.name} ${product.brand} ${product.model} ${product.category}`.toLowerCase();
-
     // Soundcore / Anker Q30 / Q20i
     if (
       q.includes("soundcore") ||
@@ -200,7 +193,7 @@ export function ProductVisual({
     }
 
     return null;
-  }, [product, imgError]);
+  }, [product, imgError, q]);
 
   if (resolvedSrc) {
     return (
@@ -211,6 +204,14 @@ export function ProductVisual({
         loading="lazy"
         onError={() => setImgError(true)}
       />
+    );
+  }
+
+  if (q.includes("toy") || q.includes("car")) {
+    return (
+      <div className="library-product-fallback-icon" role="img" aria-label="Toy car category illustration">
+        <ToyCarThumb className="product-thumb-svg" />
+      </div>
     );
   }
 
@@ -498,9 +499,19 @@ export function ProductCenter({
         }),
       });
       if (result?.document) {
-        setDocuments((current) => [productDocumentFromRow(result.document), ...current]);
+        const document = productDocumentFromRow(result.document);
+        setDocuments((current) => [document, ...current]);
+        try {
+          const indexResult = await api<{ status: string }>(`/api/products/${productId}/documents/${document.id}/index`, { method: "POST" });
+          setNotice(indexResult.status === "indexed"
+            ? "Document attached and ready for document Q&A."
+            : "Document attached. Text needs review before document Q&A is available.");
+        } catch {
+          setNotice("Document attached, but indexing is unavailable. Retry from document Q&A later.");
+        }
+      } else {
+        setNotice("Document attached to the product passport.");
       }
-      setNotice("Document attached to the product passport.");
       return true;
     } catch (cause) {
       await storage.remove([storagePath]);
