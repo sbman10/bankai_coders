@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState, useSyncExternalStore } from "react";
 import { useGreeting } from "@/lib/time/useGreeting";
 import { TechHeading } from "../TechText";
 import {
@@ -334,11 +334,11 @@ export function DashboardHome({
   // Scroll-linked beam progress for dashboard timeline rail
   const dashboardScrollRef = useRef<HTMLDivElement>(null);
   const [dashboardBeamProgress, setDashboardBeamProgress] = useState(0);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
 
   function handleDashboardScroll() {
     const el = dashboardScrollRef.current;
