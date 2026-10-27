@@ -1841,15 +1841,14 @@ function UnifiedTimelineView({
   const sortedDates = Array.from(dateGroupsMap.keys()).sort((a, b) => b.localeCompare(a));
   const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
-  let lastYear = "";
-  const timelineEntries: TimelineEntry[] = sortedDates.map((dateStr) => {
+  const timelineEntries: TimelineEntry[] = sortedDates.map((dateStr, index) => {
     const dayEvents = dateGroupsMap.get(dateStr)!;
     const [y, m, d] = dateStr.split("-");
     const monthIdx = parseInt(m, 10) - 1;
     const dayNum = parseInt(d, 10);
 
-    const yearChapter = y !== lastYear ? y : undefined;
-    lastYear = y;
+    const prevYear = index > 0 ? sortedDates[index - 1].split("-")[0] : null;
+    const yearChapter = y !== prevYear ? y : undefined;
 
     const hasUpcoming = dayEvents.some((e) => e.isFuture);
     const hasExpiredWarranty = dayEvents.some((e) => e.kind === "warranty-expired");
