@@ -101,7 +101,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: status === 413 ? "Your question is too large." : "Enter a valid question." }, { status });
     }
     if (!isRecord(body) || typeof body.productId !== "string" || !uuid.test(body.productId) ||
-      typeof body.question !== "string" || body.question.trim().length < 3 || body.question.length > 2000 ||
+      typeof body.question !== "string" || body.question.trim().length < 3 || new TextEncoder().encode(body.question).length > 400 ||
       !Array.isArray(body.documentIds) || body.documentIds.length < 1 || body.documentIds.length > 6 ||
       body.documentIds.some((id) => typeof id !== "string" || !uuid.test(id)) || new Set(body.documentIds).size !== body.documentIds.length) {
       return NextResponse.json({ error: "Choose a product, select one to six of its documents, and enter a question." }, { status: 400 });

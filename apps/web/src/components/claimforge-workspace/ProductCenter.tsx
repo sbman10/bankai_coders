@@ -281,14 +281,14 @@ export function ProductCenter({ view }: { view: ProductCenterView }) {
       try {
         await addProductDocument(newProduct.id, "invoice", files.invoice);
       } catch {
-        // best effort background upload
+        setError("Product saved, but its invoice could not be attached. Add it from the product passport.");
       }
     }
     if (files?.warranty) {
       try {
-        await addProductDocument(newProduct.id, "warranty_card", files.warranty);
+        await addProductDocument(newProduct.id, "warranty", files.warranty);
       } catch {
-        // best effort background upload
+        setError("Product saved, but its warranty document could not be attached. Add it from the product passport.");
       }
     }
   }
@@ -361,19 +361,29 @@ export function ProductCenter({ view }: { view: ProductCenterView }) {
     const storage = supabase.storage.from("claim-documents");
     const { error: uploadError } = await storage.upload(storagePath, file, { contentType: file.type, upsert: false });
     if (uploadError) throw new Error("Could not upload to private storage. Check the storage setup and retry.");
+    let attached: ProductDocument | undefined;
     try {
       const result = await api<{ document?: Record<string, unknown> }>(`/api/products/${productId}/documents`, {
         method: "POST", body: JSON.stringify({ productId, documentKind: kind, storagePath, fileName: file.name.slice(0, 240), mimeType: file.type, sizeBytes: file.size }),
       });
       if (result?.document) {
-        setDocuments((current) => [productDocumentFromRow(result.document), ...current]);
+        const document = productDocumentFromRow(result.document);
+        attached = document;
+        setDocuments((current) => [document, ...current]);
       }
-      setNotice("Document attached to the product passport.");
-      return true;
     } catch (cause) {
       await storage.remove([storagePath]);
       throw cause;
     }
+    if (!attached?.id) throw new Error("The document was uploaded but could not be prepared. Refresh the product passport.");
+    try {
+      const result = await api<{ status: string; reason?: string }>(`/api/products/${productId}/documents/${attached.id}/index`, { method: "POST" });
+      setNotice(result.status === "indexed" ? "Document attached and ready for document Q&A." :
+        "Document attached. Text needs review before document Q&A is available.");
+    } catch {
+      setNotice("Document attached, but indexing is unavailable. Retry from document Q&A later.");
+    }
+    return true;
   }
 
   async function prepareDocumentLink(document: ProductDocument) {

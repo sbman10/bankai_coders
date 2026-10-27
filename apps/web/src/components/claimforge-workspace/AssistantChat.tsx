@@ -178,7 +178,7 @@ export function AssistantChat() {
           </div>
           <form className="assistant-composer" onSubmit={ask}>
             <label htmlFor="assistant-question">Ask about your documents</label>
-            <textarea id="assistant-question" value={question} onChange={(event) => setQuestion(event.target.value)} maxLength={2000} rows={3} placeholder="Ask about a clause, exclusion, condition, or requirement…" />
+              <textarea id="assistant-question" value={question} onChange={(event) => setQuestion(event.target.value)} maxLength={400} rows={3} placeholder="Ask about a clause, exclusion, condition, or requirement…" />
             <div className="assistant-composer-footer"><span>Answers use only selected indexed text and may abstain when it’s unclear.</span><button className="button button-primary" type="submit" disabled={sending || selectedDocumentIds.length === 0 || question.trim().length < 3}><Send size={14} /> {sending ? "Checking…" : "Ask ProductVault"}</button></div>
           </form>
         </section>
