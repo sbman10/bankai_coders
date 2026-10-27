@@ -1,13 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { afterEach } from "vitest";
 
-const { createClient } = vi.hoisted(() => ({ createClient: vi.fn() }));
+const { createClient, createAdminClient } = vi.hoisted(() => ({ createClient: vi.fn(), createAdminClient: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ createClient }));
+vi.mock("@/lib/supabase/admin", () => ({ createAdminClient }));
 
 import { POST } from "./route";
 
 const userId = "f9d28d2e-50c4-4c1c-a23c-60a5af4eb3f1";
 const rpc = vi.fn();
+const adminRpc = vi.fn();
 const download = vi.fn();
 const originalWebhookUrl = process.env.N8N_CLAIM_INTAKE_WEBHOOK_URL;
 const originalWebhookToken = process.env.N8N_WEBHOOK_AUTH_TOKEN;
@@ -33,7 +35,12 @@ function validBody(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  rpc.mockResolvedValue({ data: { claim_id: "claim-1", product_id: "product-1", duplicate: false }, error: null });
+  rpc.mockResolvedValue({ data: { claim_id: "claim-1", product_id: "product-1", event_id: "a5417f3e-19d7-4be3-bb8c-123456789abc", duplicate: false }, error: null });
+  adminRpc.mockImplementation(async (name: string) => {
+    if (name === "lease_claim_intake_event") return { data: { leased: true, event_id: "a5417f3e-19d7-4be3-bb8c-123456789abc", claim_id: "claim-1", product_id: "product-1" }, error: null };
+    return { data: { dispatch_status: "dispatched" }, error: null };
+  });
+  createAdminClient.mockReturnValue({ rpc: adminRpc });
   createClient.mockResolvedValue({
     auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: userId } }, error: null }) },
     rpc,
@@ -144,6 +151,50 @@ describe("claim intake validation", () => {
 
     expect(response.status).toBe(201);
     expect(result.automation).toBe("not_configured");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("dispatches only the durable event identifiers and treats the response as acceptance, not processing", async () => {
+    process.env.N8N_CLAIM_INTAKE_WEBHOOK_URL = "https://example.n8n.cloud/webhook/test";
+    process.env.N8N_WEBHOOK_AUTH_TOKEN = "test-only-secret";
+    rpc.mockResolvedValue({ data: { claim_id: "claim-1", product_id: "product-1", event_id: "a5417f3e-19d7-4be3-bb8c-123456789abc", duplicate: false }, error: null });
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true, status: "accepted" }), { status: 202 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await POST(makeRequest(validBody({ fault: "Private fault description" })));
+    const result = await response.json();
+    const request = fetchMock.mock.calls[0][1] as RequestInit;
+
+    expect(response.status).toBe(201);
+    expect(result).toMatchObject({ claim: { id: "claim-1", productId: "product-1", status: "received" }, automation: "accepted" });
+    expect(JSON.parse(String(request.body))).toEqual({
+      eventId: "a5417f3e-19d7-4be3-bb8c-123456789abc",
+      eventType: "claim.intake.received",
+      claimId: "claim-1",
+      productId: "product-1",
+    });
+    expect(String(request.body)).not.toContain("Private fault description");
+    expect((request.headers as Record<string, string>)["x-claimforge-secret"]).toBe("test-only-secret");
+    expect(adminRpc).toHaveBeenCalledWith("lease_claim_intake_event", { p_event_id: "a5417f3e-19d7-4be3-bb8c-123456789abc" });
+    expect(adminRpc).toHaveBeenCalledWith("finish_claim_intake_event_dispatch", {
+      p_event_id: "a5417f3e-19d7-4be3-bb8c-123456789abc",
+      p_succeeded: true,
+      p_safe_error_code: null,
+    });
+  });
+
+  it("keeps a saved claim successful when the outbox lease service is temporarily unavailable", async () => {
+    process.env.N8N_CLAIM_INTAKE_WEBHOOK_URL = "https://example.n8n.cloud/webhook/test";
+    process.env.N8N_WEBHOOK_AUTH_TOKEN = "test-only-secret";
+    adminRpc.mockRejectedValueOnce(new Error("temporary database failure"));
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await POST(makeRequest(validBody()));
+    const result = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(result).toMatchObject({ claim: { id: "claim-1" }, automation: "pending" });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

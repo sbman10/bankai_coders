@@ -7,7 +7,7 @@ export type ClaimSubmission = {
   source: "sample" | "local-preview" | "connected";
   claimId?: string;
   status?: string;
-  automation?: "not_configured" | "acknowledged" | "failed" | "duplicate";
+  automation?: "not_configured" | "accepted" | "acknowledged" | "pending" | "failed" | "duplicate" | "migration_required";
 };
 
 export type ClaimIntakePayload = {

@@ -3,9 +3,10 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ClaimForgeWorkspace } from "./ClaimForgeWorkspace";
 
+const { upload, remove } = vi.hoisted(() => ({ upload: vi.fn(async () => ({ data: { path: "user-test-1/file.pdf" }, error: null })), remove: vi.fn(async () => ({ error: null })) }));
 const mockSupabase = vi.hoisted(() => ({
   auth: { getUser: vi.fn(async () => ({ data: { user: { id: "user-test-1" } }, error: null })) },
-  storage: { from: vi.fn(() => ({ upload: vi.fn(async () => ({ error: null })) })) },
+  storage: { from: vi.fn(() => ({ upload, remove })) },
 }));
 
 vi.mock("@/lib/supabase/client", () => ({ createClient: () => mockSupabase }));
@@ -16,7 +17,7 @@ beforeEach(() => {
     if (url === "/api/auth" && !init?.method) return { ok: true, json: async () => ({ user: { id: "user-test-1", email: "demo@example.com" } }) };
     if (url === "/api/account/profile" && !init?.method) return { ok: true, json: async () => ({ profile: { displayName: "Kapish", hasAvatar: false } }) };
     if (url === "/api/claims" && !init?.method) return { ok: true, json: async () => ({ claims: [] }) };
-    if (url === "/api/claims" && init?.method === "POST") return { ok: true, json: async () => ({ claim: { id: "claim-test-1", status: "received" }, automation: "not_configured" }) };
+    if (url === "/api/claims" && init?.method === "POST") return { ok: true, json: async () => ({ claim: { id: "claim-test-1", productId: "product-test-1", status: "received" }, automation: "pending" }) };
     if (url === "/api/products" && !init?.method) return { ok: true, json: async () => ({ products: [] }) };
     if (url === "/api/price-watches" && !init?.method) return { ok: true, json: async () => ({ watches: [] }) };
     if (url === "/api/reminders" && !init?.method) return { ok: true, json: async () => ({ reminders: [] }) };
@@ -121,7 +122,7 @@ describe("ClaimForge customer workflow", () => {
     expect(await screen.findByText(/a nudge on your terms/i)).toBeInTheDocument();
   });
 
-  it("creates a browser-only claim preview without uploading files or saving a claim", async () => {
+  it("uploads claim documents privately and saves the claim with only document references", async () => {
     const user = userEvent.setup();
     render(<ClaimForgeWorkspace />);
 
@@ -145,11 +146,42 @@ describe("ClaimForge customer workflow", () => {
     );
     await user.click(screen.getByRole("button", { name: /save claim/i }));
 
-    expect(await screen.findByRole("heading", { name: /review your claim/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /your claim is saved/i })).toBeInTheDocument();
     expect(screen.getByText("headphones-invoice.pdf")).toBeInTheDocument();
-    expect(screen.getByText(/no file was uploaded, no claim was saved/i)).toBeInTheDocument();
-    expect(fetch).not.toHaveBeenCalledWith("/api/claims", expect.objectContaining({ method: "POST" }));
-    expect(mockSupabase.storage.from).not.toHaveBeenCalled();
+    expect(screen.getByText(/n8n receives only claim and product identifiers/i)).toBeInTheDocument();
+    expect(mockSupabase.storage.from).toHaveBeenCalledWith("claim-documents");
+    expect(upload).toHaveBeenCalledTimes(2);
+    const claimRequest = vi.mocked(fetch).mock.calls.find(([url, init]) => url === "/api/claims" && init?.method === "POST")?.[1];
+    expect(claimRequest).toBeDefined();
+    const submitted = JSON.parse(String(claimRequest?.body));
+    expect(submitted.documents).toHaveLength(2);
+    expect(submitted.documents.map((document: { kind: string }) => document.kind)).toEqual(["invoice", "warranty"]);
+    expect(String(claimRequest?.body)).not.toContain("sample invoice");
+    expect(String(claimRequest?.body)).not.toContain("sample terms");
+  });
+
+  it("keeps uploaded documents when the claim request has an ambiguous network failure", async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input) === "/api/auth" && !init?.method) return { ok: true, json: async () => ({ user: { id: "user-test-1", email: "demo@example.com" } }) } as Response;
+      if (String(input) === "/api/account/profile" && !init?.method) return { ok: true, json: async () => ({ profile: { displayName: "Kapish", hasAvatar: false } }) } as Response;
+      if (String(input) === "/api/claims" && !init?.method) return { ok: true, json: async () => ({ claims: [] }) } as Response;
+      if (String(input) === "/api/claims" && init?.method === "POST") throw new TypeError("Network connection lost");
+      if (["/api/products", "/api/price-watches", "/api/reminders"].includes(String(input)) && !init?.method) return { ok: true, json: async () => ({ products: [], watches: [], reminders: [] }) } as Response;
+      return { ok: false, json: async () => ({ error: "Unexpected test request" }) } as Response;
+    });
+
+    render(<ClaimForgeWorkspace />);
+    await user.click(await screen.findByRole("button", { name: /start a claim/i }));
+    await user.type(screen.getByLabelText(/product name/i), "Auralis headphones");
+    await user.type(screen.getByLabelText(/what went wrong/i), "The left side stopped playing.");
+    await user.upload(screen.getByLabelText(/purchase invoice/i), new File(["invoice"], "invoice.pdf", { type: "application/pdf" }));
+    await user.upload(screen.getByLabelText(/warranty terms/i), new File(["terms"], "warranty.pdf", { type: "application/pdf" }));
+    await user.click(screen.getByRole("button", { name: /save claim/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/network|retry/i);
+    expect(upload).toHaveBeenCalledTimes(2);
+    expect(remove).not.toHaveBeenCalled();
   });
 
   it("shows evidence citations next to the preliminary assessment", async () => {

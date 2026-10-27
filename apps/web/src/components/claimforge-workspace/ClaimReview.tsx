@@ -37,7 +37,7 @@ export function ClaimReview({ claim, approved, onApprove, onBack }: { claim: Cla
         <div>
           <div className="eyebrow"><span className="eyebrow-line" /> {claim.source === "sample" ? "CASE CF—0248 · REVIEW" : claim.source === "connected" ? "SAVED CLAIM · PRIVATE" : "LOCAL PREVIEW · REVIEW"}</div>
           <h1>{claim.source === "connected" ? "Your claim is saved." : "Review your claim."}</h1>
-          <p>{claim.source === "connected" ? "Your claim and document references are stored in your account. We’ll show an assessment only after processing is configured." : "Check what was found, where it came from, and what you want to do next."}</p>
+          <p>{claim.source === "connected" ? "Your claim is saved privately. Review the processing status below; nothing will be sent externally." : "Check what was found, where it came from, and what you want to do next."}</p>
         </div>
         <span className="status-pill status-light"><span /> {approved ? "APPROVED FOR DEMO" : claim.source === "sample" ? "READY FOR YOUR REVIEW" : claim.source === "connected" ? (claim.status ?? "RECEIVED").replaceAll("_", " ").toUpperCase() : "DETAILS SAVED LOCALLY"}</span>
       </div>
@@ -69,12 +69,12 @@ export function ClaimReview({ claim, approved, onApprove, onBack }: { claim: Cla
             <section className="review-card local-preview-card">
               <div className="review-card-head"><span className="panel-index">02</span><span>DOCUMENTS & AUTOMATION</span></div>
               <h2>Private files, claim recorded.</h2>
-              <p>Invoice and warranty files are stored in your private Supabase bucket. n8n receives only claim and product identifiers.</p>
+              <p>Invoice and warranty files are stored in your private account. n8n receives only claim and product identifiers.</p>
               <div className="source-list">
                 <SourceRow icon="invoice" title="Purchase invoice" detail={claim.invoiceName} />
                 <SourceRow icon="terms" title="Warranty terms" detail={claim.warrantyName} />
               </div>
-              <p className="automation-state" role="status">{claim.automation === "acknowledged" ? "n8n acknowledged this intake. No document analysis is configured yet." : claim.automation === "failed" ? "The claim is saved, but n8n did not acknowledge the request. It can be retried after the workflow is configured." : claim.automation === "duplicate" ? "This retry matched a previously saved claim, so no second automation event was sent." : "Claim saved. n8n is not configured for this app yet."}</p>
+              <p className="automation-state" role="status">{claim.automation === "accepted" || claim.automation === "acknowledged" ? "n8n accepted the claim event. Processing status will update from your saved claim." : claim.automation === "pending" || claim.automation === "failed" ? "Your claim is saved, but processing has not been confirmed yet. You can check again later." : claim.automation === "duplicate" ? "This retry matched a previously saved claim, so no second automation event was sent." : claim.automation === "migration_required" ? "Your claim is saved. Apply the pending database migration to enable automation." : "Claim saved. The automation endpoint is not configured yet."}</p>
               {claim.claimId && <small className="claim-reference">Claim reference · {claim.claimId}</small>}
             </section>
           ) : (

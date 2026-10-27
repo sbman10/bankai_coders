@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { isRecord, JsonBodyError, readJsonBody } from "@/lib/http/read-json-body";
 
 type ClaimDocumentInput = {
@@ -11,6 +12,77 @@ type ClaimDocumentInput = {
 };
 
 const allowedMimeTypes = new Set(["application/pdf", "image/jpeg", "image/png"]);
+const claimIntakeEventType = "claim.intake.received";
+
+type DispatchResult = "accepted" | "pending" | "not_configured";
+
+async function dispatchClaimIntake(eventId: string): Promise<DispatchResult> {
+  const webhookUrl = process.env.N8N_CLAIM_INTAKE_WEBHOOK_URL?.trim();
+  const webhookToken = process.env.N8N_WEBHOOK_AUTH_TOKEN?.trim();
+  if (!webhookUrl || !webhookToken) return "not_configured";
+
+  let parsedWebhookUrl: URL;
+  try {
+    parsedWebhookUrl = new URL(webhookUrl);
+    if (parsedWebhookUrl.protocol !== "https:" || parsedWebhookUrl.username || parsedWebhookUrl.password) {
+      return "pending";
+    }
+  } catch {
+    return "pending";
+  }
+
+  let admin: ReturnType<typeof createAdminClient>;
+  try {
+    admin = createAdminClient();
+  } catch {
+    return "pending";
+  }
+
+  let lease: { leased?: boolean; claim_id?: string; product_id?: string } | null;
+  try {
+    const result = await admin.rpc("lease_claim_intake_event", { p_event_id: eventId });
+    lease = result.data;
+    if (result.error) return "pending";
+  } catch {
+    return "pending";
+  }
+  if (!lease?.leased || typeof lease.claim_id !== "string" || typeof lease.product_id !== "string") {
+    return "pending";
+  }
+
+  let succeeded = false;
+  let safeErrorCode: "n8n_unavailable" | "n8n_rejected" | "invalid_response" = "n8n_unavailable";
+  try {
+    const response = await fetch(parsedWebhookUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-claimforge-secret": webhookToken },
+      body: JSON.stringify({
+        eventId,
+        eventType: claimIntakeEventType,
+        claimId: lease.claim_id,
+        productId: lease.product_id,
+      }),
+      signal: AbortSignal.timeout(8000),
+      cache: "no-store",
+      redirect: "error",
+    });
+    if (response.status === 202) succeeded = true;
+    else safeErrorCode = response.ok ? "invalid_response" : "n8n_rejected";
+  } catch {
+    safeErrorCode = "n8n_unavailable";
+  }
+
+  try {
+    const { error: finishError } = await admin.rpc("finish_claim_intake_event_dispatch", {
+      p_event_id: eventId,
+      p_succeeded: succeeded,
+      p_safe_error_code: succeeded ? null : safeErrorCode,
+    });
+    return succeeded && !finishError ? "accepted" : "pending";
+  } catch {
+    return "pending";
+  }
+}
 
 function isValidDate(value: string): boolean {
   const parsed = new Date(`${value}T00:00:00.000Z`);
@@ -118,7 +190,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Your private documents could not be verified. Please retry in a moment." }, { status: 503 });
     }
 
-    const { data, error } = await supabase.rpc("create_claim_intake", {
+    const { data, error } = await supabase.rpc("create_claim_intake_with_event", {
       p_idempotency_key: idempotencyKey,
       p_product_name: product,
       p_fault_description: fault,
@@ -131,43 +203,39 @@ export async function POST(request: Request) {
         size_bytes: document.sizeBytes,
       })),
     });
+    if (error?.code === "PGRST202" || error?.code === "42883") {
+      const legacy = await supabase.rpc("create_claim_intake", {
+        p_idempotency_key: idempotencyKey,
+        p_product_name: product,
+        p_fault_description: fault,
+        p_failure_date: failureDate,
+        p_documents: (documents as ClaimDocumentInput[]).map((document) => ({
+          document_kind: document.kind,
+          storage_path: document.storagePath,
+          original_filename: document.fileName,
+          mime_type: document.mimeType,
+          size_bytes: document.sizeBytes,
+        })),
+      });
+      if (legacy.error || !legacy.data?.claim_id || !legacy.data?.product_id) {
+        return NextResponse.json({ error: "Your claim could not be saved. Your documents remain private; please retry." }, { status: 503 });
+      }
+      return NextResponse.json({
+        claim: { id: legacy.data.claim_id, productId: legacy.data.product_id, status: "received" },
+        duplicate: Boolean(legacy.data.duplicate),
+        automation: legacy.data.duplicate ? "duplicate" : "migration_required",
+      }, { status: legacy.data.duplicate ? 200 : 201 });
+    }
     if (error || !data?.claim_id || !data?.product_id) {
       return NextResponse.json({ error: "Your claim could not be saved. Your documents remain private; please retry." }, { status: 503 });
     }
 
-    let automation = data.duplicate ? "duplicate" : "not_configured";
-    const webhookUrl = process.env.N8N_CLAIM_INTAKE_WEBHOOK_URL?.trim();
-    const webhookToken = process.env.N8N_WEBHOOK_AUTH_TOKEN;
-    let parsedWebhookUrl: URL | null = null;
-    if (!data.duplicate && webhookUrl && webhookToken) {
-      try {
-        const parsed = new URL(webhookUrl);
-        if (parsed.protocol === "https:" && !parsed.username && !parsed.password) parsedWebhookUrl = parsed;
-      } catch {
-        parsedWebhookUrl = null;
-      }
-      if (!parsedWebhookUrl) automation = "failed";
-    }
-    if (!data.duplicate && parsedWebhookUrl && webhookToken) {
-      try {
-        const response = await fetch(parsedWebhookUrl, {
-          method: "POST",
-          headers: { "content-type": "application/json", "x-claimforge-secret": webhookToken },
-          body: JSON.stringify({
-            eventId: idempotencyKey,
-            eventType: "claim.intake.received",
-            claimId: data.claim_id,
-            productId: data.product_id,
-          }),
-          signal: AbortSignal.timeout(8000),
-          cache: "no-store",
-          redirect: "error",
-        });
-        automation = response.ok ? "acknowledged" : "failed";
-      } catch {
-        automation = "failed";
-      }
-    }
+    const eventId = typeof data.event_id === "string" ? data.event_id : null;
+    const automation = data.duplicate
+      ? "duplicate"
+      : eventId
+        ? await dispatchClaimIntake(eventId)
+        : "migration_required";
 
     return NextResponse.json({
       claim: { id: data.claim_id, productId: data.product_id, status: "received" },

@@ -34,6 +34,7 @@ import { ClaimForgeLogoMark } from "./ProductVisuals";
 import { TechHeading } from "../TechText";
 import { sampleClaim, type ClaimIntakePayload, type ClaimSubmission } from "./types";
 import { readCookiePreferences, THEME_PREFERENCE_KEY } from "@/lib/cookie-consent";
+import { createClient as createSupabaseClient } from "@/lib/supabase/client";
 
 let temporaryTheme: "light" | "dark" | null = null;
 
@@ -173,18 +174,58 @@ export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: stri
     setView("intake");
   }
 
-  async function submitClaim(nextClaim: ClaimIntakePayload, _idempotencyKey?: string): Promise<void> {
-    void _idempotencyKey;
+  async function submitClaim(nextClaim: ClaimIntakePayload, idempotencyKey: string): Promise<void> {
     setApproved(false);
+    const supabase = createSupabaseClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) throw new Error("Sign in before saving a claim.");
+
+    const uploadedPaths: string[] = [];
+    const documents: Array<{ kind: "invoice" | "warranty"; storagePath: string; fileName: string; mimeType: string; sizeBytes: number }> = [];
+    let claimRequestStarted = false;
+    try {
+      for (const [kind, file] of [["invoice", nextClaim.invoice], ["warranty", nextClaim.warranty]] as const) {
+        if (!file) continue;
+        const safeName = file.name.normalize("NFKD").replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 120) || "document";
+        const storagePath = `${user.id}/${crypto.randomUUID()}-${safeName}`;
+        const { error: uploadError } = await supabase.storage.from("claim-documents").upload(storagePath, file, {
+          contentType: file.type,
+          upsert: false,
+        });
+        if (uploadError) throw new Error("A document could not be uploaded privately. Please retry.");
+        uploadedPaths.push(storagePath);
+        documents.push({ kind, storagePath, fileName: file.name.slice(0, 240), mimeType: file.type, sizeBytes: file.size });
+      }
+
+      claimRequestStarted = true;
+      const response = await fetch("/api/claims", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ product: nextClaim.product, fault: nextClaim.fault, failureDate: nextClaim.failureDate || null, idempotencyKey, documents }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.claim?.id) throw new Error(result.error ?? "Your claim could not be saved. Please retry.");
+
     setClaim({
       product: nextClaim.product,
       fault: nextClaim.fault,
       failureDate: nextClaim.failureDate,
       invoiceName: nextClaim.invoice?.name ?? "Invoice not attached",
       warrantyName: nextClaim.warranty?.name ?? "Warranty terms not attached",
-      source: "local-preview",
+        source: "connected",
+        claimId: result.claim.id,
+        status: result.claim.status ?? "received",
+        automation: result.automation ?? "pending",
     });
     setView("review");
+    } catch (error) {
+      // Once the server request starts, a lost response is ambiguous: the claim may
+      // already be committed. Keep its referenced files so an idempotent retry works.
+      if (!claimRequestStarted && uploadedPaths.length) {
+        await supabase.storage.from("claim-documents").remove(uploadedPaths).catch(() => undefined);
+      }
+      throw error;
+    }
   }
 
   function handleNavigate(targetView: View) {
