@@ -15,14 +15,14 @@ if (typeof GlobalWorkerOptions !== "undefined") {
   }
 }
 
-export type ExtractedPage = { pageNumber: number; text: string };
+export type ExtractedPage = { pageNumber: number; text: string; confidence?: number | null };
 export type IndexedChunk = {
   page_number: number;
   section_path: string | null;
   chunk_index: number;
   content: string;
   content_hash: string;
-  extraction_confidence: null;
+  extraction_confidence: number | null;
 };
 
 const MAX_PDF_PAGES = 100;
@@ -93,6 +93,29 @@ export async function renderPdfPagesToBuffers(bytes: Uint8Array, maxPages = 3): 
   } catch (err) {
     console.warn("[PDF RENDER] Canvas page rendering not available for scanned fallback:", err);
     return [];
+  }
+}
+
+export async function renderSelectedPdfPages(bytes: Uint8Array, pageNumbers: number[]): Promise<Array<{ pageNumber: number; image: Buffer }>> {
+  const { createCanvas } = await import("@napi-rs/canvas");
+  const task = getDocument({ data: new Uint8Array(bytes), disableFontFace: true, verbosity: 0 });
+  try {
+    const document = await task.promise;
+    if (pageNumbers.some((pageNumber) => !Number.isInteger(pageNumber) || pageNumber < 1 || pageNumber > document.numPages)) {
+      throw new Error("invalid_page_number");
+    }
+    const rendered: Array<{ pageNumber: number; image: Buffer }> = [];
+    for (const pageNumber of pageNumbers) {
+      const page = await document.getPage(pageNumber);
+      const viewport = page.getViewport({ scale: 2 });
+      const canvas = createCanvas(viewport.width, viewport.height);
+      // @ts-expect-error napi-rs canvas context compatibility with pdfjs
+      await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+      rendered.push({ pageNumber, image: canvas.toBuffer("image/png") });
+    }
+    return rendered;
+  } finally {
+    await task.destroy();
   }
 }
 
@@ -172,7 +195,7 @@ export function chunkExtractedPages(pages: ExtractedPage[]): IndexedChunk[] {
           chunk_index: chunks.length,
           content,
           content_hash: createHash("sha256").update(content, "utf8").digest("hex"),
-          extraction_confidence: null,
+          extraction_confidence: page.confidence ?? null,
         });
       }
     };

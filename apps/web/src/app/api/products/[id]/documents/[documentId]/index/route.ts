@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { chunkExtractedPages, extractPdfPages, isPdf } from "@/lib/rag/pdf-indexer";
+import { chunkExtractedPages, extractPdfPages, isPdf, renderSelectedPdfPages, type ExtractedPage } from "@/lib/rag/pdf-indexer";
+import { ocrImage } from "@/lib/rag/local-ocr";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -7,6 +8,7 @@ export const runtime = "nodejs";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_INDEX_CHUNKS = 96;
+const MAX_OCR_PAGES = 10;
 const EMBEDDING_BATCH_SIZE = 32;
 type RouteContext = { params: Promise<{ id: string; documentId: string }> };
 
@@ -59,7 +61,9 @@ export async function POST(_request: Request, context: RouteContext) {
       ...(preservePublishedIndex ? {} : { ingestion_status: status }),
       ingestion_warning_code: reason,
     });
-    if (document.mime_type !== "application/pdf") return needsReview(admin, user.id, productId, documentId, "ocr_required", preservePublishedIndex);
+    if (!["application/pdf", "image/png", "image/jpeg"].includes(document.mime_type)) {
+      return needsReview(admin, user.id, productId, documentId, "unsupported_document_type", preservePublishedIndex);
+    }
     if (!Number.isInteger(document.size_bytes) || document.size_bytes < 1 || document.size_bytes > 10 * 1024 * 1024) {
       return needsReview(admin, user.id, productId, documentId, "unsupported_file_size", preservePublishedIndex);
     }
@@ -77,16 +81,46 @@ export async function POST(_request: Request, context: RouteContext) {
     }
 
     const bytes = new Uint8Array(await file.arrayBuffer());
-    if (!isPdf(bytes)) return needsReview(admin, user.id, productId, documentId, "invalid_pdf_content", preservePublishedIndex);
-
-    let pages;
-    try {
-      pages = await extractPdfPages(bytes);
-    } catch {
-      return needsReview(admin, user.id, productId, documentId, "pdf_unreadable", preservePublishedIndex);
+    let pages: ExtractedPage[];
+    if (document.mime_type === "application/pdf") {
+      if (!isPdf(bytes)) return needsReview(admin, user.id, productId, documentId, "invalid_pdf_content", preservePublishedIndex);
+      try {
+        pages = await extractPdfPages(bytes);
+      } catch {
+        return needsReview(admin, user.id, productId, documentId, "pdf_unreadable", preservePublishedIndex);
+      }
+      const unreadable = pages.filter((page) => page.text.trim().length < 10);
+      if (unreadable.length > MAX_OCR_PAGES) {
+        return needsReview(admin, user.id, productId, documentId, "ocr_page_limit", preservePublishedIndex);
+      }
+      if (unreadable.length > 0) {
+        try {
+          const images = await renderSelectedPdfPages(bytes, unreadable.map((page) => page.pageNumber));
+          if (images.length !== unreadable.length) throw new Error("incomplete_render");
+          const ocrPages = new Map<number, ExtractedPage>();
+          for (const image of images) {
+            const result = await ocrImage(image.image);
+            ocrPages.set(image.pageNumber, { pageNumber: image.pageNumber, text: result.text, confidence: result.confidence });
+          }
+          pages = pages.map((page) => ocrPages.get(page.pageNumber) ?? page);
+        } catch {
+          return needsReview(admin, user.id, productId, documentId, "ocr_unavailable", preservePublishedIndex);
+        }
+      }
+    } else {
+      const validImage = document.mime_type === "image/png"
+        ? bytes.length >= 8 && [137, 80, 78, 71, 13, 10, 26, 10].every((value, index) => bytes[index] === value)
+        : bytes.length >= 3 && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255;
+      if (!validImage) return needsReview(admin, user.id, productId, documentId, "invalid_image_content", preservePublishedIndex);
+      try {
+        const result = await ocrImage(bytes);
+        pages = [{ pageNumber: 1, text: result.text, confidence: result.confidence }];
+      } catch {
+        return needsReview(admin, user.id, productId, documentId, "ocr_unavailable", preservePublishedIndex);
+      }
     }
 
-    if (pages.length === 0 || pages.some((page) => page.text.trim().length === 0)) {
+    if (pages.length === 0 || pages.some((page) => page.text.trim().length < 10 || (page.confidence !== undefined && page.confidence !== null && page.confidence < 0.5))) {
       return needsReview(admin, user.id, productId, documentId, "text_incomplete_or_ocr_required", preservePublishedIndex);
     }
 

@@ -1,9 +1,10 @@
 import { Blob } from "node:buffer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { createAdminClient, createClient, functionsInvoke } = vi.hoisted(() => ({ createAdminClient: vi.fn(), createClient: vi.fn(), functionsInvoke: vi.fn() }));
+const { createAdminClient, createClient, functionsInvoke, ocrImage } = vi.hoisted(() => ({ createAdminClient: vi.fn(), createClient: vi.fn(), functionsInvoke: vi.fn(), ocrImage: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ createClient }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient }));
+vi.mock("@/lib/rag/local-ocr", () => ({ ocrImage }));
 
 import { POST } from "./route";
 
@@ -98,6 +99,7 @@ beforeEach(() => {
     modelRepository: "Supabase/gte-small", modelRevision: null, dimension: 384,
     pooling: "mean", normalized: true,
   }, error: null });
+  ocrImage.mockResolvedValue({ text: "", confidence: 0 });
 });
 
 describe("POST /api/products/[id]/documents/[documentId]/index", () => {
@@ -119,6 +121,22 @@ describe("POST /api/products/[id]/documents/[documentId]/index", () => {
     ]));
     expect(functionsInvoke).toHaveBeenCalledWith("embed-text", { body: { texts: expect.arrayContaining([expect.stringContaining("manufacturing defects")]) } });
     expect(updatePayload).toHaveBeenLastCalledWith(expect.objectContaining({ ingestion_status: "indexed" }));
+  });
+
+  it("indexes an owned image invoice only when OCR returns usable page text", async () => {
+    const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0]);
+    documentRow.size_bytes = bytes.byteLength;
+    download.mockResolvedValue({ data: new Blob([bytes]), error: null });
+    ocrImage.mockResolvedValue({ text: "Receipt: headphones purchased on 12 March 2026.", confidence: 0.91 });
+
+    const response = await POST(makeRequest(), { params: Promise.resolve({ id: productId, documentId }) });
+    const result = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(result).toMatchObject({ status: "indexed", pagesIndexed: 1 });
+    expect(insertChunks).toHaveBeenCalledWith(expect.arrayContaining([
+      expect.objectContaining({ page_number: 1, content: expect.stringContaining("headphones purchased"), embedding: expect.any(Array) }),
+    ]));
   });
 
   it("does not publish a searchable index when embeddings are unavailable", async () => {
@@ -174,6 +192,23 @@ describe("POST /api/products/[id]/documents/[documentId]/index", () => {
     expect(insertChunks).not.toHaveBeenCalled();
   });
 
+  it("makes a scanned PDF searchable when local OCR reads its rendered page", async () => {
+    const bytes = syntheticPdf("");
+    documentRow.storage_path = `${userId}/scanned-policy.pdf`;
+    documentRow.mime_type = "application/pdf";
+    documentRow.size_bytes = bytes.byteLength;
+    download.mockResolvedValue({ data: new Blob([bytes]), error: null });
+    ocrImage.mockResolvedValue({ text: "Accidental damage is excluded under this synthetic policy.", confidence: 0.92 });
+
+    const response = await POST(makeRequest(), { params: Promise.resolve({ id: productId, documentId }) });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ status: "indexed", pagesIndexed: 1 });
+    expect(insertChunks).toHaveBeenCalledWith(expect.arrayContaining([
+      expect.objectContaining({ page_number: 1, content: expect.stringContaining("Accidental damage is excluded"), extraction_confidence: 0.92 }),
+    ]));
+  });
+
   it("marks an unreadable synthetic PDF for review with a safe warning", async () => {
     const bytes = new Uint8Array(Buffer.from("%PDF-1.4\\nmalformed synthetic PDF", "ascii"));
     documentRow.storage_path = `${userId}/unreadable-document.pdf`;
@@ -212,17 +247,20 @@ describe("POST /api/products/[id]/documents/[documentId]/index", () => {
     expect(chunkDeleteEq).toHaveBeenCalledWith("index_version", 1);
   });
 
-  it("marks an image-only document for review when OCR is not configured", async () => {
+  it("keeps an unreadable image out of search when local OCR finds no text", async () => {
+    const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0]);
+    documentRow.size_bytes = bytes.byteLength;
+    download.mockResolvedValue({ data: new Blob([bytes]), error: null });
     const response = await POST(makeRequest(), { params: Promise.resolve({ id: productId, documentId }) });
     const result = await response.json();
 
     expect(response.status).toBe(200);
-    expect(result).toEqual({ status: "needs_review", reason: "ocr_required" });
+    expect(result).toEqual({ status: "needs_review", reason: "text_incomplete_or_ocr_required" });
     expect(updatePayload).toHaveBeenCalledWith(expect.objectContaining({
       ingestion_status: "needs_review",
-      ingestion_warning_code: "ocr_required",
+      ingestion_warning_code: "text_incomplete_or_ocr_required",
     }));
-    expect(download).not.toHaveBeenCalled();
+    expect(ocrImage).toHaveBeenCalled();
     expect(insertChunks).not.toHaveBeenCalled();
   });
 });
