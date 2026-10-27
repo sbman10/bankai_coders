@@ -18,5 +18,8 @@ Thumbs.db
 # Local Supabase CLI state
 supabase/.temp/
 
+# Scrape and build cache
+.cache/
+
 # Tesseract OCR trained data
 *.traineddata

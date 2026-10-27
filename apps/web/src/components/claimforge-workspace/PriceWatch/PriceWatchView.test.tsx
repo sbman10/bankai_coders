@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PriceWatchView } from "./PriceWatchView";
@@ -45,6 +45,15 @@ describe("PriceWatchView 2.0 Suite", () => {
     mockOnAdd.mockResolvedValue(true);
     mockOnUpdate.mockResolvedValue(true);
     mockOnRemove.mockResolvedValue(true);
+  });
+
+  afterEach(() => {
+    // Clear dangling UI timeouts (e.g. 4000ms success banner) to prevent jsdom teardown leak
+    let id = setTimeout(() => {}, 0) as unknown as number;
+    while (id > 0) {
+      clearTimeout(id);
+      id--;
+    }
   });
 
   it("renders the Section A discovery card with eyebrow, headline, and URL input", () => {
@@ -225,5 +234,56 @@ describe("PriceWatchView 2.0 Suite", () => {
         targetPrice: 22000,
       })
     );
+  });
+
+  it("discovers live OnePlus product from backend API and displays OnePlus N6 instead of demo MacBook", async () => {
+    const user = userEvent.setup();
+    const onePlusUrl = "https://www.amazon.in/OnePlus-Midnight-Smoothness-Military-Grade-Durability/dp/B0H3LKPC2K/ref=sr_1_3?sr=8-3";
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        success: true,
+        analysis: {
+          canonicalIdentity: {
+            brand: "OnePlus",
+            model: "OnePlus N6",
+            cleanTitle: "OnePlus N6 | 6GB+128GB | Midnight Green",
+            variant: { ram: "6GB", storage: "128GB", color: "Midnight Green" },
+            sku: "B0H3LKPC2K",
+            imageUrl: "https://m.media-amazon.com/images/I/oneplus.jpg",
+          },
+          sourceQuote: {
+            price: { current: 26999, mrp: 33999, currency: "INR" },
+            availability: { status: "IN_STOCK", evidence: "Add to Cart button present" },
+          },
+          detectedCategory: "Mobiles & Tablets",
+        },
+      }),
+    } as Response);
+
+    render(
+      <PriceWatchView
+        products={sampleProducts}
+        watches={sampleWatches}
+        busy={false}
+        onAdd={mockOnAdd}
+        onUpdate={mockOnUpdate}
+        onRemove={mockOnRemove}
+      />
+    );
+
+    const input = screen.getByPlaceholderText(/paste a product link/i);
+    await user.type(input, onePlusUrl);
+    await user.click(screen.getByRole("button", { name: /compare prices/i }));
+
+    const comparisonSection = await screen.findByRole("region", {
+      name: /Product Identification and Multi-Store Comparison/i,
+    });
+    expect(within(comparisonSection).getByRole("heading", { name: /OnePlus N6/i })).toBeInTheDocument();
+    expect(within(comparisonSection).getByText(/6GB RAM · 128GB Storage · Midnight Green/i)).toBeInTheDocument();
+    expect(within(comparisonSection).queryByRole("heading", { name: /Apple MacBook Air/i })).not.toBeInTheDocument();
+
+    fetchSpy.mockRestore();
   });
 });
