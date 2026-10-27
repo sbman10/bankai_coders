@@ -21,6 +21,7 @@ Next.js App Router app for managing products and warranty claims. It contains bo
 - Submit claim intake with private Supabase Storage uploads, server-side file-signature checks, and an idempotent claim/outbox RPC. The local app processor performs bounded OCR, sends extracted text to the configured Groq service, validates source quotes, and saves a review draft; the outbox migration and n8n credential are still pending, so live processing is not verified.
 - The protected approval API can persist an exact customer-edited draft for an owned claim only after processing marks it ready for review. It stores the content fingerprint and idempotency key as `draft_only`; it never sends or queues a message.
 - The protected `POST /api/integrations/n8n/process` route accepts only an event ID and claim ID, requires a separate server-to-server secret, and reads claim documents through trusted server-side Supabase access. It does not trust browser-supplied owners or storage paths. Claim review results are stored through the atomic result RPC and shown through owner-scoped claim reads.
+- If the app-to-n8n handoff is pending, the signed-in owner can retry it through `POST /api/claims/[id]/dispatch`; RLS scopes the event lookup, and the database lease prevents duplicate delivery while already sent or in flight.
 - Keep the sample claim review and overview clearly fictional. Sample evidence and approval state are not persisted or sent.
 
 ## Local document assistant implementation

@@ -2,7 +2,7 @@
 
 **Status:** Draft for pitch and MVP planning
 **Owner:** Product team
-**Last updated:** 2026-10-25
+**Last updated:** 2026-10-27
 
 ## 1. Product summary
 
@@ -170,7 +170,7 @@ Measure on a small, disclosed test set; report sample size and method. Do not pr
 - **Status and logs:** the app reads claim/product/reminder state from Supabase. n8n execution logs help operators diagnose workflow runs; they do not replace app records and should not contain document content or secrets.
 - **RAG document Q&A/ingestion:** answering is intended to stay on the authenticated Next.js path with owner- and selection-scoped retrieval. Document ingestion/embedding worker design is separate and remains proposed until the queue, Edge Function, and database flow are verified. Do not put the chatbot's critical answer path in n8n.
 
-**Current implementation truth:** claim intake now uploads selected files to private Supabase Storage and submits only document references through the authenticated app route. The `ProductVault App API` n8n workflow has an authenticated intake webhook, immediate 202 response, and an app-side processing request, but it remains inactive and awaits its outbound credential, the local outbox migration, and an HTTPS end-to-end test. The app-side claim processor uses the existing Groq setup after OCR; extracted invoice/warranty text goes to Groq, never to n8n. No production execution has been verified. Product price entries are manual, reminders are in-app, and no automated price scraping or outbound notification is connected. The RAG migration/worker is not live-verified.
+**Current implementation truth:** claim intake now uploads selected files to private Supabase Storage and submits only document references through the authenticated app route. The `ProductVault App API` n8n workflow has an authenticated intake webhook, immediate 202 response, and an app-side processing request, but it remains inactive and awaits its outbound credential, the local outbox migration, and an HTTPS end-to-end test. The app-side claim processor uses the existing Groq setup after OCR; extracted invoice/warranty text goes to Groq, never to n8n. A signed-in user can retry a pending webhook handoff from the saved claim screen. No production execution has been verified. Product price entries are manual, reminders are in-app, and no automated price scraping or outbound notification is connected. The RAG migration/worker is not live-verified.
 
 ## 11. Open decisions
 

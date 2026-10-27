@@ -8,16 +8,50 @@ const mockSupabase = vi.hoisted(() => ({
   auth: { getUser: vi.fn(async () => ({ data: { user: { id: "user-test-1" } }, error: null })) },
   storage: { from: vi.fn(() => ({ upload, remove })) },
 }));
+const mockNavigation = vi.hoisted(() => {
+  const navigation = {
+    pathname: "/",
+    push: vi.fn(),
+    replace: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+  };
+  navigation.push.mockImplementation((path: string) => {
+    navigation.pathname = path;
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  });
+  return navigation;
+});
 
 vi.mock("@/lib/supabase/client", () => ({ createClient: () => mockSupabase }));
+vi.mock("next/navigation", async () => {
+  const { useSyncExternalStore } = await import("react");
+  return {
+    usePathname: () => useSyncExternalStore(
+      (notify) => {
+        window.addEventListener("popstate", notify);
+        return () => window.removeEventListener("popstate", notify);
+      },
+      () => mockNavigation.pathname,
+      () => mockNavigation.pathname,
+    ),
+    useRouter: () => mockNavigation,
+  };
+});
 
 beforeEach(() => {
+  mockNavigation.pathname = "/";
+  mockNavigation.push.mockClear();
+  mockNavigation.replace.mockClear();
+  mockNavigation.back.mockClear();
+  mockNavigation.forward.mockClear();
   vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url === "/api/auth" && !init?.method) return { ok: true, json: async () => ({ user: { id: "user-test-1", email: "demo@example.com" } }) };
     if (url === "/api/account/profile" && !init?.method) return { ok: true, json: async () => ({ profile: { displayName: "Kapish", hasAvatar: false } }) };
     if (url === "/api/claims" && !init?.method) return { ok: true, json: async () => ({ claims: [] }) };
-    if (url === "/api/claims" && init?.method === "POST") return { ok: true, json: async () => ({ claim: { id: "claim-test-1", productId: "product-test-1", status: "received" }, automation: "pending" }) };
+    if (url === "/api/claims" && init?.method === "POST") return { ok: true, json: async () => ({ claim: { id: "claim-test-1", productId: "product-test-1", status: "received" }, automation: "not_configured" }) };
+    if (url === "/api/claims/claim-test-1/dispatch" && init?.method === "POST") return { ok: true, json: async () => ({ automation: "accepted" }) };
     if (url === "/api/products" && !init?.method) return { ok: true, json: async () => ({ products: [] }) };
     if (url === "/api/price-watches" && !init?.method) return { ok: true, json: async () => ({ watches: [] }) };
     if (url === "/api/reminders" && !init?.method) return { ok: true, json: async () => ({ reminders: [] }) };
@@ -98,6 +132,28 @@ describe("ClaimForge customer workflow", () => {
     expect(await screen.findByText(/products with a paper trail/i)).toBeInTheDocument();
   });
 
+  it("restores a directly opened workspace URL and exposes browser history controls", async () => {
+    mockNavigation.pathname = "/dashboard/assistant";
+    const user = userEvent.setup();
+    render(<ClaimForgeWorkspace />);
+
+    expect(await screen.findByRole("heading", { name: /ask about your documents/i })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /go back/i }));
+    await user.click(screen.getByRole("button", { name: /go forward/i }));
+
+    expect(mockNavigation.back).toHaveBeenCalledOnce();
+    expect(mockNavigation.forward).toHaveBeenCalledOnce();
+  });
+
+  it("updates the address when a workspace page is selected", async () => {
+    const user = userEvent.setup();
+    render(<ClaimForgeWorkspace />);
+
+    await user.click(screen.getByRole("button", { name: /ask documents/i }));
+
+    expect(mockNavigation.push).toHaveBeenCalledWith("/dashboard/assistant");
+  });
+
   it("navigates to My Claims and fetches claims without runtime error", async () => {
     const user = userEvent.setup();
     render(<ClaimForgeWorkspace />);
@@ -158,6 +214,20 @@ describe("ClaimForge customer workflow", () => {
     expect(submitted.documents.map((document: { kind: string }) => document.kind)).toEqual(["invoice", "warranty"]);
     expect(String(claimRequest?.body)).not.toContain("sample invoice");
     expect(String(claimRequest?.body)).not.toContain("sample terms");
+  });
+
+  it("lets the signed-in user retry a claim after n8n is configured", async () => {
+    const user = userEvent.setup();
+    render(<ClaimForgeWorkspace />);
+    await user.click(await screen.findByRole("button", { name: /start a claim/i }));
+    await user.type(screen.getByLabelText(/product name/i), "Auralis headphones");
+    await user.type(screen.getByLabelText(/what went wrong/i), "The left side stopped playing.");
+    await user.click(screen.getByRole("button", { name: /save claim/i }));
+
+    await user.click(await screen.findByRole("button", { name: /retry claim processing/i }));
+
+    expect(fetch).toHaveBeenCalledWith("/api/claims/claim-test-1/dispatch", { method: "POST", cache: "no-store" });
+    expect(await screen.findByText(/n8n accepted the claim event/i)).toBeInTheDocument();
   });
 
   it("keeps uploaded documents when the claim request has an ambiguous network failure", async () => {

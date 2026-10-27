@@ -16,10 +16,25 @@ import {
 } from "lucide-react";
 import type { ClaimSubmission } from "./types";
 
-export function ClaimReview({ claim, approved, onApprove, onBack }: { claim: ClaimSubmission; approved: boolean; onApprove: () => void; onBack: () => void }) {
+export function ClaimReview({ claim, approved, onApprove, onBack, onRetryAutomation }: { claim: ClaimSubmission; approved: boolean; onApprove: () => void; onBack: () => void; onRetryAutomation?: () => Promise<void> }) {
   const [copyMessage, setCopyMessage] = useState("");
   const [showAssessmentHelp, setShowAssessmentHelp] = useState(false);
+  const [retryingAutomation, setRetryingAutomation] = useState(false);
+  const [retryAutomationError, setRetryAutomationError] = useState("");
   const sampleDraft = `Hello, I’m requesting support for my ${claim.product}. ${claim.fault}. I purchased it on 12 February 2026 and have attached my invoice and the warranty terms for reference. Please let me know the next steps and any additional information you need.`;
+
+  async function retryAutomation() {
+    if (!onRetryAutomation || retryingAutomation) return;
+    setRetryingAutomation(true);
+    setRetryAutomationError("");
+    try {
+      await onRetryAutomation();
+    } catch (error) {
+      setRetryAutomationError(error instanceof Error ? error.message : "Claim processing could not be retried.");
+    } finally {
+      setRetryingAutomation(false);
+    }
+  }
 
   async function copyDraft() {
     try {
@@ -75,6 +90,8 @@ export function ClaimReview({ claim, approved, onApprove, onBack }: { claim: Cla
                 <SourceRow icon="terms" title="Warranty terms" detail={claim.warrantyName} />
               </div>
               <p className="automation-state" role="status">{claim.automation === "accepted" || claim.automation === "acknowledged" ? "n8n accepted the claim event. Processing status will update from your saved claim." : claim.automation === "pending" || claim.automation === "failed" ? "Your claim is saved, but processing has not been confirmed yet. You can check again later." : claim.automation === "duplicate" ? "This retry matched a previously saved claim, so no second automation event was sent." : claim.automation === "migration_required" ? "Your claim is saved. Apply the pending database migration to enable automation." : "Claim saved. The automation endpoint is not configured yet."}</p>
+              {(claim.automation === "pending" || claim.automation === "not_configured") && onRetryAutomation && <button type="button" className="text-button" onClick={() => void retryAutomation()} disabled={retryingAutomation}>{retryingAutomation ? "Retrying…" : "Retry claim processing"}</button>}
+              {retryAutomationError && <p className="automation-state" role="alert">{retryAutomationError}</p>}
               {claim.claimId && <small className="claim-reference">Claim reference · {claim.claimId}</small>}
             </section>
           ) : (

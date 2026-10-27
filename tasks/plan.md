@@ -8,6 +8,7 @@ Connect the existing authenticated ProductVault claim-intake path to n8n on `mai
 
 - The user approved the claim event, processing, idempotency, ownership, and human-approval behavior seams, and approved the existing Groq setup for extracted invoice/warranty text. This plan is now being implemented locally on `main`.
 - `POST /api/claims` now calls the additive `create_claim_intake_with_event` RPC, which atomically creates the claim and outbox event. It leases and dispatches only `eventId`, `eventType`, `claimId`, and `productId`; errors leave a pending status and do not invalidate a saved claim. If the migration is absent, the legacy claim RPC remains available and the response says `migration_required`.
+- A signed-in owner can retry a pending handoff through `POST /api/claims/[id]/dispatch`; RLS scopes event lookup and the database lease avoids duplicate delivery. There is no background outbox scheduler yet, so retry is user-initiated.
 - A protected `POST /api/integrations/n8n/process` accepts only event and claim UUIDs and a separate server secret. The app loads same-owner claim documents from private storage, applies bounded native PDF extraction/OCR, sends extracted text to Groq, verifies evidence quotes against source text, and writes only a reviewable result. It never approves or sends a claim.
 - Local draft migration: `supabase/migrations/20261027120000_claim_intake_n8n_outbox.sql`. It adds event dispatch/processing state and service-role-only lease/finalize functions. It has not been applied to or parsed against the live `bankai` database.
 - n8n workflow `ProductVault App API` (`VhmDra9QWmtcokXe`) now has the authenticated `POST productvault/intake` trigger, immediate 202 acknowledgement, and an IDs-only request to the protected app processor. It remains inactive. The separate `ClaimForge — Product Ownership Assistant` workflow remains unchanged.
@@ -125,7 +126,7 @@ The first implementation should preserve the current callback only if its final 
 
 **Acceptance:** each later workflow gets an independent contract, user-approved test seams, synthetic test cases, and activation gate.
 
-## Behavioral seams to confirm before TDD implementation
+## Confirmed behavioral seams and local test status
 
 1. Authenticated claim submission stores the claim and creates exactly one durable event; same idempotency key returns the existing claim/event.
 2. n8n receives only the four approved identifiers/event fields, protected by Header Auth; an acknowledgement means accepted, not processed.
@@ -135,13 +136,13 @@ The first implementation should preserve the current callback only if its final 
 6. No external claim communication occurs before explicit, recorded user approval; the current result remains draft-only.
 7. ngrok verification uses synthetic documents/events only and does not trigger external email, claim portals, or purchase actions.
 
-These are proposed seams, not tests already written. Confirm them before the implementation phase begins.
+The user confirmed these seams before tests were written. Local tests use synthetic data and mocked Supabase/Groq boundaries; they do not prove live database isolation or a live webhook execution.
 
 ## Risks and mitigations
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| Claim persists but direct webhook call fails | Claim appears saved without processing | Durable outbox, bounded retries, explicit pending/error status |
+| Claim persists but direct webhook call fails | Claim appears saved without processing | Durable outbox, bounded retry lease, owner-authenticated retry action, explicit pending status; no background scheduler yet |
 | n8n retries after timeout | Duplicate processing or evidence | Stable event ID, database uniqueness, idempotent state transitions |
 | Claim documents leak into workflow history | Sensitive personal data exposure | IDs-only orchestration; app-side private processing; minimal execution retention and pruning |
 | 202 is mistaken for completed processing | Misleading user status | Distinct accepted vs processed state in API/UI |
@@ -167,4 +168,4 @@ These are proposed seams, not tests already written. Confirm them before the imp
 
 ## Task List
 
-See `tasks/todo.md`. All implementation tasks remain unchecked pending review and approval of this plan.
+See `tasks/todo.md` for implementation status and remaining live verification gates.

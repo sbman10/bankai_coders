@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import {
+  ArrowLeft,
+  ArrowRight,
   Bell,
   ChevronDown,
   ChevronLeft,
@@ -35,23 +38,11 @@ import { TechHeading } from "../TechText";
 import { sampleClaim, type ClaimIntakePayload, type ClaimSubmission } from "./types";
 import { readCookiePreferences, THEME_PREFERENCE_KEY } from "@/lib/cookie-consent";
 import { createClient as createSupabaseClient } from "@/lib/supabase/client";
+import { workspaceRouteByView, workspaceViewForPathname, type WorkspaceView } from "./workspace-routes";
 
 let temporaryTheme: "light" | "dark" | null = null;
 
-type View =
-  | "workspace"
-  | "intake"
-  | "review"
-  | "claims"
-  | "products"
-  | "add-product"
-  | "amazon-import"
-  | "assistant"
-  | "prices"
-  | "reminders"
-  | "timeline"
-  | "settings"
-  | "help";
+type View = WorkspaceView;
 
 function subscribeTheme(callback: () => void) {
   window.addEventListener("storage", callback);
@@ -75,7 +66,9 @@ function getServerThemeSnapshot(): boolean {
 }
 
 export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: string; onSignOut?: () => void | Promise<void> } = {}) {
-  const [view, setView] = useState<View>("workspace");
+  const pathname = usePathname();
+  const router = useRouter();
+  const view: View = workspaceViewForPathname(pathname) ?? "workspace";
   const [claim, setClaim] = useState<ClaimSubmission>(sampleClaim);
   const [approved, setApproved] = useState(false);
   const isDarkTheme = useSyncExternalStore(
@@ -87,6 +80,10 @@ export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: stri
   const [searchFocused, setSearchFocused] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    if (!workspaceViewForPathname(pathname) && pathname.startsWith("/dashboard/")) router.replace("/dashboard");
+  }, [pathname, router]);
 
   // Synchronize DOM data-theme and body attributes on mount
   useEffect(() => {
@@ -134,6 +131,12 @@ export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: stri
     }
   }, []);
 
+  function navigateToView(targetView: View) {
+    if (targetView === "claims") void loadClaims();
+    router.push(workspaceRouteByView[targetView]);
+    setDrawerOpen(false);
+  }
+
   useEffect(() => {
     if (view !== "claims") return;
     let active = true;
@@ -171,7 +174,7 @@ export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: stri
 
   function beginClaim() {
     setApproved(false);
-    setView("intake");
+    navigateToView("intake");
   }
 
   async function submitClaim(nextClaim: ClaimIntakePayload, idempotencyKey: string): Promise<void> {
@@ -217,7 +220,7 @@ export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: stri
         status: result.claim.status ?? "received",
         automation: result.automation ?? "pending",
     });
-    setView("review");
+    navigateToView("review");
     } catch (error) {
       // Once the server request starts, a lost response is ambiguous: the claim may
       // already be committed. Keep its referenced files so an idempotent retry works.
@@ -228,10 +231,14 @@ export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: stri
     }
   }
 
-  function handleNavigate(targetView: View) {
-    if (targetView === "claims") void loadClaims();
-    setView(targetView);
-    setDrawerOpen(false);
+  async function retryClaimAutomation(): Promise<void> {
+    if (!claim.claimId) return;
+    const response = await fetch(`/api/claims/${claim.claimId}/dispatch`, { method: "POST", cache: "no-store" });
+    const result = await response.json();
+    if (!response.ok || !["accepted", "pending", "not_configured"].includes(result.automation)) {
+      throw new Error(result.error ?? "Claim processing could not be retried.");
+    }
+    setClaim((current) => ({ ...current, automation: result.automation }));
   }
 
   return (
@@ -254,12 +261,21 @@ export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: stri
 
           <div className="navbar-vdivider" aria-hidden="true" />
 
+          <div className="navbar-history-controls" aria-label="Page history">
+            <button type="button" className="navbar-history-btn" onClick={() => router.back()} aria-label="Go back" title="Go back">
+              <ArrowLeft size={16} />
+            </button>
+            <button type="button" className="navbar-history-btn" onClick={() => router.forward()} aria-label="Go forward" title="Go forward">
+              <ArrowRight size={16} />
+            </button>
+          </div>
+
           <a
             className="navbar-brand-link"
-            href="#home"
+            href={workspaceRouteByView.workspace}
             onClick={(e) => {
               e.preventDefault();
-              setView("workspace");
+              navigateToView("workspace");
             }}
             aria-label="ProductVault Dashboard"
             title="ProductVault"
@@ -304,7 +320,7 @@ export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: stri
               <div
                 className="search-dropdown-item"
                 onClick={() => {
-                  setView("products");
+                  navigateToView("products");
                   setSearchQuery("");
                 }}
               >
@@ -314,7 +330,7 @@ export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: stri
               <div
                 className="search-dropdown-item"
                 onClick={() => {
-                  setView("assistant");
+                  navigateToView("assistant");
                   setSearchQuery("");
                 }}
               >
@@ -392,7 +408,7 @@ export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: stri
           {userEmail ? (
             <AccountMenu
               email={userEmail}
-              onOpenSettings={() => setView("settings")}
+              onOpenSettings={() => navigateToView("settings")}
               onSignOut={onSignOut}
             />
           ) : (
@@ -442,7 +458,7 @@ export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: stri
               key="drawer-nav-workspace"
               type="button"
               className={`drawer-nav-link ${view === "workspace" ? "active" : ""}`}
-              onClick={() => handleNavigate("workspace")}
+              onClick={() => navigateToView("workspace")}
             >
               <Home size={17} />
               <span>Dashboard</span>
@@ -452,7 +468,7 @@ export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: stri
               key="drawer-nav-products"
               type="button"
               className={`drawer-nav-link ${view === "products" ? "active" : ""}`}
-              onClick={() => handleNavigate("products")}
+              onClick={() => navigateToView("products")}
               aria-label="Products"
             >
               <Package size={17} />
@@ -463,7 +479,7 @@ export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: stri
               key="drawer-nav-timeline"
               type="button"
               className={`drawer-nav-link ${view === "timeline" ? "active" : ""}`}
-              onClick={() => handleNavigate("timeline")}
+              onClick={() => navigateToView("timeline")}
               aria-label="Timeline"
             >
               <GitCommit size={17} />
@@ -474,7 +490,7 @@ export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: stri
               key="drawer-nav-prices"
               type="button"
               className={`drawer-nav-link ${view === "prices" ? "active" : ""}`}
-              onClick={() => handleNavigate("prices")}
+              onClick={() => navigateToView("prices")}
               aria-label="Price Watch"
             >
               <TrendingDown size={17} />
@@ -485,7 +501,7 @@ export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: stri
               key="drawer-nav-reminders"
               type="button"
               className={`drawer-nav-link ${view === "reminders" ? "active" : ""}`}
-              onClick={() => handleNavigate("reminders")}
+              onClick={() => navigateToView("reminders")}
               aria-label="Reminders"
             >
               <Bell size={17} />
@@ -499,7 +515,7 @@ export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: stri
               key="drawer-nav-assistant"
               type="button"
               className={`drawer-nav-link ${view === "assistant" ? "active" : ""}`}
-              onClick={() => handleNavigate("assistant")}
+              onClick={() => navigateToView("assistant")}
               aria-label="Ask documents"
             >
               <FileText size={17} />
@@ -510,7 +526,7 @@ export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: stri
               key="drawer-nav-amazon-import"
               type="button"
               className={`drawer-nav-link ${view === "amazon-import" ? "active" : ""}`}
-              onClick={() => handleNavigate("amazon-import")}
+              onClick={() => navigateToView("amazon-import")}
               aria-label="Import from Amazon"
             >
               <ShoppingBag size={17} />
@@ -521,7 +537,7 @@ export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: stri
               key="drawer-nav-claims"
               type="button"
               className={`drawer-nav-link ${view === "claims" ? "active" : ""}`}
-              onClick={() => handleNavigate("claims")}
+              onClick={() => navigateToView("claims")}
               aria-label="My Claims"
             >
               <ShieldCheck size={17} />
@@ -549,7 +565,7 @@ export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: stri
               className={`drawer-nav-link ${view === "review" ? "active" : ""}`}
               onClick={() => {
                 setDrawerOpen(false);
-                setView("review");
+                navigateToView("review");
               }}
               aria-label="Review claim"
             >
@@ -563,7 +579,7 @@ export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: stri
               key="drawer-nav-settings"
               type="button"
               className={`drawer-nav-link ${view === "settings" ? "active" : ""}`}
-              onClick={() => handleNavigate("settings")}
+              onClick={() => navigateToView("settings")}
               aria-label="Settings"
             >
               <Settings size={17} />
@@ -574,7 +590,7 @@ export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: stri
               key="drawer-nav-help"
               type="button"
               className={`drawer-nav-link ${view === "help" ? "active" : ""}`}
-              onClick={() => handleNavigate("help")}
+              onClick={() => navigateToView("help")}
               aria-label="Help & Support"
             >
               <HelpCircle size={17} />
@@ -587,19 +603,20 @@ export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: stri
       {/* Main Page Viewport Container */}
       <main className="workspace-main-viewport" id="home">
         {view === "intake" ? (
-          <ClaimIntake onCancel={() => setView("workspace")} onSubmit={submitClaim} />
+          <ClaimIntake onCancel={() => navigateToView("workspace")} onSubmit={submitClaim} />
         ) : view === "review" ? (
           <ClaimReview
             claim={claim}
             approved={approved}
             onApprove={() => setApproved(true)}
-            onBack={() => setView("workspace")}
+            onBack={() => navigateToView("workspace")}
+            onRetryAutomation={retryClaimAutomation}
           />
         ) : view === "amazon-import" ? (
           <AmazonImport
-            onCancel={() => setView("workspace")}
+            onCancel={() => navigateToView("workspace")}
             onSaved={(_productId, productName) => {
-              setView("products");
+              navigateToView("products");
               void productName;
             }}
           />
@@ -608,27 +625,26 @@ export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: stri
             claims={claims}
             loading={claimsLoading}
             error={claimsError}
-            onBack={() => setView("workspace")}
+            onBack={() => navigateToView("workspace")}
           />
         ) : view === "assistant" ? (
           <AssistantChat />
         ) : view === "products" || view === "add-product" || view === "prices" || view === "reminders" || view === "timeline" ? (
           <ProductCenter
             view={view}
-            onNavigateView={(nextView) => setView(nextView as View)}
+            onNavigateView={(nextView) => navigateToView(nextView as View)}
             onStartClaim={() => beginClaim()}
           />
         ) : view === "settings" && userEmail ? (
-          <AccountSettings email={userEmail} onBack={() => setView("workspace")} />
+          <AccountSettings email={userEmail} onBack={() => navigateToView("workspace")} />
         ) : view === "settings" || view === "help" ? (
-          <PublicDemoNotice onBack={() => setView("workspace")} currentView={view} />
+          <PublicDemoNotice onBack={() => navigateToView("workspace")} currentView={view} />
         ) : (
           <DashboardHome
             onStartClaim={beginClaim}
-            onOpenReview={() => setView("review")}
+            onOpenReview={() => navigateToView("review")}
             onNavigateTab={(tab) => {
-              if (tab === "claims") void loadClaims();
-              setView(tab as View);
+              navigateToView(tab as View);
             }}
             isDarkTheme={isDarkTheme}
           />

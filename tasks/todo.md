@@ -12,7 +12,7 @@ Plan: [plan.md](plan.md)
 ## Implementation phases
 
 - [x] Phase 0: finalize event/result contracts and secret/retention preflight.
-- [x] Phase 1: add a local draft of durable, idempotent claim-event outbox and bounded retry/dispatch.
+- [x] Phase 1: add a local draft of the durable, idempotent claim-event outbox, bounded retry lease, and owner-authenticated retry action.
 - [x] Phase 2: implement a protected app-side claim processor that keeps private documents outside n8n.
 - [x] Phase 3: update only the `ProductVault App API` workflow; keep it inactive and preserve the other workflow.
 - [x] Checkpoint A: user confirmed claim event contract before workflow implementation.
