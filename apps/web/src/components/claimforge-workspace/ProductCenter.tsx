@@ -250,7 +250,7 @@ const headings: Record<ProductCenterView, [string, string, string]> = {
   "add-product": ["NEW PRODUCT REGISTRATION", "Add Product", "Extract details from an invoice, paste a product link, or enter information manually."],
   prices: ["PRICE INTELLIGENCE", "Find the right price. Never miss the drop.", "Paste a product link, compare available offers across supported stores, and set an alert for the price you want. Know when the price is right."],
   reminders: ["PRODUCT-SPECIFIC REMINDERS", "A nudge on your terms.", "Set a reminder using your own estimated usage period. It appears in your ProductVault timeline."],
-  timeline: ["UNIFIED PRODUCT TIMELINE", "Your ownership history.", "Every purchase, milestone and product event — all in one place."],
+  timeline: ["UNIFIED PRODUCT TIMELINE", "Your ownership timeline.", "From past purchases to upcoming milestones, every product event in one place."],
 };
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
@@ -559,9 +559,9 @@ export function ProductCenter({
 
   // Saved Products, Prices, Reminders, Timeline Views
   return (
-    <div className="page-content subpage-content">
+    <div className={`page-content subpage-content ${activeView === "timeline" ? "timeline-page-shell" : ""}`}>
       {activeView !== "prices" && (
-        <div className="product-page-header-row">
+        <div className={`product-page-header-row ${activeView === "timeline" ? "timeline-header-row" : ""}`}>
           <div className="product-page-title-block">
             <div className="eyebrow"><span className="eyebrow-line" /> {heading[0]}</div>
             {activeView === "products" ? (
@@ -583,6 +583,7 @@ export function ProductCenter({
                 text={heading[1]}
                 fontSize={40}
                 height={58}
+                color={activeView === "timeline" ? "#FAF7F2" : undefined}
                 accentColor="#EA580C"
                 strokeWidth={2.0}
                 specks={6}
@@ -1609,7 +1610,7 @@ function UnifiedTimelineView({
       events.push({
         id: `warranty-${product.id}`,
         date: wEnd,
-        title: isFuture ? "Active warranty coverage" : "Warranty coverage ended",
+        title: isFuture ? "Warranty expires" : "Warranty coverage ended",
         detail: isFuture
           ? (product.warrantyDurationMonths
               ? `Standard manufacturer ${product.warrantyDurationMonths}-month coverage valid through ${formatDate(wEnd)}`
@@ -1753,7 +1754,8 @@ function UnifiedTimelineView({
         <span
           className={`timeline-status-badge ${hasUpcoming ? "badge-upcoming" : "badge-expired"}`}
         >
-          {milestoneTag}
+          <span className="timeline-status-pip" aria-hidden="true" />
+          <span>{milestoneTag}</span>
         </span>
       ) : undefined,
       nodeIcon,
@@ -1781,14 +1783,17 @@ function UnifiedTimelineView({
                 aria-label={`${event.title} - ${event.productName}`}
               >
                 <header className="timeline-card-header">
-                  <div className="timeline-product-pill">
+                  <div className="timeline-product-identity" title={event.productName}>
                     <div className="timeline-product-thumb">
                       <ProductVisual product={prod} className="w-full h-full object-cover" />
                     </div>
                     <span className="timeline-product-name">{event.productName}</span>
+                    {prod.model && prod.model !== event.productName && !event.productName.toLowerCase().includes(prod.model.toLowerCase()) && (
+                      <span className="timeline-product-variant" title={prod.model}>· {prod.model}</span>
+                    )}
                   </div>
 
-                  <span className="timeline-type-tag">{event.typeLabel}</span>
+                  <span className={`timeline-type-tag timeline-tag-${event.kind}`}>{event.typeLabel}</span>
                 </header>
 
                 <div className="timeline-card-body">
@@ -1799,15 +1804,20 @@ function UnifiedTimelineView({
                 </div>
 
                 <footer className="timeline-card-footer">
+                  <div className="timeline-card-meta">
+                    {event.seller && event.kind !== "purchase" && (
+                      <span className="timeline-meta-seller" title={event.seller}>Seller: {event.seller}</span>
+                    )}
+                  </div>
                   <button
                     type="button"
                     className="timeline-action-btn"
                     onClick={() => onSelectProduct(event.productId)}
                     aria-label={`View Passport for ${event.productName}`}
                   >
-                    <Eye size={13} aria-hidden="true" />
+                    <Eye size={12} aria-hidden="true" />
                     <span>View Passport</span>
-                    <ChevronRight size={13} aria-hidden="true" />
+                    <ChevronRight size={12} aria-hidden="true" />
                   </button>
                 </footer>
               </article>
