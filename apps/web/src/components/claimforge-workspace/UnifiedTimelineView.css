@@ -1,38 +1,122 @@
 /* =============================================================================
-   Unified Timeline Experience — ProductVault Design System
-   Warm beige / ivory / charcoal / orange ownership journal
+   PRODUCTVAULT — UNIFIED TIMELINE V4
+   Complete Visual Hierarchy & Chronological Editorial Experience
    ============================================================================= */
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   01. Canvas Scope & Blueprint Background
+   Strictly scoped to the Unified Timeline view. Never affects other pages.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Viewport & App Shell Coverage */
+.workspace-main-viewport:has(.timeline-page-shell),
+.app-shell:has(.timeline-page-shell) {
+  background-color: #013f7c !important;
+  background-image: url("/timeline-blueprint-bg.png") !important;
+  background-repeat: repeat !important;
+  background-size: auto !important;
+  background-attachment: fixed !important;
+}
+
+/* Timeline Page Shell Container */
+.page-content.subpage-content.timeline-page-shell {
+  background-color: #013f7c;
+  background-image: url("/timeline-blueprint-bg.png");
+  background-repeat: repeat;
+  background-size: auto;
+  background-attachment: fixed;
+  min-height: calc(100vh - 64px);
+  width: 100%;
+  max-width: 100% !important;
+  padding: 2.25rem 1.5rem 6rem;
+  box-sizing: border-box;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Scoped Full Timeline View Assembly — Centered Editorial Column */
 .unified-timeline-view {
   width: 100%;
-  max-width: 960px;
+  max-width: 660px;
   margin: 0 auto;
-  padding: 0 0 4rem 0;
+  padding: 0;
+  position: relative;
+  z-index: 2;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Event Toolbar
+   02. Page Header & Introduction (Coordinated Column Composition)
+   ───────────────────────────────────────────────────────────────────────────── */
+.product-page-header-row.timeline-header-row {
+  max-width: 660px;
+  margin: 0 auto 1.5rem auto;
+  padding: 0 0.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+
+.timeline-header-row .product-page-title-block {
+  width: 100%;
+}
+
+.timeline-header-row .eyebrow {
+  display: flex;
+  align-items: center;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #F97316;
+  margin-bottom: 0.25rem;
+}
+
+.timeline-header-row .eyebrow-line {
+  display: inline-block;
+  width: 14px;
+  height: 2px;
+  background: #F97316;
+  margin-right: 8px;
+  border-radius: 1px;
+}
+
+.timeline-header-row .product-page-subtitle {
+  color: #CBD5E1;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  margin-top: 0.35rem;
+  max-width: 560px;
+  letter-spacing: -0.01em;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   03. Compact, Cohesive Search and Filter Toolbar
    ───────────────────────────────────────────────────────────────────────────── */
 .timeline-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  background: #FAF7F2;
-  border: 1px solid #E8DFD5;
+  gap: 0.75rem;
+  background: #FFFFFF;
+  border: 1px solid rgba(226, 232, 240, 0.9);
   border-radius: 12px;
-  padding: 0.875rem 1.25rem;
-  margin-bottom: 2.25rem;
-  box-shadow: 0 1px 3px rgba(44, 39, 34, 0.04);
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 1.75rem;
+  box-shadow: 0 2px 8px rgba(1, 31, 61, 0.16), 0 1px 3px rgba(0, 0, 0, 0.05);
   flex-wrap: wrap;
+  width: 100%;
+  max-width: 660px;
+  box-sizing: border-box;
 }
 
 .timeline-toolbar-controls {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
   flex: 1;
-  min-width: 280px;
+  min-width: 240px;
   flex-wrap: wrap;
 }
 
@@ -40,55 +124,57 @@
   position: relative;
   display: flex;
   align-items: center;
-  flex: 1;
-  min-width: 220px;
+  flex: 1 1 190px;
+  max-width: 280px;
 }
 
 .timeline-search-icon {
   position: absolute;
-  left: 0.75rem;
-  color: #8C827A;
+  left: 0.65rem;
+  color: #64748B;
   pointer-events: none;
 }
 
 .timeline-search-input {
   width: 100%;
-  height: 38px;
-  padding: 0 2rem 0 2.25rem;
-  background: #FFFFFF;
-  border: 1px solid #D8CEC4;
+  height: 34px;
+  padding: 0 1.75rem 0 1.95rem;
+  background: #FAF9F6;
+  border: 1px solid #CBD5E1;
   border-radius: 8px;
-  font-size: 0.875rem;
-  color: #1C1917;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  font-size: 0.8125rem;
+  color: #18181B;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
 }
 
 .timeline-search-input:focus {
   outline: none;
+  background: #FFFFFF;
   border-color: #EA580C;
-  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.12);
+  box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.15);
 }
 
 .timeline-search-input::placeholder {
-  color: #A8A199;
+  color: #94A3B8;
 }
 
 .timeline-search-clear {
   position: absolute;
-  right: 0.5rem;
+  right: 0.45rem;
   background: none;
   border: none;
-  padding: 0.25rem;
-  color: #8C827A;
+  padding: 0.2rem;
+  color: #64748B;
   cursor: pointer;
   border-radius: 4px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  transition: color 0.15s ease;
 }
 
 .timeline-search-clear:hover {
-  color: #1C1917;
+  color: #0F172A;
 }
 
 .timeline-product-select-wrap {
@@ -96,51 +182,55 @@
 }
 
 .timeline-product-select {
-  height: 38px;
-  padding: 0 2rem 0 0.875rem;
-  background: #FFFFFF;
-  border: 1px solid #D8CEC4;
+  height: 34px;
+  padding: 0 1.85rem 0 0.65rem;
+  background: #FAF9F6;
+  border: 1px solid #CBD5E1;
   border-radius: 8px;
-  font-size: 0.875rem;
-  color: #1C1917;
+  font-size: 0.75rem;
+  color: #18181B;
   font-weight: 500;
   cursor: pointer;
-  max-width: 280px;
+  max-width: 220px;
   text-overflow: ellipsis;
   white-space: nowrap;
   overflow: hidden;
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238C827A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 0.75rem center;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  background-position: right 0.6rem center;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
 }
 
 .timeline-product-select:focus {
   outline: none;
+  background: #FFFFFF;
   border-color: #EA580C;
-  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.12);
+  box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.15);
 }
 
 .timeline-counter-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.375rem;
-  font-size: 0.8125rem;
+  gap: 0.25rem;
+  font-size: 0.6875rem;
   font-weight: 600;
-  color: #78716C;
-  background: #F0EAE1;
-  padding: 0.375rem 0.75rem;
-  border-radius: 20px;
+  color: #475569;
+  background: #F1F5F9;
+  height: 26px;
+  padding: 0 0.625rem;
+  border-radius: 9999px;
   white-space: nowrap;
+  border: 1px solid #E2E8F0;
 }
 
 .timeline-counter-badge strong {
-  color: #1C1917;
+  color: #0F172A;
+  font-weight: 700;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Aceternity Timeline Structure & Rail
+   04. Aceternity Timeline Geometry & Continuous Rail
    ───────────────────────────────────────────────────────────────────────────── */
 .aceternity-timeline-container {
   position: relative;
@@ -149,17 +239,18 @@
 
 .aceternity-timeline-body {
   position: relative;
-  max-width: 960px;
+  max-width: 660px;
   margin: 0 auto;
-  padding-bottom: 4rem;
+  padding-bottom: 3.5rem;
 }
 
-/* Continuous Rail Track & Animated Scroll-Following Beam */
+/* Continuous Rail Track & Animated Burnt-Orange Scroll-Following Beam
+   Mathematically positioned at center of Node Column (left: 128px) */
 .aceternity-timeline-rail-track {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 185px;
+  left: 128px;
   width: 2px;
   transform: translateX(-50%);
   pointer-events: none;
@@ -172,7 +263,7 @@
   bottom: 0;
   left: 0;
   width: 100%;
-  background: #E5DDD3;
+  background: rgba(147, 197, 253, 0.28);
   border-radius: 9999px;
 }
 
@@ -183,61 +274,67 @@
   width: 100%;
   background: linear-gradient(to bottom, #EA580C, #F97316);
   border-radius: 9999px;
-  box-shadow: 0 0 10px rgba(234, 88, 12, 0.45);
+  box-shadow: 0 0 10px rgba(234, 88, 12, 0.8), 0 0 3px rgba(249, 115, 22, 0.95);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Year Chapter Dividers (Sticky Chronology Secondary Headers)
+   05. Year Chapter Markers — Integrated Architectural Dividing Cues
    ───────────────────────────────────────────────────────────────────────────── */
 .timeline-year-chapter {
-  display: flex;
+  display: grid;
+  grid-template-columns: 110px 36px 1fr;
   align-items: center;
-  gap: 1.25rem;
-  margin: 3rem 0 2rem 0;
+  margin: 2rem 0 1rem 0;
   position: relative;
   z-index: 3;
 }
 
 .timeline-year-chapter:first-child {
-  margin-top: 0.5rem;
+  margin-top: 0.25rem;
 }
 
 .timeline-year-badge {
+  grid-column: 1;
+  justify-self: end;
+  margin-right: 12px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #292524;
+  background: #041B33;
   color: #FAF7F2;
+  border: 1px solid rgba(148, 163, 184, 0.4);
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
-  font-size: 0.8125rem;
+  font-size: 0.6875rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  padding: 0.35rem 0.875rem;
-  border-radius: 9999px;
-  box-shadow: 0 2px 6px rgba(41, 37, 36, 0.12);
+  letter-spacing: 0.1em;
+  padding: 0.175rem 0.5rem;
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
   user-select: none;
 }
 
 .timeline-year-line {
-  flex: 1;
+  grid-column: 3;
   height: 1px;
-  background: linear-gradient(to right, #D8CEC4, rgba(216, 206, 196, 0.15));
+  background: linear-gradient(to right, rgba(148, 163, 184, 0.3), rgba(148, 163, 184, 0.02));
+  margin-left: 10px;
+  max-width: 480px;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Timeline Entry Row (Grid: Date 160px | Rail Node 50px | Content minmax(0, 720px))
+   06. Timeline Entry Row: Spatial Alignment (Date 110px | Rail 36px | Card 480px)
    ───────────────────────────────────────────────────────────────────────────── */
 .aceternity-timeline-entry {
   position: relative;
   display: grid;
-  grid-template-columns: 160px 50px minmax(0, 720px);
+  grid-template-columns: 110px 36px minmax(0, 480px);
   align-items: flex-start;
-  margin-bottom: 2.25rem;
+  margin-bottom: 1.5rem;
   z-index: 2;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Left Column: Sticky Exact Date Display
+   07. Left Column: Sticky Editorial Date Typography
    ───────────────────────────────────────────────────────────────────────────── */
 .aceternity-timeline-sticky-date {
   position: sticky;
@@ -245,8 +342,9 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 0.35rem;
-  padding-top: 0.2rem;
+  gap: 0.25rem;
+  padding-top: 0.15rem;
+  padding-right: 12px;
   text-align: right;
   z-index: 10;
 }
@@ -254,18 +352,19 @@
 .timeline-date-display {
   display: flex;
   align-items: baseline;
-  gap: 0.45rem;
+  gap: 0.35rem;
   text-align: right;
 }
 
 .timeline-day-num {
-  font-size: 2.25rem;
+  font-size: 2rem;
   font-weight: 800;
   line-height: 1;
-  color: #1C1917;
+  color: #FAF7F2;
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.04em;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .timeline-month-year-wrap {
@@ -277,116 +376,129 @@
 }
 
 .timeline-month-txt {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 800;
-  color: #EA580C;
-  letter-spacing: 0.06em;
+  color: #F97316;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
 }
 
 .timeline-year-txt {
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 600;
-  color: #78716C;
+  color: #94A3B8;
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
 }
 
 .timeline-title-display {
   margin: 0;
-  font-size: 1.625rem;
+  font-size: 1.25rem;
   font-weight: 800;
-  color: #57534E;
+  color: #FAF7F2;
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
   letter-spacing: -0.02em;
 }
 
+/* Understated Timing Indicator */
 .timeline-status-badge-wrap {
   display: inline-flex;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 .timeline-status-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  font-size: 0.6875rem;
-  font-weight: 700;
+  gap: 4px;
+  font-size: 0.625rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
+  letter-spacing: 0.05em;
+  padding: 0;
+  background: transparent;
+  border: none;
   white-space: nowrap;
 }
 
+.timeline-status-pip {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
 .badge-upcoming {
-  background: #ECFDF5;
-  color: #047857;
-  border: 1px solid #A7F3D0;
+  color: #A7F3D0;
+}
+
+.badge-upcoming .timeline-status-pip {
+  background: #34D399;
 }
 
 .badge-expired {
-  background: #F5F5F4;
-  color: #78716C;
-  border: 1px solid #E7E5E4;
+  color: #94A3B8;
+}
+
+.badge-expired .timeline-status-pip {
+  background: #94A3B8;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Center Column: Node on Rail
+   08. Center Column: Node on Continuous Rail
    ───────────────────────────────────────────────────────────────────────────── */
 .aceternity-timeline-node-slot {
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding-top: 0.2rem;
+  padding-top: 0.25rem;
   z-index: 3;
 }
 
 .aceternity-node-circle {
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #FFFFFF;
-  border: 2px solid #E5DDD3;
-  box-shadow: 0 2px 6px rgba(44, 39, 34, 0.08);
+  background: #FAF7F2;
+  border: 2px solid #002244;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25), 0 2px 6px rgba(0, 0, 0, 0.4);
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .aceternity-node-circle:hover {
-  transform: scale(1.08);
-  box-shadow: 0 4px 10px rgba(44, 39, 34, 0.12);
+  transform: scale(1.1);
+  box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.4), 0 4px 10px rgba(0, 0, 0, 0.5);
 }
 
 .aceternity-node-dot {
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #FFFFFF;
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   transition: background-color 0.2s ease;
 }
 
 .aceternity-node-core {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: #FFFFFF;
 }
 
 .aceternity-node-dot svg {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   stroke-width: 2.25;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Right Column: Content Column & Day Cards Flow
+   09. Right Column: Compact Archival Event Cards Flow
    ───────────────────────────────────────────────────────────────────────────── */
 .aceternity-timeline-content-col {
   min-width: 0;
@@ -396,63 +508,62 @@
 .timeline-day-cards-flow {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.75rem;
   width: 100%;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Event Card (Right)
+   10. Compact Archival Event Card Anatomy (430–500px Target Width)
    ───────────────────────────────────────────────────────────────────────────── */
 .timeline-card {
   width: 100%;
-  max-width: 700px;
+  max-width: 480px;
   background: #FFFFFF;
-  border: 1px solid #EAE5DC;
-  border-radius: 12px;
-  padding: 1.125rem 1.25rem;
-  box-shadow: 0 1px 3px rgba(44, 39, 34, 0.03), 0 4px 12px rgba(44, 39, 34, 0.02);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 14px;
+  padding: 0.9375rem 1.125rem;
+  box-shadow: 0 2px 8px rgba(1, 31, 61, 0.08), 0 1px 2px rgba(1, 31, 61, 0.04);
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.5rem;
   box-sizing: border-box;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  margin-left: 10px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .timeline-card:hover {
-  border-color: #D8CEC4;
-  box-shadow: 0 4px 14px rgba(44, 39, 34, 0.06);
+  border-color: rgba(234, 88, 12, 0.35);
+  box-shadow: 0 4px 14px rgba(1, 31, 61, 0.14), 0 2px 4px rgba(0, 0, 0, 0.06);
   transform: translateY(-1px);
 }
 
+/* Level 1: Product Context Row */
 .timeline-card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-width: 0;
 }
 
-/* Product Association Pill */
+.timeline-product-identity,
 .timeline-product-pill {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 0.5rem;
-  background: #FAF7F2;
-  border: 1px solid #EBE4DA;
-  border-radius: 20px;
-  padding: 0.25rem 0.625rem 0.25rem 0.375rem;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: #292524;
-  max-width: 100%;
+  gap: 0.375rem;
+  min-width: 0;
+  max-width: 76%;
+  background: transparent;
+  border: none;
+  padding: 0;
 }
 
 .timeline-product-thumb {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   overflow: hidden;
-  background: #EFE9E0;
+  background: #E2E8F0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -466,145 +577,256 @@
 }
 
 .timeline-product-name {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #475569;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 320px;
+  min-width: 0;
 }
 
+.timeline-product-variant {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #94A3B8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
+}
+
+/* Event Category Badges */
 .timeline-type-tag {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #78716C;
-  background: #F5F3EF;
-  padding: 0.2rem 0.5rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.175rem 0.45rem;
   border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  background: #F1F5F9;
+  color: #475569;
+  border: 1px solid #E2E8F0;
 }
 
-/* Event Content */
+.timeline-tag-purchase {
+  background: #EFF6FF;
+  color: #1D4ED8;
+  border: 1px solid #BFDBFE;
+}
+
+.timeline-tag-registration {
+  background: #F8FAFC;
+  color: #475569;
+  border: 1px solid #E2E8F0;
+}
+
+.timeline-tag-warranty-active {
+  background: #ECFDF5;
+  color: #047857;
+  border: 1px solid #A7F3D0;
+}
+
+.timeline-tag-warranty-expired {
+  background: #F1F5F9;
+  color: #64748B;
+  border: 1px solid #CBD5E1;
+}
+
+.timeline-tag-claim {
+  background: #FEF2F2;
+  color: #B91C1C;
+  border: 1px solid #FECACA;
+}
+
+.timeline-tag-price {
+  background: #FAF5FF;
+  color: #7E22CE;
+  border: 1px solid #E9D5FF;
+}
+
+.timeline-tag-reminder {
+  background: #FFFBEB;
+  color: #B45309;
+  border: 1px solid #FDE68A;
+}
+
+/* Level 2: Primary Event Headline & Supporting Description */
 .timeline-card-body {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.2rem;
 }
 
 .timeline-event-title {
   margin: 0;
   font-size: 1.0625rem;
   font-weight: 700;
-  color: #1C1917;
+  color: #0F172A;
   line-height: 1.35;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
 }
 
 .timeline-event-detail {
   margin: 0;
-  font-size: 0.875rem;
-  line-height: 1.5;
-  color: #57534E;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: #64748B;
   word-break: break-word;
 }
 
-/* Event Footer & Actions */
+/* Level 3: Metadata & Integrated Action (No Dead Space) */
 .timeline-card-footer {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  padding-top: 0.25rem;
-  border-top: 1px solid #F5F2EB;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.125rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid rgba(241, 245, 249, 0.8);
+}
+
+.timeline-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: #64748B;
+  min-width: 0;
+}
+
+.timeline-meta-seller,
+.timeline-meta-item {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #64748B;
 }
 
 .timeline-action-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.375rem;
-  background: #FAF7F2;
-  border: 1px solid #E8DFD5;
-  color: #44403C;
-  padding: 0.4rem 0.75rem;
+  gap: 0.3rem;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  color: #475569;
+  padding: 0.25rem 0.55rem;
   border-radius: 6px;
-  font-size: 0.8125rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
+  margin-left: auto;
+  white-space: nowrap;
 }
 
 .timeline-action-btn:hover {
-  background: #F5EFE6;
-  border-color: #D8CEC4;
+  background: #FFF7ED;
+  border-color: #FDBA74;
   color: #EA580C;
 }
 
 .timeline-action-btn:focus-visible {
   outline: 2px solid #EA580C;
-  outline-offset: 2px;
+  outline-offset: 1px;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Empty States
+   11. Empty Search / Filter Results State
    ───────────────────────────────────────────────────────────────────────────── */
 .timeline-empty-card {
-  background: #FAF7F2;
-  border: 1px dashed #D8CEC4;
-  border-radius: 16px;
-  padding: 3rem 2rem;
+  background: #FFFFFF;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 14px;
+  padding: 2.5rem 1.5rem;
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.75rem;
-  max-width: 520px;
+  gap: 0.625rem;
+  max-width: 480px;
   margin: 2rem auto;
+  box-shadow: 0 4px 16px rgba(1, 31, 61, 0.2);
 }
 
 .timeline-empty-icon {
-  width: 52px;
-  height: 52px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
-  background: #EDE6DC;
+  background: #FFF7ED;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #78716C;
-  margin-bottom: 0.5rem;
+  color: #EA580C;
+  margin-bottom: 0.25rem;
 }
 
 .timeline-empty-card h3 {
   margin: 0;
-  font-size: 1.125rem;
+  font-size: 1.0625rem;
   font-weight: 700;
-  color: #1C1917;
+  color: #0F172A;
 }
 
 .timeline-empty-card p {
   margin: 0;
-  font-size: 0.9375rem;
-  color: #78716C;
-  line-height: 1.5;
+  font-size: 0.8125rem;
+  color: #64748B;
+  line-height: 1.45;
 }
 
 .timeline-empty-card button {
-  margin-top: 0.5rem;
+  margin-top: 0.35rem;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Responsive Breakpoints
-   ───────────────────────────────────────────────────────────────────────────── */
-/* ─────────────────────────────────────────────────────────────────────────────
-   Responsive Breakpoints
+   12. Responsive Breakpoints (1536px, 1280px, 768px, 480px, 390px)
    ───────────────────────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
+  .page-content.subpage-content.timeline-page-shell {
+    padding: 1.5rem 1rem 4rem;
+  }
+
+  .unified-timeline-view,
+  .product-page-header-row.timeline-header-row,
+  .timeline-toolbar,
+  .aceternity-timeline-body {
+    max-width: 100%;
+  }
+
   .aceternity-timeline-rail-track {
-    left: 20px;
+    left: 18px;
+  }
+
+  .timeline-year-chapter {
+    grid-template-columns: 36px 1fr;
+    gap: 0.5rem;
+    margin: 1.75rem 0 1rem 0;
+  }
+
+  .timeline-year-badge {
+    grid-column: 2;
+    justify-self: start;
+    margin-right: 0;
+  }
+
+  .timeline-year-line {
+    grid-column: 2;
+    margin-left: 0;
+    margin-top: 0.5rem;
+    width: 100%;
   }
 
   .aceternity-timeline-entry {
-    grid-template-columns: 40px 1fr;
-    gap: 0.75rem;
-    margin-bottom: 2.25rem;
+    grid-template-columns: 36px 1fr;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
   }
 
   .aceternity-timeline-sticky-date {
@@ -612,34 +834,35 @@
     grid-column: 2;
     align-items: flex-start;
     padding-top: 0;
-    margin-bottom: 0.5rem;
+    padding-right: 0;
+    margin-bottom: 0.35rem;
     flex-direction: row;
     flex-wrap: wrap;
-    gap: 0.75rem;
+    gap: 0.5rem;
     text-align: left;
   }
 
   .timeline-date-display {
     align-items: center;
-    gap: 0.375rem;
+    gap: 0.35rem;
   }
 
   .timeline-day-num {
-    font-size: 1.625rem;
+    font-size: 1.5rem;
   }
 
   .timeline-month-year-wrap {
     flex-direction: row;
     align-items: center;
-    gap: 0.35rem;
+    gap: 0.3rem;
   }
 
   .timeline-month-txt {
-    font-size: 0.875rem;
+    font-size: 0.75rem;
   }
 
   .timeline-year-txt {
-    font-size: 0.8125rem;
+    font-size: 0.6875rem;
   }
 
   .aceternity-timeline-node-slot {
@@ -650,33 +873,38 @@
   }
 
   .aceternity-node-circle {
-    width: 32px;
-    height: 32px;
+    width: 26px;
+    height: 26px;
   }
 
   .aceternity-node-dot {
-    width: 22px;
-    height: 22px;
+    width: 16px;
+    height: 16px;
   }
 
   .aceternity-node-dot svg {
-    width: 12px;
-    height: 12px;
+    width: 9px;
+    height: 9px;
   }
 
   .aceternity-timeline-content-col {
     grid-column: 2;
   }
 
+  .timeline-card {
+    max-width: 100%;
+    margin-left: 0;
+  }
+
   .timeline-product-name {
-    max-width: 220px;
+    max-width: 200px;
   }
 }
 
 @media (max-width: 480px) {
   .timeline-toolbar {
-    padding: 0.75rem;
-    gap: 0.75rem;
+    padding: 0.625rem;
+    gap: 0.5rem;
   }
 
   .timeline-toolbar-controls {
@@ -685,6 +913,7 @@
 
   .timeline-search-box {
     min-width: 100%;
+    max-width: 100%;
   }
 
   .timeline-product-select {
@@ -693,26 +922,29 @@
   }
 
   .timeline-product-name {
-    max-width: 180px;
+    max-width: 140px;
   }
 
   .timeline-card-header {
-    flex-direction: column;
-    align-items: flex-start;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .timeline-product-identity,
+  .timeline-product-pill {
+    max-width: 75%;
   }
 
   .timeline-card-footer {
-    justify-content: stretch;
-  }
-
-  .timeline-action-btn {
-    width: 100%;
-    justify-content: center;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.35rem;
   }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Reduced Motion
+   13. Accessibility & Motion Preferences
    ───────────────────────────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .timeline-card,
