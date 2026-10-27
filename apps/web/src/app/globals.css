@@ -5882,6 +5882,15 @@ body.dark .citation {
   width: 1.5px;
   background-color: #E2E8F0;
   z-index: 1;
+  overflow: hidden;
+}
+
+.timeline-vertical-spine-beam {
+  width: 100%;
+  background: linear-gradient(to bottom, #EA580C, #F97316);
+  border-radius: 9999px;
+  pointer-events: none;
+  transition: height 0.08s ease-out;
 }
 
 .timeline-items-flow {

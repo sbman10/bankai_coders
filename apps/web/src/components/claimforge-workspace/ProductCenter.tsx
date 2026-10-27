@@ -42,6 +42,7 @@ import {
 import { TechHeading } from "../TechText";
 import { AddProduct, type ProductPayload } from "./AddProduct";
 import { ProductPassportModal } from "./ProductPassportModal";
+import { Timeline, type TimelineEntry } from "@/components/ui/timeline";
 import "./UnifiedTimelineView.css";
 
 export type Product = {
@@ -1617,21 +1618,42 @@ type TimelineEventItem = {
 function getTimelineMarkerIcon(kind: TimelineEventItem["kind"]) {
   switch (kind) {
     case "purchase":
-      return <ShoppingBag size={16} aria-hidden="true" />;
+      return <ShoppingBag size={14} aria-hidden="true" />;
     case "registration":
-      return <FileCheck size={16} aria-hidden="true" />;
+      return <FileCheck size={14} aria-hidden="true" />;
     case "warranty-active":
-      return <ShieldCheck size={16} aria-hidden="true" />;
+      return <ShieldCheck size={14} aria-hidden="true" />;
     case "warranty-expired":
-      return <ShieldAlert size={16} aria-hidden="true" />;
+      return <ShieldAlert size={14} aria-hidden="true" />;
     case "claim":
-      return <FileText size={16} aria-hidden="true" />;
+      return <FileText size={14} aria-hidden="true" />;
     case "price":
-      return <TrendingDown size={16} aria-hidden="true" />;
+      return <TrendingDown size={14} aria-hidden="true" />;
     case "reminder":
-      return <Bell size={16} aria-hidden="true" />;
+      return <Bell size={14} aria-hidden="true" />;
     default:
-      return <Clock3 size={16} aria-hidden="true" />;
+      return <Clock3 size={14} aria-hidden="true" />;
+  }
+}
+
+function getNodeColor(kind: TimelineEventItem["kind"]) {
+  switch (kind) {
+    case "purchase":
+      return "#EA580C"; // Burnt orange
+    case "registration":
+      return "#D97706"; // Amber
+    case "warranty-active":
+      return "#059669"; // Emerald
+    case "warranty-expired":
+      return "#78716C"; // Stone slate
+    case "claim":
+      return "#2563EB"; // Royal blue
+    case "price":
+      return "#0284C7"; // Cyan
+    case "reminder":
+      return "#7C3AED"; // Violet
+    default:
+      return "#EA580C";
   }
 }
 
@@ -1807,6 +1829,115 @@ function UnifiedTimelineView({
     return true;
   });
 
+  // Group events by date string (YYYY-MM-DD) for authentic Aceternity exact-date chronology
+  const dateGroupsMap = new Map<string, TimelineEventItem[]>();
+  for (const event of filteredEvents) {
+    const d = event.date.slice(0, 10);
+    const existing = dateGroupsMap.get(d) || [];
+    existing.push(event);
+    dateGroupsMap.set(d, existing);
+  }
+
+  const sortedDates = Array.from(dateGroupsMap.keys()).sort((a, b) => b.localeCompare(a));
+  const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+
+  let lastYear = "";
+  const timelineEntries: TimelineEntry[] = sortedDates.map((dateStr) => {
+    const dayEvents = dateGroupsMap.get(dateStr)!;
+    const [y, m, d] = dateStr.split("-");
+    const monthIdx = parseInt(m, 10) - 1;
+    const dayNum = parseInt(d, 10);
+
+    const yearChapter = y !== lastYear ? y : undefined;
+    lastYear = y;
+
+    const hasUpcoming = dayEvents.some((e) => e.isFuture);
+    const hasExpiredWarranty = dayEvents.some((e) => e.kind === "warranty-expired");
+    const milestoneTag = hasUpcoming ? "Upcoming Milestone" : hasExpiredWarranty ? "Coverage Expired" : undefined;
+
+    const primaryEvent = dayEvents[0];
+    const nodeIcon = getTimelineMarkerIcon(primaryEvent.kind);
+    const nodeColor = getNodeColor(primaryEvent.kind);
+
+    return {
+      id: `date-group-${dateStr}`,
+      title: primaryEvent.title,
+      yearChapter,
+      date: {
+        day: isNaN(dayNum) ? d : String(dayNum).padStart(2, "0"),
+        month: monthNames[monthIdx] || m,
+        year: y,
+        formatted: formatDate(dateStr),
+      },
+      statusBadge: milestoneTag ? (
+        <span
+          className={`timeline-status-badge ${hasUpcoming ? "badge-upcoming" : "badge-expired"}`}
+        >
+          {milestoneTag}
+        </span>
+      ) : undefined,
+      nodeIcon,
+      nodeColor,
+      content: (
+        <div className="timeline-day-cards-flow">
+          {dayEvents.map((event) => {
+            const prod = products.find((p) => p.id === event.productId) || {
+              id: event.productId,
+              name: event.productName,
+              brand: "",
+              model: "",
+              category: event.category || "Other",
+              seller: event.seller || "",
+              serialNumber: "",
+              purchaseDate: "",
+              warrantyEnd: "",
+              createdAt: "",
+            };
+
+            return (
+              <article
+                className="timeline-card"
+                key={event.id}
+                aria-label={`${event.title} - ${event.productName}`}
+              >
+                <header className="timeline-card-header">
+                  <div className="timeline-product-pill">
+                    <div className="timeline-product-thumb">
+                      <ProductVisual product={prod} className="w-full h-full object-cover" />
+                    </div>
+                    <span className="timeline-product-name">{event.productName}</span>
+                  </div>
+
+                  <span className="timeline-type-tag">{event.typeLabel}</span>
+                </header>
+
+                <div className="timeline-card-body">
+                  <h3 className="timeline-event-title" data-testid="timeline-event-title">
+                    {event.title}
+                  </h3>
+                  <p className="timeline-event-detail">{event.detail}</p>
+                </div>
+
+                <footer className="timeline-card-footer">
+                  <button
+                    type="button"
+                    className="timeline-action-btn"
+                    onClick={() => onSelectProduct(event.productId)}
+                    aria-label={`View Passport for ${event.productName}`}
+                  >
+                    <Eye size={13} aria-hidden="true" />
+                    <span>View Passport</span>
+                    <ChevronRight size={13} aria-hidden="true" />
+                  </button>
+                </footer>
+              </article>
+            );
+          })}
+        </div>
+      ),
+    };
+  });
+
   return (
     <section className="unified-timeline-view" aria-label="Unified product timeline">
       {/* Event Toolbar */}
@@ -1882,84 +2013,7 @@ function UnifiedTimelineView({
           )}
         </div>
       ) : (
-        <div className="timeline-stream">
-          {filteredEvents.map((event) => {
-            const prod = products.find((p) => p.id === event.productId) || {
-              id: event.productId,
-              name: event.productName,
-              brand: "",
-              model: "",
-              category: event.category || "Other",
-              seller: event.seller || "",
-              serialNumber: "",
-              purchaseDate: "",
-              warrantyEnd: "",
-              createdAt: "",
-            };
-
-            return (
-              <article className="timeline-node" key={event.id} aria-label={`${event.title} - ${event.productName}`}>
-                {/* Date & Milestone Column */}
-                <div className="timeline-node-time">
-                  <span className="timeline-date-chip" data-testid="timeline-date-chip">
-                    {formatDate(event.date)}
-                  </span>
-                  {event.isFuture ? (
-                    <span className="timeline-badge-milestone timeline-badge-upcoming">
-                      <Sparkles size={10} aria-hidden="true" />
-                      {event.statusTag || "Upcoming"}
-                    </span>
-                  ) : event.kind === "warranty-expired" ? (
-                    <span className="timeline-badge-milestone timeline-badge-expired">
-                      {event.statusTag || "Expired"}
-                    </span>
-                  ) : null}
-                </div>
-
-                {/* Center Marker on Rail */}
-                <div className="timeline-marker-wrap">
-                  <div className={`timeline-marker-circle marker-${event.kind}`}>
-                    {getTimelineMarkerIcon(event.kind)}
-                  </div>
-                </div>
-
-                {/* Event Card */}
-                <div className="timeline-card">
-                  <header className="timeline-card-header">
-                    <div className="timeline-product-pill">
-                      <div className="timeline-product-thumb">
-                        <ProductVisual product={prod} className="w-full h-full object-cover" />
-                      </div>
-                      <span className="timeline-product-name">{event.productName}</span>
-                    </div>
-
-                    <span className="timeline-type-tag">{event.typeLabel}</span>
-                  </header>
-
-                  <div className="timeline-card-body">
-                    <h3 className="timeline-event-title" data-testid="timeline-event-title">
-                      {event.title}
-                    </h3>
-                    <p className="timeline-event-detail">{event.detail}</p>
-                  </div>
-
-                  <footer className="timeline-card-footer">
-                    <button
-                      type="button"
-                      className="timeline-action-btn"
-                      onClick={() => onSelectProduct(event.productId)}
-                      aria-label={`View Passport for ${event.productName}`}
-                    >
-                      <Eye size={13} aria-hidden="true" />
-                      <span>View Passport</span>
-                      <ChevronRight size={13} aria-hidden="true" />
-                    </button>
-                  </footer>
-                </div>
-              </article>
-            );
-          })}
-        </div>
+        <Timeline data={timelineEntries} />
       )}
     </section>
   );
