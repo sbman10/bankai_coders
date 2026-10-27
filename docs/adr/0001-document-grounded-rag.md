@@ -1,6 +1,6 @@
 # Document-grounded warranty and policy assistant
 
-**Status:** proposed (local migration draft awaiting review)  
+**Status:** historical design proposal; see [current integration status](../rag-live-integration.md) for the applied bankai schema and remaining verification
 **Date:** 2026-10-23
 
 ProductVault will keep document Q&A read-only and grounded in documents explicitly selected by the signed-in owner. Next.js owns authenticated UI, owner/product/document checks, retrieval, and Groq answer generation; Supabase owns Auth/RLS, private files, Postgres search, document/index state, the application-owned processing-job table, Supabase Queues, and a scheduled Edge Function worker. n8n remains inactive and out of the answer path. The approved MVP embedding direction is Supabase Edge Runtime with runtime alias `gte-small`, 384 dimensions, English-only input, a 512-token limit, mean pooling, and normalization. Local worker/provider boundaries are implemented with mocks only; Queue, Edge Runtime, database, scheduling, and transaction integrations remain unverified.

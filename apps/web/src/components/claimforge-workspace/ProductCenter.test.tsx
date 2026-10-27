@@ -50,6 +50,7 @@ beforeEach(() => {
     if (url === "/api/claims" && method === "GET") return response({ claims: [] });
     if (url === `/api/products/${productId}/documents` && method === "GET") return response({ documents: [] });
     if (url.match(/\/api\/products\/[^/]+\/documents$/) && method === "POST") return response({ document: { id: "doc-1", product_id: body.productId ?? productId, document_kind: body.documentKind, storage_path: body.storagePath, original_filename: body.fileName, mime_type: body.mimeType, size_bytes: body.sizeBytes, created_at: "2026-10-22T08:00:00Z" } }, 201);
+    if (url.match(/\/api\/products\/[^/]+\/documents\/[^/]+\/index$/) && method === "POST") return response({ status: "indexed" });
     if (url === `/api/products/${productId}/documents/doc-1` && method === "GET") return response({ url: "https://storage.example/private-download" });
     if (url === `/api/products/${productId}/documents/doc-1` && method === "DELETE") return response({ removed: true });
     if (url === "/api/products" && method === "POST") return response({ product: { id: createdProductId, name: body.name, brand: body.brand, model: body.model, category: body.category, seller: body.seller, serial_number: body.serialNumber, purchase_date: body.purchaseDate, warranty_end: body.warrantyEnd, owner_name: body.ownerName, buying_method: body.buyingMethod, purchase_platform: body.purchasePlatform, price_paid: body.pricePaid } }, 201);
@@ -176,6 +177,7 @@ describe("account-backed product tools", () => {
     expect(await screen.findByText("warranty.pdf")).toBeInTheDocument();
     expect(storageUpload).toHaveBeenCalledWith(expect.stringMatching(/^f9d28d2e-50c4-4c1c-a23c-60a5af4eb3f1\//), expect.any(File), expect.objectContaining({ contentType: "application/pdf", upsert: false }));
     expect(fetchMock).toHaveBeenCalledWith(`/api/products/${productId}/documents`, expect.objectContaining({ method: "POST" }));
+    expect(fetchMock).toHaveBeenCalledWith(`/api/products/${productId}/documents/doc-1/index`, expect.objectContaining({ method: "POST" }));
 
     await user.click(screen.getByRole("button", { name: /prepare private link/i }));
     expect(await screen.findByRole("link", { name: /open file/i })).toHaveAttribute("href", "https://storage.example/private-download");

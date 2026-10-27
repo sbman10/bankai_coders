@@ -34,7 +34,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   fetchMock.mockReset();
   productMaybeSingle.mockResolvedValue({ data: { id: productId }, error: null });
-  documentIn.mockResolvedValue({ data: [{ id: documentId }], error: null });
+  documentIn.mockResolvedValue({ data: [{ id: documentId, ingestion_status: "indexed", index_version: 1 }], error: null });
   rpc.mockResolvedValue({ data: [], error: null });
   functionsInvoke.mockResolvedValue({ data: {
     embedding: Array.from({ length: 384 }, () => 0.125),
@@ -72,11 +72,27 @@ describe("document-grounded assistant answer route", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
+  it("rejects questions that exceed the embedding model input bound", async () => {
+    const response = await POST(request(validBody({ question: "w".repeat(401) })));
+    expect(response.status).toBe(400);
+  });
+
   it("does not retrieve when any selected document is not owned by the user and product", async () => {
     documentIn.mockResolvedValueOnce({ data: [], error: null });
     const response = await POST(request(validBody()));
 
     expect(response.status).toBe(404);
+    expect(rpc).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("does not answer from a selected document that is not ready for search", async () => {
+    documentIn.mockResolvedValueOnce({ data: [{ id: documentId, ingestion_status: "needs_review", index_version: 0 }], error: null });
+
+    const response = await POST(request(validBody()));
+
+    expect(response.status).toBe(409);
+    expect(functionsInvoke).not.toHaveBeenCalled();
     expect(rpc).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -204,6 +220,31 @@ describe("document-grounded assistant answer route", () => {
       p_product_id: productId,
       p_document_ids: [documentId],
       p_result_limit: 8,
+    });
+  });
+
+  it("can cite an exact policy phrase found by keyword search when vector search misses it", async () => {
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    vi.stubEnv("GROQ_MODEL", "test-model");
+    const chunkId = "9d87b716-e870-4a40-a6b8-fcd6f6b0d6ee";
+    rpc.mockImplementation(async (name: string) => name === "search_selected_document_chunks"
+      ? { data: [{ chunk_id: chunkId, document_id: documentId, document_name: "Synthetic warranty.pdf", page_number: 3, section_path: "Exclusions", content: "Accidental damage is excluded from this synthetic warranty.", extraction_confidence: null }], error: null }
+      : { data: [], error: null });
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
+      status: "supported", answer: "The selected warranty excludes accidental damage.",
+      documentFacts: ["Accidental damage is excluded."], userFactsUsed: [], inferences: [],
+      citations: [{ chunkId }], missingInformation: [], followUpQuestions: [],
+    }) } }] }), { status: 200 }));
+
+    const response = await POST(request(validBody({ question: "Is accidental damage excluded?" })));
+    const result = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(result.status).toBe("supported");
+    expect(result.citations).toEqual([expect.objectContaining({ chunkId, page: 3, section: "Exclusions" })]);
+    expect(rpc).toHaveBeenCalledWith("search_selected_document_chunks", {
+      p_query_text: "Is accidental damage excluded?", p_product_id: productId,
+      p_document_ids: [documentId], p_result_limit: 8,
     });
   });
 

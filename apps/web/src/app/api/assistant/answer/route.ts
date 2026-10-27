@@ -101,7 +101,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: status === 413 ? "Your question is too large." : "Enter a valid question." }, { status });
     }
     if (!isRecord(body) || typeof body.productId !== "string" || !uuid.test(body.productId) ||
-      typeof body.question !== "string" || body.question.trim().length < 3 || body.question.length > 2000 ||
+      typeof body.question !== "string" || body.question.trim().length < 3 || new TextEncoder().encode(body.question).length > 400 ||
       !Array.isArray(body.documentIds) || body.documentIds.length < 1 || body.documentIds.length > 6 ||
       body.documentIds.some((id) => typeof id !== "string" || !uuid.test(id)) || new Set(body.documentIds).size !== body.documentIds.length) {
       return NextResponse.json({ error: "Choose a product, select one to six of its documents, and enter a question." }, { status: 400 });
@@ -112,10 +112,13 @@ export async function POST(request: Request) {
     if (productError) return NextResponse.json({ error: "The product could not be checked." }, { status: 503 });
     if (!product) return NextResponse.json({ error: "This product could not be found." }, { status: 404 });
 
-    const { data: documents, error: documentsError } = await supabase.from("product_documents").select("id")
+    const { data: documents, error: documentsError } = await supabase.from("product_documents").select("id, ingestion_status, index_version")
       .eq("user_id", user.id).eq("product_id", body.productId).in("id", body.documentIds);
     if (documentsError) return NextResponse.json({ error: "The selected documents could not be checked." }, { status: 503 });
     if (!documents || documents.length !== body.documentIds.length) return NextResponse.json({ error: "One or more selected documents could not be found." }, { status: 404 });
+    if (documents.some((document) => document.ingestion_status !== "indexed" || !Number.isInteger(document.index_version) || document.index_version < 1)) {
+      return NextResponse.json({ error: "Prepare every selected document for search before asking." }, { status: 409 });
+    }
 
     const { data: embeddingResult, error: embeddingError } = await supabase.functions.invoke("embed-text", {
       body: { text: body.question.trim() },
@@ -132,17 +135,38 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Semantic document search is unavailable. Please try again later." }, { status: 503 });
     }
 
-    const { data: evidence, error: searchError } = await supabase.rpc("search_selected_document_chunks_by_embedding", {
-      p_query_embedding: embeddingResult.embedding,
-      p_product_id: body.productId,
-      p_document_ids: body.documentIds,
-      p_result_limit: 8,
-    });
-    if (searchError) return NextResponse.json({ error: "Document search is not ready. Please try again later." }, { status: 503 });
+    const [semanticSearch, keywordSearch] = await Promise.all([
+      supabase.rpc("search_selected_document_chunks_by_embedding", {
+        p_query_embedding: embeddingResult.embedding,
+        p_product_id: body.productId,
+        p_document_ids: body.documentIds,
+        p_result_limit: 8,
+      }),
+      supabase.rpc("search_selected_document_chunks", {
+        p_query_text: body.question.trim(),
+        p_product_id: body.productId,
+        p_document_ids: body.documentIds,
+        p_result_limit: 8,
+      }),
+    ]);
+    if (semanticSearch.error && keywordSearch.error) {
+      return NextResponse.json({ error: "Document search is not ready. Please try again later." }, { status: 503 });
+    }
     const selectedDocumentIds = new Set(body.documentIds as string[]);
-    const chunks = Array.isArray(evidence)
-      ? evidence.filter((row): row is EvidenceChunk => isEvidenceChunk(row, selectedDocumentIds))
-      : [];
+    const sources = [keywordSearch.data, semanticSearch.data].map((rows) => Array.isArray(rows)
+      ? rows.filter((row): row is EvidenceChunk => isEvidenceChunk(row, selectedDocumentIds)) : []);
+    const chunks: EvidenceChunk[] = [];
+    const seen = new Set<string>();
+    for (let rank = 0; rank < 8 && chunks.length < 8; rank += 1) {
+      for (const source of sources) {
+        const chunk = source[rank];
+        if (chunk && !seen.has(chunk.chunk_id)) {
+          chunks.push(chunk);
+          seen.add(chunk.chunk_id);
+        }
+        if (chunks.length === 8) break;
+      }
+    }
     if (chunks.length === 0) {
       return NextResponse.json(abstention("I couldn’t find a passage in the selected documents that answers this yet. Try a more specific question or check that the right document is selected."));
     }
