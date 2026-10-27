@@ -185,7 +185,7 @@ export function ClaimForgeWorkspace() {
 
   return (
     <div
-      className={`app-shell ${isDarkTheme ? "dark-theme" : "light-theme"}`}
+      className={`app-shell ${isDarkTheme ? "dark-theme" : "light-theme"} ${view === "workspace" ? "view-dashboard" : "view-subpage"}`}
       suppressHydrationWarning
     >
       {/* Top Horizontal Navigation Bar (Image A) */}
