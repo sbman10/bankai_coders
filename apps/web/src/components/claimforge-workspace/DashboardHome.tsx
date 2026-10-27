@@ -374,6 +374,11 @@ export function DashboardHome({
 
   return (
     <div className="ownership-workspace-root">
+      {/* Sunlit Minimalist Interior Photograph — Scoped Exclusively to Dashboard */}
+      <div className="dashboard-bg-system" aria-hidden="true">
+        <div className="dashboard-bg-image" />
+      </div>
+
       {/* Hidden accessible title for tests and screen readers */}
       <h2 className="sr-only">Make the next step feel simple.</h2>
 
