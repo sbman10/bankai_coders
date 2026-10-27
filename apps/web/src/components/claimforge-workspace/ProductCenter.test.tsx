@@ -75,15 +75,16 @@ describe("account-backed product tools", () => {
     // Switch to manual entry tab
     await user.click(await screen.findByRole("tab", { name: /add manually/i }));
 
-    await user.type(await screen.findByLabelText(/product name/i), "Desk lamp");
+    await user.type(await screen.findByLabelText(/product name/i), "Toy car");
     await user.type(screen.getByLabelText("Brand"), "Auralis");
     await user.type(screen.getByLabelText("Model"), "Pulse 2");
-    await user.type(screen.getByLabelText(/category/i), "Home");
+    await user.type(screen.getByLabelText("Category"), "Toys");
     await user.type(screen.getByLabelText("Seller"), "Example Store");
     await user.type(screen.getByLabelText("Serial number"), "SN-123456");
     await user.click(screen.getByRole("button", { name: /add product/i }));
 
-    expect(await screen.findByText("Desk lamp")).toBeInTheDocument();
+    expect(await screen.findByText("Toy car")).toBeInTheDocument();
+    expect(screen.getAllByRole("img", { name: "Toy car category illustration" }).length).toBeGreaterThan(0);
     expect(fetchMock).toHaveBeenCalledWith("/api/products", expect.objectContaining({ method: "POST" }));
     const createRequest = fetchMock.mock.calls.find(([url, init]) => url === "/api/products" && init?.method === "POST");
     expect(JSON.parse(String(createRequest?.[1]?.body))).toEqual(expect.objectContaining({ brand: "Auralis", model: "Pulse 2", seller: "Example Store", serialNumber: "SN-123456" }));
@@ -230,6 +231,8 @@ describe("account-backed product tools", () => {
           success: true,
           ocrEngine: "google-cloud-vision",
           rawText: "Invoice # TEST-INV-2026-10427",
+          imageUrl: "https://images.example/headphones.jpg",
+          sourceUrl: "https://catalog.example.com/first",
           extracted: {
             brand: "DemoSound",
             product_name: "Demo Wireless Headphones",
@@ -329,6 +332,8 @@ describe("account-backed product tools", () => {
       name: "Demo Wireless Headphones",
       brand: "DemoSound",
       model: "TEST-Q20-CONFIRMED",
+      imageUrl: "https://images.example/headphones.jpg",
+      sourceUrl: "https://catalog.example.com/first",
       orderId: "TEST-404-1234567-8901234",
       invoiceNumber: "TEST-INV-2026-10427",
       ownerName: "Kapish Gupta",
@@ -338,7 +343,7 @@ describe("account-backed product tools", () => {
     }));
   });
 
-  it("extracts catalog specs and product image when only a product link is provided", async () => {
+  it("extracts catalog specs from a product link and uses a local category illustration", async () => {
     fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       const method = init?.method ?? "GET";
@@ -347,7 +352,7 @@ describe("account-backed product tools", () => {
         return response({
           success: true,
           ocrEngine: "link-resolver",
-          imageUrl: "https://m.media-amazon.com/images/I/soundcore.jpg",
+          imageUrl: null,
           sourceUrl: "https://www.amazon.in/dp/B0D421F3XX",
           asin: "B0D421F3XX",
           extracted: {
@@ -390,10 +395,10 @@ describe("account-backed product tools", () => {
     // Click fetch button
     await user.click(screen.getByRole("button", { name: /fetch details from product link/i }));
 
-    // Review modal opens with link-resolver details & image
+    // Review modal opens with link-resolver details and a local illustration
     expect(await screen.findByRole("heading", { name: /product details extracted/i })).toBeInTheDocument();
     expect(screen.getByText(/Web Link Catalog/i)).toBeInTheDocument();
-    expect(screen.getByText(/Product Photograph Attached/i)).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Headphones category illustration" })).toBeInTheDocument();
 
     const modal = screen.getByRole("dialog");
     const nameInput = within(modal).getByDisplayValue("Soundcore by Anker Life Q20i") as HTMLInputElement;
@@ -407,7 +412,7 @@ describe("account-backed product tools", () => {
     expect(JSON.parse(String(postCall?.[1]?.body))).toEqual(expect.objectContaining({
       name: "Soundcore by Anker Life Q20i",
       brand: "Soundcore",
-      imageUrl: "https://m.media-amazon.com/images/I/soundcore.jpg",
+      imageUrl: null,
       sourceUrl: "https://www.amazon.in/dp/B0D421F3XX",
       asin: "B0D421F3XX",
     }));

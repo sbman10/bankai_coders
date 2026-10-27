@@ -4,7 +4,6 @@
  */
 
 import { extractAsin, extractMarketplace } from "@/lib/amazon/asin";
-
 export type ProductLinkResolution = {
   url: string;
   sourceUrl: string;
@@ -135,65 +134,12 @@ function detectCategory(text: string): string {
 }
 
 /**
- * Search DuckDuckGo Image API for product photo.
- * Returns the highest resolution product photograph URL found.
- */
-async function searchProductImage(query: string): Promise<string | null> {
-  try {
-    const q = `${query} product photo`;
-    const res = await fetch(`https://duckduckgo.com/?q=${encodeURIComponent(q)}`, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-      },
-      signal: AbortSignal.timeout(6000),
-    });
-    if (!res.ok) return null;
-
-    const html = await res.text();
-    const vqdMatch = html.match(/vqd=["']?([^"'>&]+)/);
-    if (!vqdMatch) return null;
-
-    const vqd = vqdMatch[1];
-    const imgRes = await fetch(
-      `https://duckduckgo.com/i.js?l=us-en&o=json&q=${encodeURIComponent(q)}&vqd=${vqd}&f=,,,`,
-      {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-          Referer: "https://duckduckgo.com/",
-        },
-        signal: AbortSignal.timeout(6000),
-      }
-    );
-    if (!imgRes.ok) return null;
-
-    const data = (await imgRes.json().catch(() => ({}))) as {
-      results?: Array<{ image?: string; thumbnail?: string }>;
-    };
-
-    if (Array.isArray(data.results) && data.results.length > 0) {
-      // Prioritize https direct image
-      for (const item of data.results.slice(0, 5)) {
-        if (item.image && item.image.startsWith("https://")) {
-          return item.image;
-        }
-      }
-      if (data.results[0].thumbnail && data.results[0].thumbnail.startsWith("https://")) {
-        return data.results[0].thumbnail;
-      }
-    }
-  } catch {
-    // Non-fatal fallback
-  }
-  return null;
-}
-
-/**
  * Resolves product details and photo from a product link URL.
  * Never throws — always returns a safe, structured object.
  */
 export async function resolveProductLink(
   rawUrl: string,
-  fallbackKeywords?: string | null
+  fallbackKeywords?: string | null,
 ): Promise<ProductLinkResolution> {
   const trimmed = rawUrl.trim();
   const emptyResult: ProductLinkResolution = {
@@ -270,13 +216,6 @@ export async function resolveProductLink(
   const model = effectiveTitle ? detectModel(effectiveTitle) : null;
   const category = effectiveTitle ? detectCategory(effectiveTitle) : "Electronics";
 
-  // Search for official photograph
-  const searchQuery = [brand, model, effectiveTitle, asin].filter(Boolean).join(" ");
-  let imageUrl: string | null = null;
-  if (searchQuery.trim().length > 0) {
-    imageUrl = await searchProductImage(searchQuery);
-  }
-
   return {
     url: trimmed,
     sourceUrl: canonicalUrl,
@@ -288,7 +227,7 @@ export async function resolveProductLink(
     category,
     price: null,
     seller: marketplace.includes("Amazon") ? "Amazon Retail" : marketplace,
-    imageUrl,
-    imageUrls: imageUrl ? [imageUrl] : [],
+    imageUrl: null,
+    imageUrls: [],
   };
 }

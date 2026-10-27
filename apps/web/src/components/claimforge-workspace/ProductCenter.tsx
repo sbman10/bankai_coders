@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { AlertTriangle, ArrowRight, Bell, CheckCircle2, Clock3, Edit3, ExternalLink, FileCheck, FileText, Info, LayoutGrid, List, LoaderCircle, PackagePlus, Plus, ShieldCheck, ShoppingBag, Sparkles, Trash2, TrendingDown, Upload, X } from "lucide-react";
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
 import type { InvoiceExtractionResponse, FieldConfidence } from "@/lib/ocr/types";
-import { HeadphoneThumb, LaptopThumb, PhoneThumb, RefrigeratorThumb, SneakerThumb, SunscreenThumb, WatchThumb } from "./ProductVisuals";
+import { HeadphoneThumb, LaptopThumb, PhoneThumb, RefrigeratorThumb, SneakerThumb, SunscreenThumb, ToyCarThumb, WatchThumb } from "./ProductVisuals";
 
 type Product = {
   id: string;
@@ -86,7 +86,7 @@ function calculateWarrantyEnd(startDateStr: string, months: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-function renderProductThumbnail(product: Product) {
+function renderProductThumbnail(product: Pick<Product, "name" | "brand" | "model" | "category" | "imageUrl">) {
   if (product.imageUrl) {
     return (
       <img
@@ -102,29 +102,32 @@ function renderProductThumbnail(product: Product) {
   }
   const query = `${product.name} ${product.brand} ${product.model} ${product.category}`.toLowerCase();
   if (query.includes("headphone") || query.includes("audio") || query.includes("earphone") || query.includes("soundcore") || query.includes("wh-1000xm") || query.includes("airpod") || query.includes("anc")) {
-    return <HeadphoneThumb className="product-thumb-svg" />;
+    return <span className="product-thumb-category" role="img" aria-label="Headphones category illustration"><HeadphoneThumb className="product-thumb-svg" /></span>;
+  }
+  if (query.includes("toy") || query.includes("car")) {
+    return <span className="product-thumb-category" role="img" aria-label="Toy car category illustration"><ToyCarThumb className="product-thumb-svg" /></span>;
   }
   if (query.includes("refrigerator") || query.includes("fridge") || query.includes("appliance") || query.includes("lg")) {
-    return <RefrigeratorThumb className="product-thumb-svg" />;
+    return <span className="product-thumb-category" role="img" aria-label="Home appliance category illustration"><RefrigeratorThumb className="product-thumb-svg" /></span>;
   }
   if (query.includes("watch") || query.includes("titan") || query.includes("timepiece") || query.includes("analog")) {
-    return <WatchThumb className="product-thumb-svg" />;
+    return <span className="product-thumb-category" role="img" aria-label="Watch category illustration"><WatchThumb className="product-thumb-svg" /></span>;
   }
   if (query.includes("sunscreen") || query.includes("cream") || query.includes("lotion") || query.includes("serum") || query.includes("personal care") || query.includes("spf")) {
-    return <SunscreenThumb className="product-thumb-svg" />;
+    return <span className="product-thumb-category" role="img" aria-label="Personal care category illustration"><SunscreenThumb className="product-thumb-svg" /></span>;
   }
   if (query.includes("sneaker") || query.includes("shoe") || query.includes("footwear") || query.includes("nike") || query.includes("running")) {
-    return <SneakerThumb className="product-thumb-svg" />;
+    return <span className="product-thumb-category" role="img" aria-label="Footwear category illustration"><SneakerThumb className="product-thumb-svg" /></span>;
   }
   if (query.includes("iphone") || query.includes("phone") || query.includes("pixel") || query.includes("mobile") || query.includes("samsung")) {
-    return <PhoneThumb className="product-thumb-svg" />;
+    return <span className="product-thumb-category" role="img" aria-label="Phone category illustration"><PhoneThumb className="product-thumb-svg" /></span>;
   }
   if (query.includes("macbook") || query.includes("laptop") || query.includes("computer") || query.includes("notebook") || query.includes("pc")) {
-    return <LaptopThumb className="product-thumb-svg" />;
+    return <span className="product-thumb-category" role="img" aria-label="Laptop category illustration"><LaptopThumb className="product-thumb-svg" /></span>;
   }
   return (
-    <div className="product-thumb-fallback">
-      <PackagePlus size={36} />
+    <div className="product-thumb-fallback" role="img" aria-label="Product category illustration">
+      <PackagePlus size={36} aria-hidden="true" />
     </div>
   );
 }
@@ -764,7 +767,7 @@ function ProductLibrary({
               <span className="tool-icon"><Sparkles size={18} /></span>
               <div>
                 <h2>Add through invoice and product link</h2>
-                <p>Add only invoice, only product link, or both together. Invoices provide verified owner, date, and price; links retrieve official product photography and catalog specs.</p>
+                <p>Add an invoice to look up a product photo by its barcode. If no match is available, ProductVault shows a simple category illustration. You can also add a product manually.</p>
               </div>
             </div>
 
@@ -850,7 +853,7 @@ function ProductLibrary({
             <div className="automated-hint-banner">
               <Info size={16} className="flex-shrink-0" color="var(--orange-500)" />
               <span>
-                <strong>Flexible automation:</strong> You can provide only an invoice, only a product link, or both together. When both are added, official product photographs and verified invoice ownership details are automatically fused.
+                <strong>Product image:</strong> Invoice barcodes can find a matching catalog photo. If the barcode or catalog match is unavailable, your product still saves with a category illustration.
               </span>
             </div>
 
@@ -863,7 +866,7 @@ function ProductLibrary({
                     ? "Scanning invoice OCR & retrieving product photograph from link…"
                     : invoiceFile
                     ? "Scanning invoice document with OCR…"
-                    : "Fetching product photograph & catalog details from link…"}
+                    : "Reading invoice details and checking its barcode for a product photo…"}
                 </span>
               </div>
             )}
@@ -1070,13 +1073,17 @@ function ProductLibrary({
                       }}
                     />
                     <div className="ocr-photo-caption">
-                      <span className="photo-verified-badge">
-                        <CheckCircle2 size={15} /> Product Photograph Attached
-                      </span>
+                      <span className="photo-verified-badge"><CheckCircle2 size={15} /> Product image selected</span>
                       <small style={{ color: "var(--text-muted)", fontSize: "12px" }}>
-                        {revAsin ? `Catalog image for ASIN ${revAsin}` : "Official product photo fetched from link"}
+                        Review this product image before saving.
                       </small>
                     </div>
+                  </div>
+                )}
+                {!revImageUrl && (
+                  <div className="ocr-photo-empty">
+                    {renderProductThumbnail({ name: revName, brand: revBrand, model: revModel, category: revCategory, imageUrl: undefined })}
+                    <span>No barcode photo match. A category illustration will be used; you can still save the product.</span>
                   </div>
                 )}
 
@@ -1354,7 +1361,7 @@ function ProductLibrary({
                   {/* Product Web Link */}
                   <div className="ocr-field-card">
                     <div className="ocr-field-header">
-                      <span className="ocr-field-label">Product Web Link</span>
+                    <span className="ocr-field-label">Product or image source link</span>
                       {revSourceUrl ? (
                         <span className="field-pill field-pill-confident">✓ Linked</span>
                       ) : (

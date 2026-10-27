@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/configured";
 import { prototypeStore } from "@/lib/store/prototype-store";
 import { resolveProductLink, type ProductLinkResolution } from "@/lib/ecommerce/link-resolver";
+import { findGtinCandidates, lookupBarcodeProductImage } from "@/lib/ecommerce/product-catalog";
 import type { ExtractedProductFields, InvoiceExtractionResponse, OcrEngine, OcrRawResult } from "@/lib/ocr/types";
 
 export const runtime = "nodejs";
@@ -51,6 +52,30 @@ async function getExistingProducts(): Promise<Array<{ id: string; name: string; 
     invoice_number: p.invoice_number,
     serial_number: p.serial_number,
   }));
+}
+
+async function canLookupBarcode(): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.auth.getUser();
+    return !error && Boolean(data.user);
+  } catch {
+    return false;
+  }
+}
+
+async function addBarcodeProductImage(
+  fields: ExtractedProductFields,
+  rawText: string
+): Promise<ExtractedProductFields> {
+  if (fields.image_url || !(await canLookupBarcode())) return fields;
+  const gtin = findGtinCandidates(rawText)[0];
+  if (!gtin) return fields;
+
+  const match = await lookupBarcodeProductImage(gtin);
+  if (!match) return fields;
+  return { ...fields, image_url: match.imageUrl, image_urls: [match.imageUrl] };
 }
 
 function createExtractionFailureResponse(ocrResult: OcrRawResult): NextResponse {
@@ -114,10 +139,10 @@ function buildResponsePayload(
     if (!merged.seller && linkData.seller) {
       merged.seller = linkData.seller;
     }
-    merged.image_url = linkData.imageUrl || null;
-    merged.image_urls = linkData.imageUrls || [];
-    merged.asin = linkData.asin || null;
-    merged.source_url = linkData.sourceUrl || null;
+    merged.image_url = linkData.imageUrl || merged.image_url || null;
+    merged.image_urls = linkData.imageUrls?.length ? linkData.imageUrls : (merged.image_urls || []);
+    merged.asin = linkData.asin || merged.asin || null;
+    merged.source_url = linkData.sourceUrl || merged.source_url || null;
   }
 
   const validation = validateExtractedFields(merged);
@@ -168,7 +193,7 @@ function buildResponsePayload(
     duplicates,
     warnings: validation.warnings,
     imageUrl: linkData?.imageUrl || v.image_url || null,
-    imageUrls: linkData?.imageUrls || v.image_urls || [],
+    imageUrls: linkData?.imageUrls?.length ? linkData.imageUrls : (v.image_urls || []),
     asin: linkData?.asin || v.asin || null,
     sourceUrl: linkData?.sourceUrl || v.source_url || null,
   };
@@ -196,7 +221,7 @@ export async function POST(request: Request) {
 
         // Case 1: ONLY Link provided (no file)
         if (!isBlobLike && productUrl) {
-          const linkData = await resolveProductLink(productUrl);
+          const linkData = await resolveProductLink(productUrl, null);
           const initialFields: ExtractedProductFields = {
             brand: linkData.brand,
             product_name: linkData.title || `Product from ${linkData.marketplace}`,
@@ -270,11 +295,12 @@ export async function POST(request: Request) {
             finalEngine = "hybrid-invoice-link";
           }
 
+          const imageFields = await addBarcodeProductImage(extracted, ocrResult.text);
           const existingProducts = await getExistingProducts();
-          const duplicates = findPotentialDuplicates(extracted, existingProducts);
+          const duplicates = findPotentialDuplicates(imageFields, existingProducts);
 
           return NextResponse.json(
-            buildResponsePayload(ocrResult.text, finalEngine, extracted, duplicates, linkData)
+            buildResponsePayload(ocrResult.text, finalEngine, imageFields, duplicates, linkData)
           );
         }
 
@@ -295,7 +321,7 @@ export async function POST(request: Request) {
 
     // Link only via JSON
     if (productUrl && !body.text && !body.fileBase64) {
-      const linkData = await resolveProductLink(productUrl);
+      const linkData = await resolveProductLink(productUrl, null);
       const initialFields: ExtractedProductFields = {
         brand: linkData.brand,
         product_name: linkData.title || `Product from ${linkData.marketplace}`,
@@ -336,11 +362,12 @@ export async function POST(request: Request) {
         linkData = await resolveProductLink(productUrl, extracted.product_name);
         engine = "hybrid-invoice-link";
       }
+      const imageFields = await addBarcodeProductImage(extracted, body.text);
       const existingProducts = await getExistingProducts();
-      const duplicates = findPotentialDuplicates(extracted, existingProducts);
+      const duplicates = findPotentialDuplicates(imageFields, existingProducts);
 
       return NextResponse.json(
-        buildResponsePayload(body.text, engine, extracted, duplicates, linkData)
+        buildResponsePayload(body.text, engine, imageFields, duplicates, linkData)
       );
     }
 
@@ -366,12 +393,13 @@ export async function POST(request: Request) {
         linkData = await resolveProductLink(productUrl, extracted.product_name);
         engine = "hybrid-invoice-link";
       }
+      const imageFields = await addBarcodeProductImage(extracted, ocrResult.text);
 
       const existingProducts = await getExistingProducts();
-      const duplicates = findPotentialDuplicates(extracted, existingProducts);
+      const duplicates = findPotentialDuplicates(imageFields, existingProducts);
 
       return NextResponse.json(
-        buildResponsePayload(ocrResult.text, engine, extracted, duplicates, linkData)
+        buildResponsePayload(ocrResult.text, engine, imageFields, duplicates, linkData)
       );
     }
 
