@@ -43,6 +43,33 @@ export type PrototypePriceWatch = {
   last_checked_at: string;
   created_at: string;
   products?: { name: string };
+  // Cross-Store Price Intelligence fields
+  tolerance?: number;
+  platform_scope?: string[];
+  lowest_recorded_price?: number;
+  median_recorded_price?: number;
+  highest_recorded_price?: number;
+  last_alerted_price?: number;
+  last_alerted_at?: string;
+  last_alerted_platform?: string;
+};
+
+export type PrototypePriceObservation = {
+  id: string;
+  user_id: string;
+  price_watch_id?: string | null;
+  product_id?: string | null;
+  platform: string;
+  product_url: string;
+  title: string | null;
+  price: number;
+  currency: string;
+  mrp?: number | null;
+  availability: "IN_STOCK" | "OUT_OF_STOCK" | "NOT_FOUND" | "UNKNOWN";
+  availability_evidence?: string | null;
+  seller?: string | null;
+  match_confidence?: number | null;
+  observed_at: string;
 };
 
 export type PrototypeReminder = {
@@ -109,6 +136,7 @@ export type PrototypeDocument = {
 type PrototypeDatabase = {
   products: PrototypeProduct[];
   priceWatches: PrototypePriceWatch[];
+  priceObservations: PrototypePriceObservation[];
   reminders: PrototypeReminder[];
   claims: PrototypeClaim[];
   documents: PrototypeDocument[];
@@ -306,6 +334,7 @@ function buildInitialData(): PrototypeDatabase {
         created_at: "2024-02-14T10:36:00Z",
       },
     ],
+    priceObservations: [],
   };
 }
 
@@ -322,7 +351,11 @@ class PrototypeStore {
     try {
       if (fs.existsSync(this.filePath)) {
         const raw = fs.readFileSync(this.filePath, "utf8");
-        return JSON.parse(raw);
+        const parsed: PrototypeDatabase = JSON.parse(raw);
+        if (!parsed.priceObservations) {
+          parsed.priceObservations = [];
+        }
+        return parsed;
       }
     } catch {
       // ignore
@@ -446,6 +479,8 @@ class PrototypeStore {
     currentPrice: number;
     targetPrice: number;
     currency?: string;
+    tolerance?: number;
+    platformScope?: string[];
   }): PrototypePriceWatch {
     const id = crypto.randomUUID();
     const prod = this.getProduct(input.productId);
@@ -457,6 +492,8 @@ class PrototypeStore {
       current_price: input.currentPrice,
       target_price: input.targetPrice,
       currency: input.currency ?? "INR",
+      tolerance: input.tolerance ?? 0,
+      platform_scope: input.platformScope ?? ["Amazon"],
       checking_mode: "manual",
       last_checked_at: new Date().toISOString(),
       created_at: new Date().toISOString(),
@@ -478,11 +515,71 @@ class PrototypeStore {
     return watch;
   }
 
+  updatePriceWatchStats(id: string, updates: Partial<PrototypePriceWatch>): PrototypePriceWatch | null {
+    const watch = this.data.priceWatches.find((w) => w.id === id);
+    if (!watch) return null;
+    Object.assign(watch, updates);
+    this.saveToDisk();
+    return watch;
+  }
+
   deletePriceWatch(id: string): boolean {
     const len = this.data.priceWatches.length;
     this.data.priceWatches = this.data.priceWatches.filter((w) => w.id !== id);
     this.saveToDisk();
     return this.data.priceWatches.length < len;
+  }
+
+  // ── Price Observations ─────────────────────────────────────────────────────
+  recordPriceObservation(input: {
+    priceWatchId?: string | null;
+    productId?: string | null;
+    platform: string;
+    productUrl: string;
+    title: string | null;
+    price: number;
+    currency?: string;
+    mrp?: number | null;
+    availability: "IN_STOCK" | "OUT_OF_STOCK" | "NOT_FOUND" | "UNKNOWN";
+    availabilityEvidence?: string | null;
+    seller?: string | null;
+    matchConfidence?: number | null;
+  }): PrototypePriceObservation {
+    const obs: PrototypePriceObservation = {
+      id: crypto.randomUUID(),
+      user_id: DEFAULT_USER_ID,
+      price_watch_id: input.priceWatchId || null,
+      product_id: input.productId || null,
+      platform: input.platform,
+      product_url: input.productUrl,
+      title: input.title,
+      price: input.price,
+      currency: input.currency ?? "INR",
+      mrp: input.mrp || null,
+      availability: input.availability,
+      availability_evidence: input.availabilityEvidence || null,
+      seller: input.seller || null,
+      match_confidence: input.matchConfidence || null,
+      observed_at: new Date().toISOString(),
+    };
+
+    if (!this.data.priceObservations) {
+      this.data.priceObservations = [];
+    }
+    this.data.priceObservations.unshift(obs);
+    this.saveToDisk();
+    return obs;
+  }
+
+  getPriceObservations(filter?: { priceWatchId?: string; productId?: string }): PrototypePriceObservation[] {
+    let list = this.data.priceObservations || [];
+    if (filter?.priceWatchId) {
+      list = list.filter((o) => o.price_watch_id === filter.priceWatchId);
+    }
+    if (filter?.productId) {
+      list = list.filter((o) => o.product_id === filter.productId);
+    }
+    return [...list].sort((a, b) => b.observed_at.localeCompare(a.observed_at));
   }
 
   // ── Reminders ──────────────────────────────────────────────────────────────
