@@ -1,5 +1,5 @@
-import { ClaimForgeWorkspace } from "@/components/claimforge-workspace/ClaimForgeWorkspace";
+import { AuthGate } from "@/components/claimforge-workspace/AuthGate";
 
 export default function Home() {
-  return <ClaimForgeWorkspace />;
+  return <AuthGate />;
 }

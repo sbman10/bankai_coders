@@ -1,18 +1,18 @@
 # ProductVault web MVP
 
-Next.js App Router app for managing products and warranty claims. The current UI is a public, fictional demo and does not require sign-in or email.
+Next.js App Router app for managing products and warranty claims. It contains both the frontend and the backend API routes; there is no separate Uvicorn server in this architecture.
 
-## Public demo behavior
+## Frontend and backend layout
 
-- The overview and sample claim review use fictional data.
-- New claim intake creates only a temporary in-memory browser preview. Selected files are not uploaded; no claim or draft is persisted. Do not enter real personal information or select real documents.
-- Products, saved claims, document Q&A, price watches, reminders, and private uploads are disabled in the public UI because they require an account-owned workspace.
-- The account-backed API routes and Supabase Auth code remain in the repository for later re-enablement. They still require a verified Supabase user and retain their owner-scoped checks; the public UI does not call them.
-- Browser requests never receive a service-role key.
+- Frontend pages and interactive components live in `src/app` and `src/components`.
+- Backend HTTP endpoints live in `src/app/api`. They run inside the same Next.js server and handle auth, products, claims, documents, reminders, price watches, the assistant, and integrations.
+- Shared server-side Supabase and business logic lives in `src/lib`. Browser code never receives a service-role key.
+- For local work, start one server from `apps/web`; it serves both the page and its `/api/...` endpoints. Do not start Uvicorn for this Next.js app.
+- When Supabase is configured, the app shows email OTP / Google sign-in before opening the account workspace. If Supabase is not configured, the app falls back to the fictional preview. Sample claim information remains fictional and is not submitted.
 
-## Account-backed API behavior (not exposed by the public demo UI)
+## Account-backed API behavior
 
-- Sign in, sign up, and sign out through the Next.js auth route.
+- Sign in with a six-digit email code or Google; the Next.js callback and Supabase SSR cookies create the session. The auth status endpoint treats a missing session as signed out, not as a service outage. Sign out clears the current browser session.
 - Save and edit product passports with brand, model, category, seller, serial number, purchase date, and warranty end date; remove products when linked claims, documents, watches, or reminders would not be lost.
 - Create and update manual price watches tied to a saved product. ProductVault does not fetch retailer pages or scrape prices.
 - Schedule in-app replenishment reminders for a saved product using a user-entered usage estimate. Reminder records are stored at 9:00 AM Asia/Kolkata and shown in the reminder timeline; no background or email notification is sent.
@@ -35,7 +35,7 @@ This code requires the additive migration `supabase/migrations/20261022150000_do
 
 ## Data boundaries
 
-The current public demo UI does not call product, price-watch, reminder, document, assistant, or claim persistence APIs. Those API routes still require a verified Supabase user session, use the publishable key with the user's session, and apply owner filters; Postgres RLS is the second boundary. Product documents remain private in Supabase Storage and signed download links expire after 60 seconds. Request bodies are bounded and validated. n8n credentials and provider keys stay server-side. See [`docs/n8n-integration.md`](../../docs/n8n-integration.md) for the current workflow state.
+Account-backed API routes require a verified Supabase user session, use the publishable key with the user's session, and apply owner filters; Postgres RLS is the second boundary. Product documents remain private in Supabase Storage and signed download links expire after 60 seconds. Request bodies are bounded and validated. n8n credentials and provider keys stay server-side. See [`docs/n8n-integration.md`](../../docs/n8n-integration.md) for the current workflow state.
 
 The existing migrations create the owner-scoped tables and private `claim-documents` bucket. They were applied to the selected `bankai` project and verified in the dashboard. Do not reset or overwrite the database.
 
@@ -50,7 +50,7 @@ These states are shown honestly in the UI. Do not label an n8n acknowledgement a
 
 ## Configure and run
 
-The public demo runs without Supabase, Groq, or n8n configuration. To re-enable account-backed APIs later, copy `.env.example` to `.env.local` and set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` for the selected project. Keep `.env.local` out of version control. Provider credentials/model compatibility have not been live-tested. The production n8n webhook URL and callback secret remain blank. The workflow is inactive and acknowledgement-only.
+For account sign-in locally, set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and `APP_BASE_URL` in `.env.local`; keep that file out of version control. Email delivery and Google OAuth also need the provider setup described in [`docs/auth-provider-setup.md`](../../docs/auth-provider-setup.md). The public preview can still run without Supabase, Groq, or n8n configuration.
 
 ```powershell
 npm install
@@ -58,6 +58,8 @@ npm run dev
 ```
 
 Open <http://localhost:3000>.
+
+This single command runs the frontend and API together. If Next.js reports that port 3000 is already in use, use the alternate local URL printed by the dev server or stop the other Next.js instance first.
 
 ## Verification
 

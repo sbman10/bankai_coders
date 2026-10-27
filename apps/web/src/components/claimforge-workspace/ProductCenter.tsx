@@ -31,13 +31,7 @@ import {
 } from "lucide-react";
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
 import {
-  HeadphoneThumb,
-  LaptopThumb,
-  PhoneThumb,
-  RefrigeratorThumb,
-  SneakerThumb,
-  SunscreenThumb,
-  WatchThumb,
+  ToyCarThumb,
 } from "./ProductVisuals";
 import { TechHeading } from "../TechText";
 import { AddProduct, type ProductPayload } from "./AddProduct";
@@ -131,6 +125,7 @@ export function ProductVisual({
   className?: string;
 }) {
   const [imgError, setImgError] = useState(false);
+  const q = `${product.name} ${product.brand} ${product.model} ${product.category}`.toLowerCase();
 
   const resolvedSrc = useMemo(() => {
     // 1. User/Scraped provided direct image URL
@@ -139,8 +134,6 @@ export function ProductVisual({
     }
 
     // 2. Resolve to genuine product cutouts in /products
-    const q = `${product.name} ${product.brand} ${product.model} ${product.category}`.toLowerCase();
-
     // Soundcore / Anker Q30 / Q20i
     if (
       q.includes("soundcore") ||
@@ -200,7 +193,7 @@ export function ProductVisual({
     }
 
     return null;
-  }, [product, imgError]);
+  }, [product, imgError, q]);
 
   if (resolvedSrc) {
     return (
@@ -211,6 +204,14 @@ export function ProductVisual({
         loading="lazy"
         onError={() => setImgError(true)}
       />
+    );
+  }
+
+  if (q.includes("toy") || q.includes("car")) {
+    return (
+      <div className="library-product-fallback-icon" role="img" aria-label="Toy car category illustration">
+        <ToyCarThumb className="product-thumb-svg" />
+      </div>
     );
   }
 
@@ -1851,15 +1852,14 @@ function UnifiedTimelineView({
   const sortedDates = Array.from(dateGroupsMap.keys()).sort((a, b) => b.localeCompare(a));
   const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
-  let lastYear = "";
-  const timelineEntries: TimelineEntry[] = sortedDates.map((dateStr) => {
+  const timelineEntries: TimelineEntry[] = sortedDates.map((dateStr, index) => {
     const dayEvents = dateGroupsMap.get(dateStr)!;
     const [y, m, d] = dateStr.split("-");
     const monthIdx = parseInt(m, 10) - 1;
     const dayNum = parseInt(d, 10);
 
-    const yearChapter = y !== lastYear ? y : undefined;
-    lastYear = y;
+    const prevYear = index > 0 ? sortedDates[index - 1].split("-")[0] : null;
+    const yearChapter = y !== prevYear ? y : undefined;
 
     const hasUpcoming = dayEvents.some((e) => e.isFuture);
     const hasExpiredWarranty = dayEvents.some((e) => e.kind === "warranty-expired");

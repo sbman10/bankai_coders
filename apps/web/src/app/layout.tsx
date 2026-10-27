@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { CookieConsent } from "@/components/claimforge-workspace/CookieConsent";
 
 export const metadata: Metadata = {
   title: "ProductVault — Warranty, with a way forward",
@@ -12,7 +13,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="dark" suppressHydrationWarning>{children}</body>
+      <body suppressHydrationWarning>{children}<CookieConsent /></body>
     </html>
   );
 }

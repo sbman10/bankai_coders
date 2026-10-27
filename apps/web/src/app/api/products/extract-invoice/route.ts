@@ -7,6 +7,7 @@ import { findPotentialDuplicates } from "@/lib/ocr/duplicate-detector";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/configured";
 import { prototypeStore } from "@/lib/store/prototype-store";
+import { findGtinCandidates, lookupBarcodeProductImage } from "@/lib/ecommerce/product-catalog";
 import {
   resolveProductLink,
   type ProductLinkResolution,
@@ -57,6 +58,30 @@ async function getExistingProducts(): Promise<Array<{ id: string; name: string; 
     invoice_number: p.invoice_number,
     serial_number: p.serial_number,
   }));
+}
+
+async function canLookupBarcode(): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.auth.getUser();
+    return !error && Boolean(data.user);
+  } catch {
+    return false;
+  }
+}
+
+async function addBarcodeProductImage(
+  fields: ExtractedProductFields,
+  rawText: string
+): Promise<ExtractedProductFields> {
+  if (fields.image_url || !(await canLookupBarcode())) return fields;
+  const gtin = findGtinCandidates(rawText)[0];
+  if (!gtin) return fields;
+
+  const match = await lookupBarcodeProductImage(gtin);
+  if (!match) return fields;
+  return { ...fields, image_url: match.imageUrl, image_urls: [match.imageUrl] };
 }
 
 function createExtractionFailureResponse(ocrResult: OcrRawResult): NextResponse {
@@ -309,7 +334,6 @@ export async function POST(request: Request) {
             return resolution.response;
           }
           const linkData = resolution.linkData;
-
           const initialFields: ExtractedProductFields = {
             brand: linkData.brand,
             product_name: linkData.productName || null,
@@ -386,11 +410,12 @@ export async function POST(request: Request) {
             }
           }
 
+          const imageFields = await addBarcodeProductImage(extracted, ocrResult.text);
           const existingProducts = await getExistingProducts();
-          const duplicates = findPotentialDuplicates(extracted, existingProducts);
+          const duplicates = findPotentialDuplicates(imageFields, existingProducts);
 
           return NextResponse.json(
-            buildResponsePayload(ocrResult.text, finalEngine, extracted, duplicates, linkData)
+            buildResponsePayload(ocrResult.text, finalEngine, imageFields, duplicates, linkData)
           );
         }
 
@@ -416,7 +441,6 @@ export async function POST(request: Request) {
         return resolution.response;
       }
       const linkData = resolution.linkData;
-
       const initialFields: ExtractedProductFields = {
         brand: linkData.brand,
         product_name: linkData.productName || null,
@@ -460,11 +484,12 @@ export async function POST(request: Request) {
           engine = "hybrid-invoice-link";
         }
       }
+      const imageFields = await addBarcodeProductImage(extracted, body.text);
       const existingProducts = await getExistingProducts();
-      const duplicates = findPotentialDuplicates(extracted, existingProducts);
+      const duplicates = findPotentialDuplicates(imageFields, existingProducts);
 
       return NextResponse.json(
-        buildResponsePayload(body.text, engine, extracted, duplicates, linkData)
+        buildResponsePayload(body.text, engine, imageFields, duplicates, linkData)
       );
     }
 
@@ -493,12 +518,13 @@ export async function POST(request: Request) {
           engine = "hybrid-invoice-link";
         }
       }
+      const imageFields = await addBarcodeProductImage(extracted, ocrResult.text);
 
       const existingProducts = await getExistingProducts();
-      const duplicates = findPotentialDuplicates(extracted, existingProducts);
+      const duplicates = findPotentialDuplicates(imageFields, existingProducts);
 
       return NextResponse.json(
-        buildResponsePayload(ocrResult.text, engine, extracted, duplicates, linkData)
+        buildResponsePayload(ocrResult.text, engine, imageFields, duplicates, linkData)
       );
     }
 
