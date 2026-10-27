@@ -1,8 +1,14 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import React, { useRef, useState, useSyncExternalStore } from "react";
+import React, { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useGreeting } from "@/lib/time/useGreeting";
+import {
+  addDays,
+  calculateRelativeCountdown,
+  formatCalendarDateWithWeekday,
+  parseDateOnly,
+} from "@/lib/time/dates";
 import { TechHeading } from "../TechText";
 import {
   Calendar,
@@ -117,22 +123,6 @@ export const masterDashboardProducts: ProductCardItem[] = [
     supportLink: "https://support.apple.com/mac",
   },
   {
-    id: "nike-air-max-270",
-    name: "Nike Air Max 270",
-    brand: "Nike",
-    category: "Accessories",
-    statusText: "Added Manually",
-    statusKind: "added-manually",
-    addedDate: "Added 28 Oct 2026",
-    documentCount: 1,
-    imageSrc: "/products/nike_air_max_270.png",
-    serialNumber: "SN-NK-270-4912",
-    price: "₹13,995",
-    warrantyEnd: "28 Oct 2027",
-    invoiceName: "Nike_Order_Confirmation.pdf",
-    supportLink: "https://www.nike.com/in/help",
-  },
-  {
     id: "iphone-15",
     name: "iPhone 15",
     brand: "Apple",
@@ -149,24 +139,104 @@ export const masterDashboardProducts: ProductCardItem[] = [
     supportLink: "https://support.apple.com/iphone",
   },
   {
-    id: "office-chair",
-    name: "Office Chair",
-    brand: "Featherlite",
+    id: "soundcore-q30",
+    name: "Soundcore Life Q30",
+    brand: "Anker",
+    category: "Electronics",
+    statusText: "Warranty Active",
+    statusKind: "warranty-active",
+    addedDate: "Added 14 Oct 2026",
+    documentCount: 2,
+    imageSrc: "/products/soundcore_q30.png",
+    serialNumber: "SN-ANK-Q30-9921",
+    price: "₹6,999",
+    warrantyEnd: "14 Oct 2027",
+    invoiceName: "Anker_Soundcore_Invoice.pdf",
+    supportLink: "https://support.soundcore.com",
+  },
+  {
+    id: "ipad-air-m2",
+    name: "iPad Air M2",
+    brand: "Apple",
+    category: "Electronics",
+    statusText: "Warranty Active",
+    statusKind: "warranty-active",
+    addedDate: "Added 15 May 2026",
+    documentCount: 3,
+    imageSrc: "/products/macbook_air_m3.png",
+    serialNumber: "SN-DMPXYZ8819",
+    price: "₹59,900",
+    warrantyEnd: "15 May 2027",
+    invoiceName: "Imagine_Store_Invoice.pdf",
+    supportLink: "https://support.apple.com/ipad",
+  },
+  {
+    id: "philips-air-fryer",
+    name: "Philips HD9252 Air Fryer",
+    brand: "Philips",
+    category: "Appliances",
+    statusText: "Added Manually",
+    statusKind: "added-manually",
+    addedDate: "Added 10 Sep 2026",
+    documentCount: 1,
+    imageSrc: "/products/lg_refrigerator.png",
+    serialNumber: "SN-PH-AF-4421",
+    price: "₹8,995",
+    warrantyEnd: "10 Sep 2028",
+    invoiceName: "Philips_Appliance_Bill.pdf",
+    supportLink: "https://www.philips.co.in/c-m-ho/cooking/airfryer",
+  },
+  {
+    id: "philips-trimmer",
+    name: "Philips OneBlade Pro",
+    brand: "Philips",
+    category: "Personal Care",
+    statusText: "Warranty Active",
+    statusKind: "warranty-active",
+    addedDate: "Added 05 Jul 2026",
+    documentCount: 2,
+    imageSrc: "/products/minimalist_sunscreen.png",
+    serialNumber: "SN-PH-OB-8192",
+    price: "₹2,499",
+    warrantyEnd: "05 Jul 2028",
+    invoiceName: "Philips_PersonalCare_Invoice.pdf",
+    supportLink: "https://www.philips.co.in/c-m-pe/oneblade-face-style-and-shave",
+  },
+  {
+    id: "oral-b-smart",
+    name: "Oral-B Smart Series",
+    brand: "Oral-B",
+    category: "Personal Care",
+    statusText: "Restock Soon",
+    statusKind: "restock-soon",
+    addedDate: "Added 12 Aug 2026",
+    documentCount: 1,
+    imageSrc: "/products/minimalist_sunscreen.png",
+    serialNumber: "LOT-OB-2026-AUG",
+    price: "₹3,499",
+    warrantyEnd: "12 Aug 2027",
+    invoiceName: "Amazon_OralB_Invoice.pdf",
+    supportLink: "https://www.oralb.com/contact-us",
+  },
+  {
+    id: "nike-air-max-270",
+    name: "Nike Air Max 270",
+    brand: "Nike",
     category: "Accessories",
     statusText: "Added Manually",
     statusKind: "added-manually",
-    addedDate: "Added 12 Nov 2026",
-    documentCount: 2,
-    imageSrc: "/products/office_chair.png",
-    serialNumber: "SN-STEEL-CHAIR-19",
-    price: "₹14,500",
-    warrantyEnd: "12 Nov 2027",
-    invoiceName: "Featherlite_Invoice.pdf",
-    supportLink: "https://featherlitefurniture.com/contact-us",
+    addedDate: "Added 28 Oct 2026",
+    documentCount: 1,
+    imageSrc: "/products/nike_air_max_270.png",
+    serialNumber: "SN-NK-270-4912",
+    price: "₹13,995",
+    warrantyEnd: "28 Oct 2027",
+    invoiceName: "Nike_Order_Confirmation.pdf",
+    supportLink: "https://www.nike.com/in/help",
   },
 ];
 
-type TodayTaskItem = {
+export type TodayTaskItem = {
   id: string;
   productName: string;
   actionTitle: string;
@@ -179,46 +249,54 @@ type TodayTaskItem = {
   done: boolean;
 };
 
-const initialTodayTasks: TodayTaskItem[] = [
-  {
-    id: "today-1",
-    productName: "LG Refrigerator",
-    actionTitle: "AMC renewal due",
-    actionColor: "red",
-    dueText: "Due in 14 days",
-    dueKind: "red",
-    btnText: "View",
-    btnAction: "products",
-    imageSrc: "/products/lg_refrigerator.png",
-    done: false,
-  },
-  {
-    id: "today-2",
-    productName: "Minimalist Sunscreen",
-    actionTitle: "Estimated to restock",
-    actionColor: "amber",
-    dueText: "Due in 8 days",
-    dueKind: "amber",
-    btnText: "Set Reminder",
-    btnAction: "reminders",
-    imageSrc: "/products/minimalist_sunscreen.png",
-    done: false,
-  },
-  {
-    id: "today-3",
-    productName: "Titan Watch",
-    actionTitle: "Warranty check",
-    actionColor: "gray",
-    dueText: "Due in 1 month",
-    dueKind: "gray",
-    btnText: "View Details",
-    btnAction: "products",
-    imageSrc: "/products/titan_watch.png",
-    done: false,
-  },
-];
+export function createTodayTasks(baseDate: Date = new Date()): TodayTaskItem[] {
+  const cd1 = calculateRelativeCountdown(addDays(baseDate, 14), baseDate);
+  const cd2 = calculateRelativeCountdown(addDays(baseDate, 8), baseDate);
+  const cd3 = calculateRelativeCountdown(addDays(baseDate, 31), baseDate);
 
-type MasterTimelineEntry = {
+  return [
+    {
+      id: "today-1",
+      productName: "LG Refrigerator",
+      actionTitle: "AMC renewal due",
+      actionColor: "red",
+      dueText: cd1.dueText,
+      dueKind: "red",
+      btnText: "View",
+      btnAction: "products",
+      imageSrc: "/products/lg_refrigerator.png",
+      done: false,
+    },
+    {
+      id: "today-2",
+      productName: "Minimalist Sunscreen",
+      actionTitle: "Estimated to restock",
+      actionColor: "amber",
+      dueText: cd2.dueText,
+      dueKind: "amber",
+      btnText: "Set Reminder",
+      btnAction: "reminders",
+      imageSrc: "/products/minimalist_sunscreen.png",
+      done: false,
+    },
+    {
+      id: "today-3",
+      productName: "Titan Watch",
+      actionTitle: "Warranty check",
+      actionColor: "gray",
+      dueText: cd3.dueText,
+      dueKind: "gray",
+      btnText: "View Details",
+      btnAction: "products",
+      imageSrc: "/products/titan_watch.png",
+      done: false,
+    },
+  ];
+}
+
+export const initialTodayTasks: TodayTaskItem[] = createTodayTasks();
+
+export type MasterTimelineEntry = {
   id: string;
   day: string;
   month: string;
@@ -231,105 +309,154 @@ type MasterTimelineEntry = {
   imageSrc: string;
 };
 
-const masterTimelineData: MasterTimelineEntry[] = [
-  {
-    id: "tl-1",
-    section: "Upcoming",
-    day: "28",
-    month: "Oct",
-    dotColor: "#EF4444",
-    title: "LG Refrigerator",
-    subtitle: "AMC renewal due",
-    badgeText: "14 days",
-    badgeKind: "red",
-    imageSrc: "/products/lg_refrigerator.png",
-  },
-  {
-    id: "tl-2",
-    day: "02",
-    month: "Nov",
-    dotColor: "#F59E0B",
-    title: "Minimalist Sunscreen",
-    subtitle: "Time to restock",
-    badgeText: "8 days",
-    badgeKind: "amber",
-    imageSrc: "/products/minimalist_sunscreen.png",
-  },
-  {
-    id: "tl-3",
-    day: "15",
-    month: "Nov",
-    dotColor: "#94A3B8",
-    title: "Titan Watch",
-    subtitle: "Warranty check reminder",
-    badgeText: "1 month",
-    badgeKind: "gray",
-    imageSrc: "/products/titan_watch.png",
-  },
-  {
-    id: "tl-4",
-    section: "Later",
-    day: "03",
-    month: "Dec",
-    dotColor: "#3B82F6",
-    title: "Sony WH-1000XM5",
-    subtitle: "Price target check",
-    badgeText: "Tracking",
-    badgeKind: "blue",
-    imageSrc: "/products/sony_wh1000xm5.png",
-  },
-  {
-    id: "tl-5",
-    day: "12",
-    month: "Jan",
-    dotColor: "#334155",
-    title: "MacBook Air M3",
-    subtitle: "Service reminder",
-    badgeText: "2 months",
-    badgeKind: "gray",
-    imageSrc: "/products/macbook_air_m3.png",
-  },
-  {
-    id: "tl-6",
-    day: "28",
-    month: "Feb",
-    dotColor: "#334155",
-    title: "Office Chair",
-    subtitle: "Recheck screws",
-    badgeText: "4 months",
-    badgeKind: "gray",
-    imageSrc: "/products/office_chair.png",
-  },
-  {
-    id: "tl-7",
-    day: "15",
-    month: "Mar",
-    dotColor: "#94A3B8",
-    title: "Sony WH-1000XM5",
-    subtitle: "Warranty expiry",
-    badgeText: "4 months",
-    badgeKind: "gray",
-    imageSrc: "/products/sony_wh1000xm5.png",
-  },
-];
+export function createMasterTimelineData(baseDate: Date = new Date()): MasterTimelineEntry[] {
+  const target1 = addDays(baseDate, 14);
+  const target2 = addDays(baseDate, 8);
+  const target3 = addDays(baseDate, 31);
+  const target5 = parseDateOnly("2027-01-12");
+  const target6 = parseDateOnly("2027-02-28");
+  const target7 = parseDateOnly("2027-03-15");
+
+  const cd1 = calculateRelativeCountdown(target1, baseDate);
+  const cd2 = calculateRelativeCountdown(target2, baseDate);
+  const cd3 = calculateRelativeCountdown(target3, baseDate);
+  const cd5 = calculateRelativeCountdown(target5, baseDate);
+  const cd6 = calculateRelativeCountdown(target6, baseDate);
+  const cd7 = calculateRelativeCountdown(target7, baseDate);
+
+  const formatDay = (d: Date) => String(d.getDate()).padStart(2, "0");
+  const formatMonth = (d: Date) => d.toLocaleDateString("en-GB", { month: "short" });
+
+  return [
+    {
+      id: "tl-1",
+      section: "Upcoming",
+      day: formatDay(target1),
+      month: formatMonth(target1),
+      dotColor: "#EF4444",
+      title: "LG Refrigerator",
+      subtitle: "AMC renewal due",
+      badgeText: cd1.badgeText,
+      badgeKind: "red",
+      imageSrc: "/products/lg_refrigerator.png",
+    },
+    {
+      id: "tl-2",
+      day: formatDay(target2),
+      month: formatMonth(target2),
+      dotColor: "#F59E0B",
+      title: "Minimalist Sunscreen",
+      subtitle: "Time to restock",
+      badgeText: cd2.badgeText,
+      badgeKind: "amber",
+      imageSrc: "/products/minimalist_sunscreen.png",
+    },
+    {
+      id: "tl-3",
+      day: formatDay(target3),
+      month: formatMonth(target3),
+      dotColor: "#94A3B8",
+      title: "Titan Watch",
+      subtitle: "Warranty check reminder",
+      badgeText: cd3.badgeText,
+      badgeKind: "gray",
+      imageSrc: "/products/titan_watch.png",
+    },
+    {
+      id: "tl-4",
+      section: "Later",
+      day: "03",
+      month: "Dec",
+      dotColor: "#3B82F6",
+      title: "Sony WH-1000XM5",
+      subtitle: "Price target check",
+      badgeText: "Tracking",
+      badgeKind: "blue",
+      imageSrc: "/products/sony_wh1000xm5.png",
+    },
+    {
+      id: "tl-5",
+      day: "12",
+      month: "Jan",
+      dotColor: "#334155",
+      title: "MacBook Air M3",
+      subtitle: "Service reminder",
+      badgeText: cd5.badgeText,
+      badgeKind: "gray",
+      imageSrc: "/products/macbook_air_m3.png",
+    },
+    {
+      id: "tl-6",
+      day: "28",
+      month: "Feb",
+      dotColor: "#334155",
+      title: "Office Chair",
+      subtitle: "Recheck screws",
+      badgeText: cd6.badgeText,
+      badgeKind: "gray",
+      imageSrc: "/products/office_chair.png",
+    },
+    {
+      id: "tl-7",
+      day: "15",
+      month: "Mar",
+      dotColor: "#94A3B8",
+      title: "Sony WH-1000XM5",
+      subtitle: "Warranty expiry",
+      badgeText: cd7.badgeText,
+      badgeKind: "gray",
+      imageSrc: "/products/sony_wh1000xm5.png",
+    },
+  ];
+}
+
+export const masterTimelineData: MasterTimelineEntry[] = createMasterTimelineData();
 
 interface DashboardHomeProps {
   onStartClaim: () => void;
   onOpenReview: () => void;
   onNavigateTab: (tab: string) => void;
   isDarkTheme?: boolean;
+  referenceDate?: Date | string;
 }
 
 export function DashboardHome({
   onStartClaim,
   onOpenReview,
   onNavigateTab,
+  referenceDate,
 }: DashboardHomeProps) {
   const greeting = useGreeting();
-  const [tasks, setTasks] = useState<TodayTaskItem[]>(initialTodayTasks);
+
+  const baseDate = useMemo(() => {
+    if (!referenceDate) return new Date();
+    return typeof referenceDate === "string" ? parseDateOnly(referenceDate) : referenceDate;
+  }, [referenceDate]);
+
+  const formattedTodayDate = useMemo(() => {
+    return formatCalendarDateWithWeekday(baseDate);
+  }, [baseDate]);
+
+  const timelineItems = useMemo(() => {
+    return createMasterTimelineData(baseDate);
+  }, [baseDate]);
+
+  const [tasks, setTasks] = useState<TodayTaskItem[]>(() => createTodayTasks(baseDate));
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedProduct, setSelectedProduct] = useState<ProductCardItem | null>(null);
+
+  // Dynamic category counts from the curated 12 products
+  const categoryCounts = useMemo(
+    () => ({
+      All: masterDashboardProducts.length,
+      Electronics: masterDashboardProducts.filter((p) => p.category === "Electronics").length,
+      Appliances: masterDashboardProducts.filter((p) => p.category === "Appliances").length,
+      "Personal Care": masterDashboardProducts.filter((p) => p.category === "Personal Care").length,
+      Accessories: masterDashboardProducts.filter((p) => p.category === "Accessories").length,
+    }),
+    []
+  );
 
   // Scroll-linked beam progress for dashboard timeline rail
   const dashboardScrollRef = useRef<HTMLDivElement>(null);
@@ -458,7 +585,7 @@ export function DashboardHome({
                 />
                 <div className="today-date-pill">
                   <Calendar size={13} className="date-pill-icon" />
-                  <span>Tue, 28 Oct 2026</span>
+                  <span>{formattedTodayDate}</span>
                 </div>
               </div>
 
@@ -524,52 +651,79 @@ export function DashboardHome({
           {/* Your Products Collection */}
           <section className="your-products-section" aria-labelledby="products-section-title">
             <div className="products-section-header">
-              <TechHeading
-                variant="section"
-                as="h2"
-                id="products-section-title"
-                className="products-section-heading"
-                text="Your Products"
-                fontSize={22}
-                height={36}
-                suffix={<span className="products-count-num">(12)</span>}
-              />
+              {/* Row 1 — Section identity and view controls */}
+              <div className="products-header-top-row">
+                <div className="products-title-group">
+                  <TechHeading
+                    variant="section"
+                    as="h2"
+                    id="products-section-title"
+                    className="products-section-heading"
+                    text="Your Products"
+                    fontSize={22}
+                    height={36}
+                    suffix={<span className="products-count-num">({filteredProducts.length})</span>}
+                  />
+                </div>
 
-              <div className="products-filter-strip">
+                <div className="products-view-toggle" role="group" aria-label="View mode">
+                  <button
+                    type="button"
+                    className={`view-toggle-btn ${viewMode === "grid" ? "active" : ""}`}
+                    onClick={() => setViewMode("grid")}
+                    aria-label="Grid view"
+                    title="Grid view"
+                  >
+                    <LayoutGrid size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    className={`view-toggle-btn ${viewMode === "list" ? "active" : ""}`}
+                    onClick={() => setViewMode("list")}
+                    aria-label="List view"
+                    title="List view"
+                  >
+                    <List size={15} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Row 2 — Category filters */}
+              <div className="products-filter-strip" role="toolbar" aria-label="Category filters">
                 <button
                   type="button"
                   className={`category-pill-btn ${selectedCategory === "All" ? "active" : ""}`}
                   onClick={() => setSelectedCategory("All")}
                 >
-                  All (12)
+                  All ({categoryCounts.All})
                 </button>
                 <button
                   type="button"
                   className={`category-pill-btn ${selectedCategory === "Electronics" ? "active" : ""}`}
                   onClick={() => setSelectedCategory("Electronics")}
                 >
-                  Electronics (5)
+                  Electronics ({categoryCounts.Electronics})
                 </button>
                 <button
                   type="button"
                   className={`category-pill-btn ${selectedCategory === "Appliances" ? "active" : ""}`}
                   onClick={() => setSelectedCategory("Appliances")}
                 >
-                  Appliances (2)
+                  Appliances ({categoryCounts.Appliances})
                 </button>
                 <button
                   type="button"
                   className={`category-pill-btn ${selectedCategory === "Personal Care" ? "active" : ""}`}
                   onClick={() => setSelectedCategory("Personal Care")}
                 >
-                  Personal Care (3)
+                  Personal Care ({categoryCounts["Personal Care"]})
                 </button>
                 <button
                   type="button"
                   className={`category-pill-btn ${selectedCategory === "Accessories" ? "active" : ""}`}
                   onClick={() => setSelectedCategory("Accessories")}
                 >
-                  Accessories (2)
+                  Accessories ({categoryCounts.Accessories})
                 </button>
                 <button
                   type="button"
@@ -579,26 +733,6 @@ export function DashboardHome({
                   title="Add category filter"
                 >
                   <Plus size={14} />
-                </button>
-              </div>
-
-              {/* View Toggle */}
-              <div className="products-view-toggle">
-                <button
-                  type="button"
-                  className={`view-toggle-btn ${viewMode === "grid" ? "active" : ""}`}
-                  onClick={() => setViewMode("grid")}
-                  aria-label="Grid view"
-                >
-                  <LayoutGrid size={15} />
-                </button>
-                <button
-                  type="button"
-                  className={`view-toggle-btn ${viewMode === "list" ? "active" : ""}`}
-                  onClick={() => setViewMode("list")}
-                  aria-label="List view"
-                >
-                  <List size={15} />
                 </button>
               </div>
             </div>
@@ -716,7 +850,7 @@ export function DashboardHome({
               </div>
 
               <div className="timeline-items-flow">
-                {masterTimelineData.map((item) => (
+                {timelineItems.map((item) => (
                   <React.Fragment key={item.id}>
                     {item.section && (
                       <div className="timeline-section-divider">
