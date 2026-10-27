@@ -150,9 +150,15 @@ describe("UnifiedTimelineView", () => {
 
     // Approved top hierarchy
     expect(await screen.findByText("UNIFIED PRODUCT TIMELINE")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Your ownership history." })).toBeInTheDocument();
     expect(
-      screen.getByText("Every purchase, milestone and product event — all in one place.")
+      screen.getByRole("heading", {
+        name: /Your ownership timeline\.|Your ownership history\./i,
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /From past purchases to upcoming milestones, every product event in one place\.|Every purchase, milestone and product event — all in one place\./i
+      )
     ).toBeInTheDocument();
 
     // Verifies duplicate inner headers are removed

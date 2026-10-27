@@ -38,6 +38,7 @@ import { AddProduct, type ProductPayload } from "./AddProduct";
 import { ProductPassportModal } from "./ProductPassportModal";
 import { Timeline, type TimelineEntry } from "@/components/ui/timeline";
 import "./UnifiedTimelineView.css";
+import { PriceWatchView } from "./PriceWatch/PriceWatchView";
 
 export type Product = {
   id: string;
@@ -248,9 +249,9 @@ const headings: Record<ProductCenterView, [string, string, string]> = {
     "Every product you've saved. Every detail worth keeping.",
   ],
   "add-product": ["NEW PRODUCT REGISTRATION", "Add Product", "Extract details from an invoice, paste a product link, or enter information manually."],
-  prices: ["MANUAL PRICE WATCH", "Know when the price is right.", "Record the price you see and compare it with your target. No retailer scraping is running."],
+  prices: ["PRICE INTELLIGENCE", "Find the right price. Never miss the drop.", "Paste a product link, compare available offers across supported stores, and set an alert for the price you want. Know when the price is right."],
   reminders: ["PRODUCT-SPECIFIC REMINDERS", "A nudge on your terms.", "Set a reminder using your own estimated usage period. It appears in your ProductVault timeline."],
-  timeline: ["UNIFIED PRODUCT TIMELINE", "Your ownership history.", "Every purchase, milestone and product event — all in one place."],
+  timeline: ["UNIFIED PRODUCT TIMELINE", "Your ownership timeline.", "From past purchases to upcoming milestones, every product event in one place."],
 };
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
@@ -569,57 +570,60 @@ export function ProductCenter({
 
   // Saved Products, Prices, Reminders, Timeline Views
   return (
-    <div className="page-content subpage-content">
-      <div className="product-page-header-row">
-        <div className="product-page-title-block">
-          <div className="eyebrow"><span className="eyebrow-line" /> {heading[0]}</div>
-          {activeView === "products" ? (
-            <TechHeading
-              variant="page"
-              as="h1"
-              text="Your Products"
-              fontSize={44}
-              height={62}
-              accentColor="#EA580C"
-              strokeWidth={2.0}
-              specks={8}
-              className="techttext-heading-title"
-            />
-          ) : (
-            <TechHeading
-              variant="page"
-              as="h1"
-              text={heading[1]}
-              fontSize={40}
-              height={58}
-              accentColor="#EA580C"
-              strokeWidth={2.0}
-              specks={6}
-            />
-          )}
-          <p className="product-page-subtitle">
-            {heading[2]}
-            {activeView === "products" && <span className="sr-only"> Products with a paper trail.</span>}
-          </p>
-        </div>
-
-        {activeView === "products" && onNavigateView && (
-          <div className="product-page-header-action">
-            <button
-              type="button"
-              className="button button-primary library-hero-add-btn"
-              onClick={() => {
-                setActiveView("add-product");
-                onNavigateView("add-product");
-              }}
-              aria-label="Add Product"
-            >
-              <Plus size={16} />
-              <span>Add Product</span>
-            </button>
+    <div className={`page-content subpage-content ${activeView === "timeline" ? "timeline-page-shell" : ""}`}>
+      {activeView !== "prices" && (
+        <div className={`product-page-header-row ${activeView === "timeline" ? "timeline-header-row" : ""}`}>
+          <div className="product-page-title-block">
+            <div className="eyebrow"><span className="eyebrow-line" /> {heading[0]}</div>
+            {activeView === "products" ? (
+              <TechHeading
+                variant="page"
+                as="h1"
+                text="Your Products"
+                fontSize={44}
+                height={62}
+                accentColor="#EA580C"
+                strokeWidth={2.0}
+                specks={8}
+                className="techttext-heading-title"
+              />
+            ) : (
+              <TechHeading
+                variant="page"
+                as="h1"
+                text={heading[1]}
+                fontSize={40}
+                height={58}
+                color={activeView === "timeline" ? "#FAF7F2" : undefined}
+                accentColor="#EA580C"
+                strokeWidth={2.0}
+                specks={6}
+              />
+            )}
+            <p className="product-page-subtitle">
+              {heading[2]}
+              {activeView === "products" && <span className="sr-only"> Products with a paper trail.</span>}
+            </p>
           </div>
-        )}
-      </div>
+
+          {activeView === "products" && onNavigateView && (
+            <div className="product-page-header-action">
+              <button
+                type="button"
+                className="button button-primary library-hero-add-btn"
+                onClick={() => {
+                  setActiveView("add-product");
+                  onNavigateView("add-product");
+                }}
+                aria-label="Add Product"
+              >
+                <Plus size={16} />
+                <span>Add Product</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {!ready ? (
         <div className="tool-empty" role="status">Loading your ownership records…</div>
@@ -654,7 +658,7 @@ export function ProductCenter({
           ) : null}
 
           {activeView === "prices" ? (
-            <PriceTracker
+            <PriceWatchView
               products={products}
               watches={watches}
               busy={busy}
@@ -1369,129 +1373,7 @@ function ProductLibrary({
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Manual Price Tracker Subpage
-// ─────────────────────────────────────────────────────────────────────────────
-function PriceTracker({
-  products,
-  watches,
-  busy,
-  onAdd,
-  onUpdate,
-  onRemove,
-}: {
-  products: Product[];
-  watches: PriceWatch[];
-  busy: boolean;
-  onAdd: (watch: { productId: string; productUrl: string; currentPrice: number; targetPrice: number }) => Promise<boolean>;
-  onUpdate: (id: string, price: number) => Promise<boolean>;
-  onRemove: (id: string) => Promise<boolean>;
-}) {
-  const [productId, setProductId] = useState("");
-  const [url, setUrl] = useState("");
-  const [currentPrice, setCurrentPrice] = useState("");
-  const [targetPrice, setTargetPrice] = useState("");
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const saved = await onAdd({ productId, productUrl: url.trim(), currentPrice: Number(currentPrice), targetPrice: Number(targetPrice) });
-    if (saved) { setUrl(""); setCurrentPrice(""); setTargetPrice(""); }
-  }
-
-  return (
-    <>
-      <form className="tool-form" onSubmit={submit}>
-        <div className="tool-form-title">
-          <span className="tool-icon"><TrendingDown size={17} /></span>
-          <div>
-            <h2>Start a manual watch</h2>
-            <p>Set a target and update the current price when you check a retailer.</p>
-          </div>
-        </div>
-        {products.length === 0 ? (
-          <p className="tool-empty">Add a product in Products before creating a price watch.</p>
-        ) : (
-          <div className="tool-fields tool-fields-four">
-            <label>
-              Product
-              <select required value={productId} onChange={(event) => setProductId(event.target.value)}>
-                <option value="">Choose a saved product</option>
-                {products.map((product) => (
-                  <option value={product.id} key={product.id}>{product.name}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Product link <span className="optional-label">OPTIONAL · HTTPS</span>
-              <input type="url" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://store.example/item" />
-            </label>
-            <label>
-              Current price (₹)
-              <input required type="number" min="0" max="9999999999.99" step="0.01" value={currentPrice} onChange={(event) => setCurrentPrice(event.target.value)} placeholder="2499" />
-            </label>
-            <label>
-              Alert below (₹)
-              <input required type="number" min="0" max="9999999999.99" step="0.01" value={targetPrice} onChange={(event) => setTargetPrice(event.target.value)} placeholder="1999" />
-            </label>
-          </div>
-        )}
-        <div className="tool-form-actions">
-          <button disabled={busy || products.length === 0} className="button button-primary" type="submit">
-            <Plus size={15} /> Add manual watch
-          </button>
-        </div>
-      </form>
-      <section className="tool-list" aria-labelledby="price-watch-title">
-        <div className="tool-list-heading">
-          <div>
-            <div className="eyebrow"><span className="eyebrow-line" /> PRICE WATCHES</div>
-            <h2 id="price-watch-title">Your tracked items</h2>
-          </div>
-          <span className="quiet-count">MANUAL MODE</span>
-        </div>
-        {watches.length === 0 ? (
-          <div className="tool-empty">No watches yet. Automated price checks need a supported data source/API.</div>
-        ) : (
-          watches.map((watch) => (
-            <article className="watch-row" key={watch.id}>
-              <div className="product-avatar"><TrendingDown size={18} /></div>
-              <div className="watch-main">
-                <strong>{watch.name}</strong>
-                {watch.url && <a href={watch.url} target="_blank" rel="noreferrer">Open product link</a>}
-                <span>Target · ₹{watch.targetPrice.toLocaleString("en-IN")}</span>
-              </div>
-              <div className="watch-price">
-                <span>CURRENT PRICE</span>
-                <strong>₹{watch.currentPrice.toLocaleString("en-IN")}</strong>
-              </div>
-              {watch.currentPrice <= watch.targetPrice ? (
-                <span className="target-reached" role="status"><CheckCircle2 size={14} /> Target reached</span>
-              ) : (
-                <form
-                  className="update-price-form"
-                  onSubmit={async (event) => {
-                    event.preventDefault();
-                    const form = event.currentTarget;
-                    const input = form.elements.namedItem("manual-price") as HTMLInputElement;
-                    const price = Number(input.value);
-                    if (price >= 0 && await onUpdate(watch.id, price)) form.reset();
-                  }}
-                >
-                  <label className="visually-hidden" htmlFor={`manual-price-${watch.id}`}>New price for {watch.name}</label>
-                  <input id={`manual-price-${watch.id}`} name="manual-price" required type="number" min="0" max="9999999999.99" step="0.01" placeholder="New ₹" />
-                  <button disabled={busy} type="submit" aria-label={`Save price for ${watch.name}`}>Update</button>
-                </form>
-              )}
-              <button className="tool-icon-button" aria-label={`Remove price watch for ${watch.name}`} disabled={busy} onClick={() => onRemove(watch.id)}>
-                <Trash2 size={15} />
-              </button>
-            </article>
-          ))
-        )}
-      </section>
-    </>
-  );
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Usage & Replenishment Reminder Subpage
@@ -1739,7 +1621,7 @@ function UnifiedTimelineView({
       events.push({
         id: `warranty-${product.id}`,
         date: wEnd,
-        title: isFuture ? "Active warranty coverage" : "Warranty coverage ended",
+        title: isFuture ? "Warranty expires" : "Warranty coverage ended",
         detail: isFuture
           ? (product.warrantyDurationMonths
               ? `Standard manufacturer ${product.warrantyDurationMonths}-month coverage valid through ${formatDate(wEnd)}`
@@ -1883,7 +1765,8 @@ function UnifiedTimelineView({
         <span
           className={`timeline-status-badge ${hasUpcoming ? "badge-upcoming" : "badge-expired"}`}
         >
-          {milestoneTag}
+          <span className="timeline-status-pip" aria-hidden="true" />
+          <span>{milestoneTag}</span>
         </span>
       ) : undefined,
       nodeIcon,
@@ -1911,14 +1794,17 @@ function UnifiedTimelineView({
                 aria-label={`${event.title} - ${event.productName}`}
               >
                 <header className="timeline-card-header">
-                  <div className="timeline-product-pill">
+                  <div className="timeline-product-identity" title={event.productName}>
                     <div className="timeline-product-thumb">
                       <ProductVisual product={prod} className="w-full h-full object-cover" />
                     </div>
                     <span className="timeline-product-name">{event.productName}</span>
+                    {prod.model && prod.model !== event.productName && !event.productName.toLowerCase().includes(prod.model.toLowerCase()) && (
+                      <span className="timeline-product-variant" title={prod.model}>· {prod.model}</span>
+                    )}
                   </div>
 
-                  <span className="timeline-type-tag">{event.typeLabel}</span>
+                  <span className={`timeline-type-tag timeline-tag-${event.kind}`}>{event.typeLabel}</span>
                 </header>
 
                 <div className="timeline-card-body">
@@ -1929,15 +1815,20 @@ function UnifiedTimelineView({
                 </div>
 
                 <footer className="timeline-card-footer">
+                  <div className="timeline-card-meta">
+                    {event.seller && event.kind !== "purchase" && (
+                      <span className="timeline-meta-seller" title={event.seller}>Seller: {event.seller}</span>
+                    )}
+                  </div>
                   <button
                     type="button"
                     className="timeline-action-btn"
                     onClick={() => onSelectProduct(event.productId)}
                     aria-label={`View Passport for ${event.productName}`}
                   >
-                    <Eye size={13} aria-hidden="true" />
+                    <Eye size={12} aria-hidden="true" />
                     <span>View Passport</span>
-                    <ChevronRight size={13} aria-hidden="true" />
+                    <ChevronRight size={12} aria-hidden="true" />
                   </button>
                 </footer>
               </article>
