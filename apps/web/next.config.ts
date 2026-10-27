@@ -1,7 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins: ["regress-outer-ambiance.ngrok-free.dev"],
   turbopack: { root: process.cwd() },
   allowedDevOrigins: ["regress-outer-ambiance.ngrok-free.dev"],
   serverExternalPackages: ["pdfjs-dist", "@google-cloud/vision", "tesseract.js", "@napi-rs/canvas"],
