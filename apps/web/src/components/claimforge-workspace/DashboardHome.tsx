@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useGreeting } from "@/lib/time/useGreeting";
 import { TechHeading } from "../TechText";
 import {
@@ -330,6 +330,27 @@ export function DashboardHome({
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedProduct, setSelectedProduct] = useState<ProductCardItem | null>(null);
+
+  // Scroll-linked beam progress for dashboard timeline rail
+  const dashboardScrollRef = useRef<HTMLDivElement>(null);
+  const [dashboardBeamProgress, setDashboardBeamProgress] = useState(0);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  function handleDashboardScroll() {
+    const el = dashboardScrollRef.current;
+    if (!el) return;
+    const maxScroll = el.scrollHeight - el.clientHeight;
+    if (maxScroll <= 0) {
+      setDashboardBeamProgress(0);
+      return;
+    }
+    const progress = Math.min(100, Math.max(0, (el.scrollTop / maxScroll) * 100));
+    setDashboardBeamProgress(progress);
+  }
 
   // Dynamic pending tasks count
   const pendingCount = tasks.filter((t) => !t.done).length;
@@ -673,8 +694,21 @@ export function DashboardHome({
             </div>
 
             {/* Scrollable Timeline Events */}
-            <div className="timeline-events-scroll-container">
-              <div className="timeline-vertical-spine" />
+            <div
+              className="timeline-events-scroll-container"
+              ref={dashboardScrollRef}
+              onScroll={handleDashboardScroll}
+            >
+              <div className="timeline-vertical-spine" suppressHydrationWarning>
+                {mounted && (
+                  <div
+                    className="timeline-vertical-spine-beam"
+                    style={{ height: `${dashboardBeamProgress}%` }}
+                    aria-hidden="true"
+                    suppressHydrationWarning
+                  />
+                )}
+              </div>
 
               <div className="timeline-items-flow">
                 {masterTimelineData.map((item) => (

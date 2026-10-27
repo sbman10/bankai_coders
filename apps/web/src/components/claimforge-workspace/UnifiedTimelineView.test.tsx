@@ -245,4 +245,34 @@ describe("UnifiedTimelineView", () => {
     // Product Passport modal should open
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
   });
+
+  it("renders Aceternity sticky year chapter dividers for distinct chronological chapters", async () => {
+    render(<ProductCenter view="timeline" />);
+
+    await screen.findAllByText("Sony WH-1000XM5 Noise Cancelling Headphones");
+
+    // Year chapter dividers exist
+    const yearChapters = screen.getAllByTestId("timeline-year-chapter");
+    expect(yearChapters.length).toBeGreaterThan(0);
+
+    // Verify presence of secondary chapter year badges (e.g. 2028, 2027, 2026, 2024, 2023)
+    const chapterTexts = yearChapters.map((el) => el.textContent?.trim());
+    expect(chapterTexts.some((txt) => txt?.includes("2028"))).toBe(true);
+    expect(chapterTexts.some((txt) => txt?.includes("2024") || txt?.includes("2023"))).toBe(true);
+  });
+
+  it("renders exact-date markers with tabular day, uppercase month, and year", async () => {
+    render(<ProductCenter view="timeline" />);
+
+    await screen.findAllByText("Sony WH-1000XM5 Noise Cancelling Headphones");
+
+    const dateChips = screen.getAllByTestId("timeline-date-chip");
+    expect(dateChips.length).toBeGreaterThan(0);
+
+    // The first date chip (future event in 2028) has day "15", month "JAN", year "2028"
+    const firstChip = dateChips[0];
+    expect(firstChip.querySelector(".timeline-day-num")).toBeInTheDocument();
+    expect(firstChip.querySelector(".timeline-month-txt")).toBeInTheDocument();
+    expect(firstChip.querySelector(".timeline-year-txt")).toBeInTheDocument();
+  });
 });
