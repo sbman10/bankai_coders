@@ -1,6 +1,7 @@
 import type { CanonicalProductIdentity, ScrapedContent, SupportedStorePlatform } from "../platforms/platform.types";
 import { extractAsin } from "@/lib/amazon/asin";
 import { extractFlipkartPid } from "../platforms/flipkart-adapter";
+import { isBlockedOrErrorTitle } from "./canonical-identity";
 
 export type ScraperFailureReason =
   | "PAGE_ACQUISITION_FAILED"
@@ -118,35 +119,59 @@ export function validateExtractedIdentityAgainstUrl(
   const urlId = extractIdentifierFromUrl(requestedUrl, extracted.platform);
   const extractedId = extracted.productIdentifier || extracted.sku;
 
-  // 1. CAPTCHA or Robot block check
-  const textToCheck = `${content?.markdown || ""} ${content?.html || ""}`.toLowerCase();
+  // 1. CAPTCHA, Robot block, or Advertising-domain blocked check
+  const rawTitleLower = (extracted.rawTitle || "").toLowerCase();
+  const cleanTitleLower = (extracted.cleanTitle || "").toLowerCase();
+
   if (
-    textToCheck.includes("enter the characters you see below") ||
-    textToCheck.includes("type the characters above") ||
-    textToCheck.includes("robot check") ||
-    textToCheck.includes("automated access")
+    isBlockedOrErrorTitle(extracted.cleanTitle) ||
+    isBlockedOrErrorTitle(extracted.rawTitle) ||
+    rawTitleLower.includes("amazon-adsystem") ||
+    rawTitleLower.includes("is blocked") ||
+    cleanTitleLower.includes("amazon-adsystem") ||
+    cleanTitleLower.includes("is blocked")
   ) {
     return {
       isValid: false,
       failureReason: "CAPTCHA_OR_BLOCKED",
-      message: "Scraping acquisition was intercepted by a bot challenge or captcha.",
+      message: `Scraping acquisition was intercepted by a bot challenge, advertising domain, or block page: ${extracted.cleanTitle || extracted.rawTitle || "Blocked Page"}`,
     };
   }
 
-  // 2. Generic Home or Category page check
+  const textToCheck = `${content?.markdown || ""} ${content?.html || ""}`.toLowerCase();
+  if (
+    textToCheck.includes("enter the characters you see below") ||
+    textToCheck.includes("type the characters above") ||
+    textToCheck.includes("to discuss automated access to amazon data") ||
+    textToCheck.includes("api-services-support@amazon.com")
+  ) {
+    return {
+      isValid: false,
+      failureReason: "CAPTCHA_OR_BLOCKED",
+      message: `Scraping acquisition was intercepted by a bot challenge or CAPTCHA: ${extracted.cleanTitle || extracted.rawTitle || "Blocked Page"}`,
+    };
+  }
+
+  // 2. Generic Home, Category page, or missing title check
   const title = (extracted.cleanTitle || extracted.rawTitle || "").trim().toLowerCase();
   if (
     !title ||
+    title.length < 3 ||
+    isBlockedOrErrorTitle(title) ||
     title.includes("online shopping site for mobiles") ||
     title.includes("explore plus") ||
     title.includes("page not found") ||
     title.includes("something went wrong") ||
-    title.includes("hamburger menu")
+    title.includes("looking for something?") ||
+    title.includes("we're sorry") ||
+    title.includes("hamburger menu") ||
+    title === "amazon.in" ||
+    title === "amazon"
   ) {
     return {
       isValid: false,
       failureReason: "INVALID_PRODUCT_PAGE",
-      message: "The page did not return a valid individual product page.",
+      message: "The page did not return a valid individual product page with sufficient product identity evidence.",
     };
   }
 

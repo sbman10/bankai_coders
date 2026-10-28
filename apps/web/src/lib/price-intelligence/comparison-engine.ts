@@ -2,7 +2,7 @@ import type { NormalizedProductQuote, SupportedStorePlatform } from "../platform
 
 export interface StorePriceQuote {
   platform: SupportedStorePlatform;
-  price: number;
+  price: number | null;
   currency: string;
   mrp?: number | null;
   productUrl: string;
@@ -66,9 +66,9 @@ export class PriceComparisonEngine {
 
       const storeQuote: StorePriceQuote = {
         platform: q.platform,
-        price: q.price?.current || 0,
+        price: hasPrice ? q.price!.current : null,
         currency: q.price?.currency || "INR",
-        mrp: q.price?.mrp,
+        mrp: q.price?.mrp ?? null,
         productUrl: q.productUrl,
         seller: q.seller,
         availability: q.availability.status,

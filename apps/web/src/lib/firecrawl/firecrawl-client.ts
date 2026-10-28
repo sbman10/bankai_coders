@@ -144,14 +144,21 @@ export class FirecrawlClient {
         };
         auditLogs.push(audit);
 
-        // Cache the result
-        firecrawlCache.set(url, {
-          url,
-          markdown,
-          html,
-          statusCode: response.status,
-          source: "firecrawl",
-        });
+        // Only cache valid, non-error pages
+        const isErrorPage =
+          response.status >= 400 ||
+          markdown.includes("aax-eu.amazon-adsystem.com is blocked") ||
+          markdown.includes("ERR_BLOCKED_BY_CLIENT");
+
+        if (!isErrorPage) {
+          firecrawlCache.set(url, {
+            url,
+            markdown,
+            html,
+            statusCode: response.status,
+            source: "firecrawl",
+          });
+        }
 
         return {
           markdown,

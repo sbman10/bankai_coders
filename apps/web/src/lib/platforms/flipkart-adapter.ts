@@ -65,6 +65,34 @@ export function canonicalizeFlipkartUrl(url: string): string {
   }
 }
 
+/**
+ * Extracts a product title slug from Flipkart URL as a fallback.
+ * e.g. /samsung-galaxy-a36-5g-dark-green-128-gb/p/itmc39f6516e0cab -> "Samsung Galaxy A36 5G Dark Green 128 GB"
+ */
+export function extractFlipkartTitleFromUrl(url: string): string | null {
+  if (!url || typeof url !== "string") return null;
+  try {
+    let trimmed = url.trim();
+    if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmed)) {
+      trimmed = `https://${trimmed}`;
+    }
+    const parsed = new URL(trimmed);
+    const match = parsed.pathname.match(/^\/([a-zA-Z0-9-]+)\/p\//i);
+    if (match && match[1]) {
+      return match[1]
+        .split("-")
+        .map((w) => {
+          if (/^(?:5g|4g|gb|tb|mb|ram|rom|mah)$/i.test(w)) return w.toUpperCase();
+          return w.charAt(0).toUpperCase() + w.slice(1);
+        })
+        .join(" ");
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export class FlipkartAdapter implements PlatformAdapter {
   readonly platform: SupportedStorePlatform = "Flipkart";
 
@@ -342,22 +370,65 @@ export class FlipkartAdapter implements PlatformAdapter {
 
     // 1. Raw Title
     let rawTitle = "";
-    const h1Match =
-      html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i) ||
-      html.match(/class=["'][^"']*VU-ZEz[^"']*["'][^>]*>([\s\S]*?)<\/span>/i) ||
-      html.match(/class=["'][^"']*B_NuCI[^"']*["'][^>]*>([\s\S]*?)<\/span>/i);
 
+    // 1. Check h1 tag
+    const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
     if (h1Match) {
-      rawTitle = h1Match[1].replace(/<[^>]+>/g, "").trim();
-    } else {
-      const mdH1 = md.match(/^#\s+(.+)$/m);
-      if (mdH1) {
-        rawTitle = mdH1[1].trim();
-      } else {
-        const headTitle = html.match(/<title>([\s\S]*?)<\/title>/i);
-        if (headTitle) {
-          rawTitle = headTitle[1].replace(/\s*-\s*Flipkart.*$/i, "").trim();
+      const candidate = h1Match[1].replace(/<[^>]+>/g, "").trim();
+      if (candidate.length > 2 && !/^(?:flipkart|search icon|login|hang on)/i.test(candidate)) {
+        rawTitle = candidate;
+      }
+    }
+
+    // 2. Specific Flipkart product title classes if h1 was empty
+    if (!rawTitle) {
+      const specificMatches = [
+        html.match(/class=["'][^"']*VU-ZEz[^"']*["'][^>]*>([^<]+)/i),
+        html.match(/class=["'][^"']*B_NuCI[^"']*["'][^>]*>([^<]+)/i),
+        html.match(/class=["'][^"']*_2W9HiO[^"']*["'][^>]*>([^<]+)/i),
+        html.match(/class=["'][^"']*_35KyD6[^"']*["'][^>]*>([^<]+)/i),
+      ];
+      for (const m of specificMatches) {
+        if (m && m[1]) {
+          const candidate = m[1].replace(/<[^>]+>/g, "").trim();
+          if (candidate.length > 2) {
+            rawTitle = candidate;
+            break;
+          }
         }
+      }
+    }
+
+    // Check Markdown H1
+    if (!rawTitle) {
+      const mdH1Matches = [...md.matchAll(/^#\s+(.+)$/gm)];
+      for (const m of mdH1Matches) {
+        if (m && m[1]) {
+          const candidate = m[1].trim();
+          if (candidate.length > 2 && !/^(?:flipkart|search icon|login|hang on)/i.test(candidate)) {
+            rawTitle = candidate;
+            break;
+          }
+        }
+      }
+    }
+
+    // Check <title> tag
+    if (!rawTitle) {
+      const headTitle = html.match(/<title>([\s\S]*?)<\/title>/i);
+      if (headTitle) {
+        const candidate = headTitle[1].replace(/\s*-\s*Flipkart.*$/i, "").replace(/Search Icon/i, "").trim();
+        if (candidate.length > 2) {
+          rawTitle = candidate;
+        }
+      }
+    }
+
+    // Fallback: Extract from Flipkart URL slug (e.g. /samsung-galaxy-a36-5g-dark-green-128-gb/p/...)
+    if (!rawTitle || /^(?:flipkart|search icon|online shopping|hang on)/i.test(rawTitle)) {
+      const slugTitle = extractFlipkartTitleFromUrl(url);
+      if (slugTitle) {
+        rawTitle = slugTitle;
       }
     }
 
