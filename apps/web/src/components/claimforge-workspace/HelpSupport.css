@@ -1,0 +1,400 @@
+/* ==========================================================================
+   Help & Support Component Styles
+   Knowledge base, search filtering, category pills, accordion FAQs
+   ========================================================================== */
+
+.help-support-container {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 32px 24px 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+/* Header */
+.help-header-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.help-back-btn {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s ease;
+  margin-bottom: 4px;
+}
+
+.help-back-btn:hover {
+  color: var(--orange-600);
+}
+
+.help-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--orange-600);
+}
+
+.help-eyebrow-line {
+  width: 18px;
+  height: 2px;
+  background-color: var(--orange-500);
+  border-radius: 999px;
+}
+
+.help-title {
+  font-size: clamp(28px, 4vw, 36px);
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.help-description {
+  font-size: 14.5px;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.5;
+  max-width: 650px;
+}
+
+/* Search Bar */
+.help-search-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: 16px;
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 4px 14px rgba(45, 35, 25, 0.04);
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.help-search-card:focus-within {
+  border-color: var(--orange-500);
+  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.14);
+}
+
+.help-search-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.help-search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--text-primary);
+  outline: none;
+}
+
+.help-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.help-search-clear {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  padding: 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.help-search-clear:hover {
+  color: var(--text-primary);
+}
+
+/* Category Filter Pills */
+.help-category-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.help-category-pill {
+  border: 1px solid var(--border-default);
+  background-color: var(--bg-card);
+  color: var(--text-secondary);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.help-category-pill:hover {
+  background-color: var(--bg-card-hover);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.help-category-pill.is-active {
+  background-color: var(--orange-500);
+  border-color: var(--orange-500);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(249, 115, 22, 0.25);
+}
+
+/* Category Section */
+.help-category-block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.help-category-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.help-category-icon {
+  color: var(--orange-600);
+}
+
+.help-category-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+/* FAQ Accordion List */
+.help-faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.help-faq-item {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: 14px;
+  overflow: hidden;
+  transition: border-color 0.15s ease;
+}
+
+.help-faq-item:hover {
+  border-color: var(--border-strong);
+}
+
+.help-faq-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 20px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+
+.help-faq-question {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.35;
+}
+
+.help-faq-chevron {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.help-faq-item.is-open .help-faq-chevron {
+  transform: rotate(180deg);
+  color: var(--orange-600);
+}
+
+.help-faq-content {
+  padding: 0 20px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.help-faq-answer {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin: 0;
+}
+
+.help-faq-action-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.help-faq-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background-color: var(--bg-card-secondary);
+  border: 1px solid var(--border-default);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--orange-700);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.dark-theme .help-faq-nav-btn,
+[data-theme="dark"] .help-faq-nav-btn,
+body.dark .help-faq-nav-btn {
+  color: #fb923c;
+}
+
+.help-faq-nav-btn:hover {
+  background-color: var(--orange-100);
+  border-color: var(--orange-200);
+}
+
+/* Empty Search Results */
+.help-no-results {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: 16px;
+  padding: 44px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+}
+
+.help-no-results-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background-color: var(--bg-card-secondary);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.help-no-results-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.help-no-results-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  max-width: 400px;
+  margin: 0;
+  line-height: 1.45;
+}
+
+.help-clear-search-btn {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  background-color: var(--orange-500);
+  border: none;
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.help-clear-search-btn:hover {
+  background-color: var(--orange-600);
+}
+
+/* Platform & Transparency Notice */
+.help-platform-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: 18px;
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 4px 14px rgba(45, 35, 25, 0.04);
+}
+
+.help-platform-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.help-platform-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.help-platform-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background-color: var(--bg-card-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+}
+
+.help-platform-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .help-support-container {
+    padding: 20px 16px 60px;
+    gap: 24px;
+  }
+  .help-platform-card {
+    padding: 18px 16px;
+  }
+}

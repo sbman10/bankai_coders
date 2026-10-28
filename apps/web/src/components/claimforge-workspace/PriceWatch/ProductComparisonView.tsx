@@ -3,12 +3,10 @@ import {
   ExternalLink,
   ShieldCheck,
   Package,
-  TrendingDown,
-  TrendingUp,
-  Tag,
-  Store,
-  ArrowUpDown,
   CheckCircle,
+  AlertCircle,
+  Tag,
+  ArrowUpDown,
 } from "lucide-react";
 import { DiscoveredProduct, RetailerOffer } from "./types";
 import { formatINR } from "./priceWatchAdapter";
@@ -18,192 +16,240 @@ interface ProductComparisonViewProps {
 }
 
 export function ProductComparisonView({ product }: ProductComparisonViewProps) {
-  const [sortBy, setSortBy] = useState<"price_asc" | "price_desc" | "retailer">("price_asc");
+  const [imgError, setImgError] = useState(false);
+  const [sortBy, setSortBy] = useState<"price_asc" | "price_desc">("price_asc");
+
+  // Filter valid in-stock or active offers
+  const validOffers = product.offers.filter((o) => o.price > 0);
+  const inStockOffers = validOffers.filter((o) => o.availability !== "out_of_stock");
+
+  // Determine true lowest valid price offer
+  const lowestOffer = inStockOffers.length > 0
+    ? [...inStockOffers].sort((a, b) => a.price - b.price)[0]
+    : validOffers.length > 0
+    ? [...validOffers].sort((a, b) => a.price - b.price)[0]
+    : undefined;
 
   // Sorted offers based on user preference
   const sortedOffers = [...product.offers].sort((a, b) => {
     if (sortBy === "price_asc") return a.price - b.price;
-    if (sortBy === "price_desc") return b.price - a.price;
-    return a.retailerName.localeCompare(b.retailerName);
+    return b.price - a.price;
   });
 
+  // Approved store coverage tracking
+  const presentRetailers = new Set(product.offers.map((o) => o.retailerName.toLowerCase()));
+  const missingRetailers = ["Amazon India", "Flipkart", "Meesho"].filter(
+    (name) => !presentRetailers.has(name.toLowerCase()) && !presentRetailers.has(name.split(" ")[0].toLowerCase())
+  );
+
   return (
-    <section className="pw2-comparison-container" aria-label="Product Identification and Multi-Store Comparison">
-      {/* B1. Product Identity Card */}
-      <div className="pw2-product-card">
-        <div className="pw2-product-image-box">
-          {product.imageUrl ? (
+    <section className="pw2-comparison-section" aria-label="Product Identification and Multi-Store Comparison">
+      {/* 5A. Product Identity Header Card */}
+      <div className="pw2-product-identity-card">
+        <div className="pw2-product-image-frame">
+          {product.imageUrl && !imgError ? (
             <img
               src={product.imageUrl}
               alt={product.title}
               className="pw2-product-img"
               loading="lazy"
-              onError={(e) => {
-                // Graceful fallback if external image fails
-                (e.currentTarget as HTMLElement).style.display = "none";
-              }}
+              onError={() => setImgError(true)}
             />
           ) : (
-            <Package size={44} strokeWidth={1.5} color="#8C827A" />
+            <div className="pw2-product-img-fallback" aria-hidden="true">
+              <Package size={36} strokeWidth={1.5} color="#8C827A" />
+            </div>
           )}
         </div>
 
-        <div className="pw2-product-details">
-          <div className="pw2-product-meta-top">
-            <span className="pw2-brand-badge">{product.brand}</span>
-            <span className="pw2-source-tag">Identified via {product.sourceRetailer}</span>
-            <span className="pw2-verified-tag">
+        <div className="pw2-product-meta-col">
+          <div className="pw2-product-badge-row">
+            {product.brand && (
+              <span className="pw2-brand-tag">{product.brand}</span>
+            )}
+            <span className="pw2-source-tag">Via {product.sourceRetailer}</span>
+            <span className="pw2-live-tag">
               <CheckCircle size={12} />
-              <span>{product.verifiedTimestamp}</span>
+              <span>{product.verifiedTimestamp || "Verified live"}</span>
             </span>
           </div>
 
-          <h2 className="pw2-product-title" title={product.title}>
+          <h2 className="pw2-product-name" title={product.title}>
             {product.title}
           </h2>
 
           {product.variant && (
-            <p className="pw2-product-variant">{product.variant}</p>
+            <p className="pw2-product-specs">{product.variant}</p>
           )}
 
+          {/* 5B. Matching Safety & Confidence Disclaimer */}
           {product.matchingConfidenceNote && (
-            <div className="pw2-match-disclaimer">
-              <ShieldCheck size={14} color="#15803D" />
+            <div className="pw2-safety-note" role="note">
+              <ShieldCheck size={14} className="pw2-safety-icon" />
               <span>{product.matchingConfidenceNote}</span>
             </div>
           )}
         </div>
       </div>
 
-      {/* B2. Price Intelligence Summary Metric Strip */}
-      <div className="pw2-metric-strip">
-        <div className="pw2-metric-card is-lowest">
-          <span className="pw2-metric-label">Lowest Current Offer</span>
-          <span className="pw2-metric-value">{formatINR(product.lowestPrice)}</span>
-          <span className="pw2-metric-hint">
-            Available at {product.offers.find((o) => o.isLowestPrice)?.retailerName || "Retailer"}
+      {/* 6. Succinct Price Comparison Summary Strip (Integrated, not oversized KPI dashboard) */}
+      <div className="pw2-summary-bar">
+        <div className="pw2-summary-item">
+          <span className="pw2-summary-label">Lowest verified price</span>
+          <span className="pw2-summary-value-accent">
+            {lowestOffer ? formatINR(lowestOffer.price) : formatINR(product.lowestPrice)}
+          </span>
+          {lowestOffer && (
+            <span className="pw2-summary-sub">At {lowestOffer.retailerName}</span>
+          )}
+        </div>
+
+        <div className="pw2-summary-divider" aria-hidden="true" />
+
+        <div className="pw2-summary-item">
+          <span className="pw2-summary-label">Verified store offers</span>
+          <span className="pw2-summary-value">{product.offers.length}</span>
+          <span className="pw2-summary-sub">
+            {product.offers.length === 1 ? "Single store verified" : "Across checked stores"}
           </span>
         </div>
 
-        <div className="pw2-metric-card">
-          <span className="pw2-metric-label">Highest Observed Offer</span>
-          <span className="pw2-metric-value">{formatINR(product.highestPrice)}</span>
-          <span className="pw2-metric-hint">Among comparable verified listings</span>
-        </div>
-
-        <div className="pw2-metric-card">
-          <span className="pw2-metric-label">Potential Difference</span>
-          <span className="pw2-metric-value">{formatINR(product.potentialSavings)}</span>
-          <span className="pw2-metric-hint">Spread across monitored retailers</span>
-        </div>
-
-        <div className="pw2-metric-card">
-          <span className="pw2-metric-label">Stores Compared</span>
-          <span className="pw2-metric-value">{product.storesCount}</span>
-          <span className="pw2-metric-hint">Active retailers with stock checked</span>
-        </div>
+        {product.potentialSavings > 0 && product.offers.length > 1 && (
+          <>
+            <div className="pw2-summary-divider" aria-hidden="true" />
+            <div className="pw2-summary-item">
+              <span className="pw2-summary-label">Price spread</span>
+              <span className="pw2-summary-value">{formatINR(product.potentialSavings)}</span>
+              <span className="pw2-summary-sub">Between lowest & highest valid offer</span>
+            </div>
+          </>
+        )}
       </div>
 
-      {/* B3. Retailer Comparison Table */}
-      <div className="pw2-table-card">
-        <div className="pw2-table-header">
-          <div className="pw2-table-title-wrap">
-            <Store size={18} color="#EA580C" />
-            <h3 className="pw2-table-title">Available Store Offers ({product.offers.length})</h3>
-          </div>
+      {/* 5C. Store Comparison Grid */}
+      <div className="pw2-store-grid-wrap">
+        <div className="pw2-store-grid-header">
+          <h3 className="pw2-store-grid-title">
+            Store offers ({product.offers.length})
+          </h3>
 
-          <div className="pw2-table-sort-wrap">
-            <ArrowUpDown size={14} />
-            <label htmlFor="pw2-sort-select">Sort by:</label>
-            <select
-              id="pw2-sort-select"
-              className="pw2-sort-select"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as "price_asc" | "price_desc" | "retailer")}
-              aria-label="Sort retailer offers"
-            >
-              <option value="price_asc">Price: Lowest First</option>
-              <option value="price_desc">Price: Highest First</option>
-              <option value="retailer">Retailer Name (A-Z)</option>
-            </select>
-          </div>
+          {product.offers.length > 1 && (
+            <div className="pw2-sort-controls">
+              <ArrowUpDown size={13} />
+              <label htmlFor="pw2-sort-select">Sort by:</label>
+              <select
+                id="pw2-sort-select"
+                className="pw2-sort-dropdown"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as "price_asc" | "price_desc")}
+                aria-label="Sort retailer offers"
+              >
+                <option value="price_asc">Price: Lowest first</option>
+                <option value="price_desc">Price: Highest first</option>
+              </select>
+            </div>
+          )}
         </div>
 
-        <div className="pw2-table-wrap">
-          <table className="pw2-table" aria-label="Retailer price comparison table">
-            <thead>
-              <tr>
-                <th scope="col">Retailer</th>
-                <th scope="col">Current Price</th>
-                <th scope="col">Availability</th>
-                <th scope="col">Last Checked</th>
-                <th scope="col" style={{ textAlign: "right" }}>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedOffers.map((offer) => {
-                const isLowest = offer.isLowestPrice ?? (offer.price === product.lowestPrice);
+        {product.offers.length === 0 ? (
+          <div className="pw2-offers-empty">
+            <AlertCircle size={22} className="pw2-empty-alert-icon" />
+            <p className="pw2-offers-empty-title">No verified offers found</p>
+            <p className="pw2-offers-empty-text">
+              We could not verify in-stock listings for this exact product model at this moment. Please check the product link or try again shortly.
+            </p>
+          </div>
+        ) : (
+          <div className="pw2-store-cards-grid">
+            {sortedOffers.map((offer) => {
+              const isLowest = lowestOffer?.id === offer.id;
+              const isOutOfStock = offer.availability === "out_of_stock";
 
-                return (
-                  <tr
-                    key={offer.id}
-                    className={`pw2-table-row ${isLowest ? "is-lowest" : ""}`}
-                  >
-                    <td>
-                      <div className="pw2-store-cell">
-                        <div className="pw2-store-badge-icon">
-                          {offer.retailerName.charAt(0)}
-                        </div>
-                        <div className="pw2-store-name-col">
-                          <span className="pw2-store-name">{offer.retailerName}</span>
-                          <span className="pw2-store-domain">{offer.storeDomain}</span>
-                        </div>
-                      </div>
-                    </td>
+              return (
+                <div
+                  key={offer.id}
+                  className={`pw2-store-card ${isLowest ? "is-lowest" : ""} ${isOutOfStock ? "is-unavailable" : ""}`}
+                >
+                  {/* Card Header: Store name & Lowest badge */}
+                  <div className="pw2-store-card-header">
+                    <div className="pw2-store-identity">
+                      <span className="pw2-store-retailer-name">{offer.retailerName}</span>
+                      <span className="pw2-store-retailer-domain">{offer.storeDomain}</span>
+                    </div>
 
-                    <td>
-                      <div className="pw2-price-cell">
-                        <span className="pw2-price-current">{formatINR(offer.price)}</span>
-                        {offer.originalPrice && offer.originalPrice > offer.price && (
-                          <span className="pw2-price-original">{formatINR(offer.originalPrice)}</span>
-                        )}
-                        {isLowest && (
-                          <span className="pw2-lowest-pill">Lowest</span>
-                        )}
-                      </div>
-                    </td>
-
-                    <td>
-                      <div className="pw2-availability-cell">
-                        <span className={`pw2-stock-dot ${offer.availability}`} />
-                        <span>{offer.availabilityText || (offer.availability === "in_stock" ? "In Stock" : "Limited Stock")}</span>
-                      </div>
-                    </td>
-
-                    <td>
-                      <span style={{ fontSize: "0.8125rem", color: "#78716C" }}>
-                        {offer.lastCheckedAt}
+                    {isLowest && (
+                      <span className="pw2-lowest-badge">
+                        Lowest verified price
                       </span>
-                    </td>
+                    )}
+                  </div>
 
-                    <td style={{ textAlign: "right" }}>
-                      <a
-                        href={offer.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="pw2-visit-btn"
-                        aria-label={`Visit ${offer.retailerName} offer for ${formatINR(offer.price)}`}
-                      >
-                        <span>Visit Store</span>
-                        <ExternalLink size={13} />
-                      </a>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                  {/* Thumbnail Preview */}
+                  <div className="pw2-store-card-thumb">
+                    {product.imageUrl && !imgError ? (
+                      <img
+                        src={product.imageUrl}
+                        alt={`${offer.retailerName} offer`}
+                        className="pw2-store-thumb-img"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <Package size={24} color="#8C827A" />
+                    )}
+                  </div>
+
+                  {/* Price Hierarchy */}
+                  <div className="pw2-store-pricing">
+                    <div className="pw2-store-price-main">
+                      <span className="pw2-store-price-amount">
+                        {formatINR(offer.price)}
+                      </span>
+                      {offer.originalPrice && offer.originalPrice > offer.price && (
+                        <span className="pw2-store-mrp-strikethrough">
+                          {formatINR(offer.originalPrice)}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Availability Status */}
+                    <div className="pw2-store-stock-row">
+                      <span className={`pw2-stock-status-dot ${offer.availability}`} />
+                      <span className="pw2-stock-status-text">
+                        {offer.availabilityText || (isOutOfStock ? "Out of stock" : "In Stock")}
+                      </span>
+                    </div>
+
+                    {/* Last Checked */}
+                    <span className="pw2-store-last-checked">
+                      {offer.lastCheckedAt}
+                    </span>
+                  </div>
+
+                  {/* Link CTA */}
+                  <div className="pw2-store-card-footer">
+                    <a
+                      href={offer.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="pw2-store-visit-link"
+                      aria-label={`View ${offer.retailerName} listing for ${formatINR(offer.price)}`}
+                    >
+                      <span>View on {offer.retailerName.split(" ")[0]}</span>
+                      <ExternalLink size={13} />
+                    </a>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* 5E. Partial Results Notice if some stores could not be verified */}
+        {missingRetailers.length > 0 && product.offers.length > 0 && (
+          <p className="pw2-partial-notice">
+            Note: {missingRetailers.join(" and ")} listings could not be verified for this exact variant or were unavailable.
+          </p>
+        )}
       </div>
     </section>
   );

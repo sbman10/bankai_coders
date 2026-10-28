@@ -1,7 +1,6 @@
-import React, { useState, FormEvent } from "react";
-import { Link2, Search, X, AlertCircle, Loader2, Sparkles } from "lucide-react";
+import React, { useState, FormEvent, KeyboardEvent } from "react";
+import { Search, X, AlertCircle, Loader2 } from "lucide-react";
 import { validateProductUrl } from "./priceWatchAdapter";
-import { SAMPLE_PRODUCTS } from "./priceWatchDemoData";
 
 interface PriceDiscoveryHeroProps {
   onDiscover: (url: string) => Promise<void>;
@@ -13,13 +12,20 @@ export function PriceDiscoveryHero({ onDiscover, isLoading, initialUrl = "" }: P
   const [url, setUrl] = useState(initialUrl);
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: FormEvent) => {
+    if (e) e.preventDefault();
+    if (isLoading) return;
+
+    const trimmed = url.trim();
+    if (!trimmed) {
+      return;
+    }
+
     setValidationError(null);
 
-    const validation = validateProductUrl(url);
+    const validation = validateProductUrl(trimmed);
     if (!validation.isValid) {
-      setValidationError(validation.error || "Please enter a valid product URL.");
+      setValidationError(validation.error || "Please enter a valid product link from Amazon, Flipkart or Meesho.");
       return;
     }
 
@@ -30,47 +36,41 @@ export function PriceDiscoveryHero({ onDiscover, isLoading, initialUrl = "" }: P
     }
   };
 
-  const handleSelectSample = (sampleUrl: string) => {
-    setUrl(sampleUrl);
-    setValidationError(null);
-    void onDiscover(sampleUrl);
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      void handleSubmit();
+    }
   };
 
   return (
-    <section className="pw2-hero-card" aria-labelledby="pw2-hero-title">
-      <div className="pw2-hero-header">
-        <div className="pw2-eyebrow">
-          <span className="pw2-eyebrow-line" />
-          <span>PRICE INTELLIGENCE</span>
-        </div>
-        <h1 id="pw2-hero-title" className="pw2-hero-title">
-          Find the right price. Never miss the drop.
-        </h1>
-        <p className="pw2-hero-subtitle">
-          Paste a product link, compare available offers across supported stores, and set an alert for the price you want. Know when the price is right.
-        </p>
-      </div>
+    <section className="pw2-search-section" aria-label="Product Price Search">
+      {/* Standalone Central Heading — No eyebrow, no subtitle, deliberate whitespace */}
+      <h1 className="pw2-search-title">
+        Find the best price.
+      </h1>
 
-      <form className="pw2-url-form" onSubmit={handleSubmit} noValidate>
-        <div className={`pw2-url-input-wrap ${validationError ? "is-error" : ""}`}>
-          <Link2 size={20} className="pw2-url-icon" aria-hidden="true" />
+      <form className="pw2-search-form" onSubmit={handleSubmit} noValidate>
+        {/* Prominent Horizontal Search Field (680-800px max width, ivory/white, clean focus) */}
+        <div className={`pw2-search-input-box ${validationError ? "is-error" : ""}`}>
+          <Search size={18} className="pw2-search-icon" aria-hidden="true" />
           <input
             type="url"
-            className="pw2-url-input"
-            placeholder="Paste a product link from a supported store (e.g. Amazon, Flipkart, Croma)..."
+            className="pw2-search-input"
+            placeholder="Paste a product link from Amazon, Flipkart or Meesho"
             value={url}
             onChange={(e) => {
               setUrl(e.target.value);
               if (validationError) setValidationError(null);
             }}
+            onKeyDown={handleKeyDown}
             disabled={isLoading}
             aria-label="Product URL to compare prices"
-            required
           />
           {url && !isLoading && (
             <button
               type="button"
-              className="pw2-clear-btn"
+              className="pw2-search-clear"
               onClick={() => {
                 setUrl("");
                 setValidationError(null);
@@ -80,11 +80,15 @@ export function PriceDiscoveryHero({ onDiscover, isLoading, initialUrl = "" }: P
               <X size={16} />
             </button>
           )}
+        </div>
+
+        {/* Primary CTA placed beneath the search field, visually centered */}
+        <div className="pw2-search-cta-row">
           <button
             type="submit"
-            className="pw2-submit-btn"
+            className="pw2-search-submit-btn"
             disabled={isLoading || !url.trim()}
-            aria-label="Compare prices across stores"
+            aria-label="Compare prices"
           >
             {isLoading ? (
               <>
@@ -94,50 +98,24 @@ export function PriceDiscoveryHero({ onDiscover, isLoading, initialUrl = "" }: P
             ) : (
               <>
                 <Search size={16} />
-                <span>Compare Prices</span>
+                <span>Compare prices</span>
               </>
             )}
           </button>
         </div>
 
+        {/* Validation / API Error Feedback */}
         {validationError && (
-          <div className="pw2-url-feedback is-error" role="alert">
-            <AlertCircle size={15} />
-            <span>{validationError}</span>
+          <div className="pw2-search-error-banner" role="alert">
+            <AlertCircle size={16} className="pw2-search-error-icon" />
+            <span className="pw2-search-error-text">{validationError}</span>
           </div>
         )}
 
-        {/* 1-Click Sample Previews for reviewers and test users */}
-        <div className="pw2-sample-bar">
-          <span className="pw2-sample-label">Try a preview:</span>
-          {SAMPLE_PRODUCTS.map((prod) => (
-            <button
-              key={prod.id}
-              type="button"
-              className="pw2-sample-chip"
-              onClick={() => handleSelectSample(prod.sourceUrl)}
-              disabled={isLoading}
-              title={`Compare prices for ${prod.model}`}
-            >
-              {prod.model}
-            </button>
-          ))}
-        </div>
-
-        <div className="pw2-supported-stores">
-          <div className="pw2-store-pills">
-            <span>Supported retailers:</span>
-            <span className="pw2-store-pill">Amazon India</span>
-            <span className="pw2-store-pill">Flipkart</span>
-            <span className="pw2-store-pill">Croma</span>
-            <span className="pw2-store-pill">Reliance Digital</span>
-          </div>
-
-          <div className="pw2-preview-badge" title="Automated multi-retailer engine is in frontend demonstration mode">
-            <Sparkles size={12} />
-            <span>Multi-store discovery engine</span>
-          </div>
-        </div>
+        {/* Discreet indication of supported stores (not attached to heading, no noisy badge strip) */}
+        <p className="pw2-supported-stores-note">
+          Supported stores: Amazon India · Flipkart · Meesho
+        </p>
       </form>
     </section>
   );

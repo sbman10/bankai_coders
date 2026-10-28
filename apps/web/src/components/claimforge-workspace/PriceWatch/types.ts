@@ -6,7 +6,7 @@
 
 export interface RetailerOffer {
   id: string;
-  retailerId: "amazon" | "flipkart" | "croma" | "reliance-digital" | "vijay-sales" | "other";
+  retailerId: "amazon" | "flipkart" | "meesho" | "croma" | "reliance-digital" | "vijay-sales" | "other";
   retailerName: string;
   storeDomain: string;
   price: number;

@@ -44,6 +44,24 @@ beforeEach(() => {
         },
       });
     }
+    if (url === "/api/price-intelligence/analyze" && method === "POST") {
+      return response({
+        success: true,
+        analysis: {
+          canonicalIdentity: {
+            brand: "Auralis",
+            model: "Sun Shield 50",
+            cleanTitle: "Daily sunscreen",
+            sku: "B0CX23V253",
+          },
+          sourceQuote: {
+            price: { current: 1200, mrp: 1500, currency: "INR" },
+            availability: { status: "IN_STOCK", evidence: "In Stock" },
+          },
+          detectedCategory: "Personal care",
+        },
+      });
+    }
     if (url === "/api/products" && method === "GET") return response({ products: [{ id: productId, name: "Daily sunscreen", category: "Personal care", purchase_date: null, warranty_end: null }] });
     if (url === "/api/price-watches" && method === "GET") return response({ watches: [] });
     if (url === "/api/reminders" && method === "GET") return response({ reminders: [] });
@@ -107,19 +125,33 @@ describe("account-backed product tools", () => {
     expect(JSON.parse(String(updateRequest?.[1]?.body))).toEqual(expect.objectContaining({ brand: "Auralis", model: "Sun Shield 50", seller: "Chemist", serialNumber: "LOT-45" }));
   });
 
-  it("updates a manual price and marks the target as reached", async () => {
+  it("tracks a product from search, updates price, and marks the target as reached", async () => {
     const user = userEvent.setup();
     render(<ProductCenter view="prices" />);
 
-    await user.selectOptions(await screen.findByLabelText("Product"), productId);
-    await user.type(screen.getByLabelText(/current price/i), "1200");
-    await user.type(screen.getByLabelText(/alert below/i), "1000");
-    await user.click(screen.getByRole("button", { name: /add manual watch/i }));
-    await user.clear(await screen.findByLabelText(/new price for daily sunscreen/i));
-    await user.type(screen.getByLabelText(/new price for daily sunscreen/i), "950");
-    await user.click(screen.getByRole("button", { name: /save price for daily sunscreen/i }));
+    // Search and analyze product
+    const searchInput = await screen.findByPlaceholderText(/paste a product link/i);
+    await user.type(searchInput, "https://www.amazon.in/dp/B0CX23V253");
+    await user.click(screen.getByRole("button", { name: /^compare prices$/i }));
 
-    expect(await screen.findByText(/target reached/i)).toBeInTheDocument();
+    // Track product from results
+    const targetInput = await screen.findByLabelText(/target price in indian rupees/i);
+    await user.clear(targetInput);
+    await user.type(targetInput, "1000");
+    await user.click(screen.getByRole("button", { name: /start tracking/i }));
+
+    expect(await screen.findByText(/watch activated/i)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith("/api/price-watches", expect.objectContaining({ method: "POST" }));
+
+    // Update verified price on watch card
+    const updateBtn = screen.getByLabelText(/update price for daily sunscreen/i);
+    await user.click(updateBtn);
+    const priceInput = screen.getByLabelText(/update price for daily sunscreen/i);
+    await user.clear(priceInput);
+    await user.type(priceInput, "950");
+    await user.click(screen.getByLabelText(/save price update/i));
+
+    expect(await screen.findByText(/deal unlocked/i)).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith("/api/price-watches/watch-1", expect.objectContaining({ method: "PATCH" }));
   });
 

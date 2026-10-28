@@ -168,11 +168,11 @@ describe("ClaimForge customer workflow", () => {
     render(<ClaimForgeWorkspace />);
 
     await user.click(screen.getByRole("button", { name: /^timeline$/i }));
-    const timelineHeadings = await screen.findAllByText(/all product ownership events|ownership history/i);
+    const timelineHeadings = await screen.findAllByText(/your ownership timeline|all product ownership events|ownership history/i);
     expect(timelineHeadings[0]).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /^price watch$/i }));
-    expect(await screen.findByText(/know when the price is right/i)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /^find the best price\.$/i })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /^reminders$/i }));
     expect(await screen.findByText(/a nudge on your terms/i)).toBeInTheDocument();

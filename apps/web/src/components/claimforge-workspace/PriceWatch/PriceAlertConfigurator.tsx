@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Bell, Check, Loader2, Sparkles, ShieldAlert, ArrowRight } from "lucide-react";
+import { Bell, Check, Loader2, ShieldAlert, ArrowRight, Bookmark } from "lucide-react";
 import { DiscoveredProduct, PriceAlertConfig } from "./types";
 import { formatINR } from "./priceWatchAdapter";
 
@@ -14,7 +14,6 @@ export function PriceAlertConfigurator({
   onStartTracking,
   isSaving,
 }: PriceAlertConfiguratorProps) {
-  // Pre-calculate convenient suggested targets based on lowest current offer
   const lowest = product.lowestPrice;
   const suggested5Percent = Math.round(lowest * 0.95);
   const suggested10Percent = Math.round(lowest * 0.90);
@@ -22,7 +21,6 @@ export function PriceAlertConfigurator({
 
   const [targetPrice, setTargetPrice] = useState<string>(suggested5Percent.toString());
   const [buffer, setBuffer] = useState<string>("500");
-  const [alertScope, setAlertScope] = useState<"any_store" | "specific_store">("any_store");
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -46,7 +44,7 @@ export function PriceAlertConfigurator({
     const success = await onStartTracking({
       targetPrice: numTarget,
       nearTargetBuffer: numBuffer,
-      alertScope,
+      alertScope: "any_store",
       notifyInApp: true,
       notifyEmail: false,
       notifyWhatsApp: false,
@@ -59,31 +57,31 @@ export function PriceAlertConfigurator({
   };
 
   return (
-    <section className="pw2-alert-card" aria-labelledby="pw2-alert-heading">
-      <div className="pw2-alert-header">
-        <div className="pw2-alert-title-wrap">
-          <Bell size={20} className="pw2-alert-icon" />
-          <h2 id="pw2-alert-heading" className="pw2-alert-title">
-            Set your price alert
-          </h2>
+    <section className="pw2-alert-section" aria-labelledby="pw2-alert-heading">
+      <div className="pw2-alert-container">
+        <div className="pw2-alert-header">
+          <div className="pw2-alert-title-wrap">
+            <Bookmark size={20} className="pw2-alert-icon" />
+            <h2 id="pw2-alert-heading" className="pw2-alert-title">
+              Track this product
+            </h2>
+          </div>
+          <p className="pw2-alert-subtitle">
+            Set a target price and track price changes across verified store offers in your watchlist.
+          </p>
         </div>
-        <p className="pw2-alert-subtitle">
-          Choose your ideal price. Get notified when a verified offer matches your conditions.
-        </p>
-      </div>
 
-      <form onSubmit={handleSubmit}>
-        <div className="pw2-alert-grid">
-          {/* Left Column: Target Price & Range Buffer */}
-          <div className="pw2-alert-col">
-            <div className="pw2-field-group">
-              <label htmlFor="pw2-target-price-input" className="pw2-field-label">
-                <span>Alert me when the price reaches:</span>
-                <span className="pw2-field-label-hint">Current best: {formatINR(lowest)}</span>
+        <form onSubmit={handleSubmit} className="pw2-alert-form">
+          <div className="pw2-alert-inputs-row">
+            {/* Target Price Input */}
+            <div className="pw2-alert-field">
+              <label htmlFor="pw2-target-price-input" className="pw2-alert-label">
+                <span>Target price</span>
+                <span className="pw2-alert-label-current">Current best: {formatINR(lowest)}</span>
               </label>
 
-              <div className="pw2-currency-input-wrap">
-                <span className="pw2-currency-symbol">₹</span>
+              <div className="pw2-alert-currency-box">
+                <span className="pw2-alert-currency-symbol">₹</span>
                 <input
                   id="pw2-target-price-input"
                   type="number"
@@ -91,7 +89,7 @@ export function PriceAlertConfigurator({
                   max="99999999"
                   step="1"
                   required
-                  className="pw2-currency-input"
+                  className="pw2-alert-input"
                   value={targetPrice}
                   onChange={(e) => {
                     setTargetPrice(e.target.value);
@@ -102,25 +100,25 @@ export function PriceAlertConfigurator({
                 />
               </div>
 
-              {/* Quick Preset Buttons */}
-              <div className="pw2-preset-pills">
+              {/* Quick Presets */}
+              <div className="pw2-alert-presets">
                 <button
                   type="button"
-                  className={`pw2-preset-pill ${numTarget === suggested5Percent ? "is-active" : ""}`}
+                  className={`pw2-preset-btn ${numTarget === suggested5Percent ? "is-active" : ""}`}
                   onClick={() => handlePresetClick(suggested5Percent)}
                 >
                   -5% ({formatINR(suggested5Percent)})
                 </button>
                 <button
                   type="button"
-                  className={`pw2-preset-pill ${numTarget === suggested10Percent ? "is-active" : ""}`}
+                  className={`pw2-preset-btn ${numTarget === suggested10Percent ? "is-active" : ""}`}
                   onClick={() => handlePresetClick(suggested10Percent)}
                 >
                   -10% ({formatINR(suggested10Percent)})
                 </button>
                 <button
                   type="button"
-                  className={`pw2-preset-pill ${numTarget === suggested15Percent ? "is-active" : ""}`}
+                  className={`pw2-preset-btn ${numTarget === suggested15Percent ? "is-active" : ""}`}
                   onClick={() => handlePresetClick(suggested15Percent)}
                 >
                   -15% ({formatINR(suggested15Percent)})
@@ -128,134 +126,74 @@ export function PriceAlertConfigurator({
               </div>
 
               {numTarget > lowest && (
-                <p className="pw2-helper-text" style={{ color: "#B45309" }}>
-                  Note: Your target ({formatINR(numTarget)}) is already higher than the current best offer ({formatINR(lowest)}).
+                <p className="pw2-alert-warning-text">
+                  Your target ({formatINR(numTarget)}) is above the current verified price ({formatINR(lowest)}).
                 </p>
               )}
             </div>
 
-            {/* Optional Near-Target Range Buffer */}
-            <div className="pw2-field-group">
-              <label htmlFor="pw2-buffer-input" className="pw2-field-label">
-                <span>Near-target alert buffer (optional)</span>
-                <span className="pw2-field-label-hint">Default: ₹500</span>
+            {/* Near Target Buffer */}
+            <div className="pw2-alert-field pw2-alert-field-buffer">
+              <label htmlFor="pw2-buffer-input" className="pw2-alert-label">
+                <span>Near-target alert threshold</span>
+                <span className="pw2-alert-label-current">Optional</span>
               </label>
 
-              <div className="pw2-currency-input-wrap">
-                <span className="pw2-currency-symbol">₹</span>
+              <div className="pw2-alert-currency-box">
+                <span className="pw2-alert-currency-symbol">₹</span>
                 <input
                   id="pw2-buffer-input"
                   type="number"
                   min="0"
                   max="50000"
                   step="50"
-                  className="pw2-currency-input"
-                  style={{ height: "42px", fontSize: "1rem" }}
+                  className="pw2-alert-input"
                   value={buffer}
                   onChange={(e) => setBuffer(e.target.value)}
                   placeholder="500"
                   aria-label="Near-target price buffer in Rupees"
                 />
               </div>
-
-              <p className="pw2-helper-text">
-                {numBuffer > 0 ? (
-                  <>
-                    We&apos;ll tag observations between <strong>{formatINR(numTarget)}</strong> and{" "}
-                    <strong>{formatINR(numTarget + numBuffer)}</strong> as <em>&quot;Near Target&quot;</em> so you know when a drop is close.
-                  </>
-                ) : (
-                  "Only alerts exactly at or below your target price."
-                )}
+              <p className="pw2-alert-hint">
+                Highlights offers within {formatINR(numBuffer || 0)} of your target.
               </p>
             </div>
           </div>
 
-          {/* Right Column: Notification Channel & Scope Preview */}
-          <div className="pw2-alert-col">
-            <div className="pw2-notification-card">
-              <div className="pw2-notification-card-title">Notification Channels</div>
-
-              <div className="pw2-channel-item">
-                <div className="pw2-channel-info">
-                  <Bell size={16} color="#15803D" />
-                  <span>ProductVault In-App Watchlist</span>
-                </div>
-                <span className="pw2-channel-badge-active">Active</span>
-              </div>
-
-              <div className="pw2-channel-item">
-                <div className="pw2-channel-info">
-                  <span style={{ color: "#8C827A" }}>✉</span>
-                  <span>Instant Email Notification</span>
-                </div>
-                <span className="pw2-channel-badge-upcoming">Upcoming 2.0</span>
-              </div>
-
-              <div className="pw2-channel-item">
-                <div className="pw2-channel-info">
-                  <span style={{ color: "#8C827A" }}>💬</span>
-                  <span>WhatsApp Deal Alert</span>
-                </div>
-                <span className="pw2-channel-badge-upcoming">Upcoming 2.0</span>
-              </div>
+          {saveError && (
+            <div className="pw2-alert-error" role="alert">
+              <ShieldAlert size={16} />
+              <span>{saveError}</span>
             </div>
+          )}
 
-            <div className="pw2-field-group">
-              <span className="pw2-field-label">Monitoring Scope</span>
-              <div style={{ display: "flex", gap: "1rem" }}>
-                <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.875rem", cursor: "pointer" }}>
-                  <input
-                    type="radio"
-                    name="scope"
-                    checked={alertScope === "any_store"}
-                    onChange={() => setAlertScope("any_store")}
-                  />
-                  <span>Any verified store (Recommended)</span>
-                </label>
-              </div>
-            </div>
+          <div className="pw2-alert-action-row">
+            <button
+              type="submit"
+              className="pw2-start-tracking-cta"
+              disabled={isSaving || !isValidTarget}
+              aria-label="Start tracking price for this product"
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>Saving watch...</span>
+                </>
+              ) : saveSuccess ? (
+                <>
+                  <Check size={16} />
+                  <span>Watch activated!</span>
+                </>
+              ) : (
+                <>
+                  <span>Start tracking</span>
+                  <ArrowRight size={16} />
+                </>
+              )}
+            </button>
           </div>
-        </div>
-
-        {saveError && (
-          <div className="pw2-url-feedback is-error" style={{ marginTop: "1rem" }} role="alert">
-            <ShieldAlert size={15} />
-            <span>{saveError}</span>
-          </div>
-        )}
-
-        <div className="pw2-alert-footer">
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.8125rem", color: "#78716C" }}>
-            <Sparkles size={14} color="#EA580C" />
-            <span>Adding to your active watches will monitor this product across all verified stores.</span>
-          </div>
-
-          <button
-            type="submit"
-            className="pw2-start-tracking-btn"
-            disabled={isSaving || !isValidTarget}
-            aria-label="Start tracking price for this product"
-          >
-            {isSaving ? (
-              <>
-                <Loader2 size={18} className="animate-spin" />
-                <span>Saving Watch...</span>
-              </>
-            ) : saveSuccess ? (
-              <>
-                <Check size={18} />
-                <span>Watch Activated!</span>
-              </>
-            ) : (
-              <>
-                <span>Start Tracking</span>
-                <ArrowRight size={16} />
-              </>
-            )}
-          </button>
-        </div>
-      </form>
+        </form>
+      </div>
     </section>
   );
 }
