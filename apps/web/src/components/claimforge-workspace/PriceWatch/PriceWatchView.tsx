@@ -27,6 +27,12 @@ export interface ExistingWatch {
   targetPrice: number;
   currency: string;
   lastCheckedAt?: string;
+  currentPriceSource?: "manual" | "verified" | "unverified";
+  lastCheckStatus?: string;
+  lastCheckErrorCode?: string;
+  manualPrice?: number;
+  nextCheckAt?: string;
+  checkingMode?: "manual" | "automated";
   createdAt: string;
 }
 
@@ -39,6 +45,7 @@ interface PriceWatchViewProps {
     productUrl: string;
     currentPrice: number;
     targetPrice: number;
+    checkingMode: "manual" | "automated";
   }) => Promise<boolean>;
   onUpdate: (id: string, price: number) => Promise<boolean>;
   onRemove: (id: string) => Promise<boolean>;
@@ -61,6 +68,7 @@ export function PriceWatchView({
   // URL Discovery Handler
   const handleDiscover = async (url: string) => {
     setIsDiscovering(true);
+    setDiscoveredProduct(null);
     try {
       const result = await discoverProductFromUrl(url);
       setDiscoveredProduct(result);
@@ -95,6 +103,7 @@ export function PriceWatchView({
             productUrl: discoveredProduct.sourceUrl,
             currentPrice: discoveredProduct.lowestPrice,
             targetPrice: config.targetPrice,
+            checkingMode: "automated",
           });
         } catch {
           // Fall back to session watch if API rejected (e.g. offline)
@@ -137,7 +146,7 @@ export function PriceWatchView({
   const allEnrichedWatches = useMemo<EnrichedPriceWatch[]>(() => {
     const realWatches: EnrichedPriceWatch[] = watches.map((w) => {
       const relatedProduct = products.find((p) => p.id === w.productId);
-      const status: WatchStatus = determineWatchStatus(w.currentPrice, w.targetPrice);
+      const status: WatchStatus = w.currentPriceSource === "unverified" ? "unavailable" : determineWatchStatus(w.currentPrice, w.targetPrice);
 
       return {
         ...w,
@@ -149,7 +158,14 @@ export function PriceWatchView({
       };
     });
 
-    return [...sessionDemoWatches, ...realWatches];
+    const unsavedSessionWatches = sessionDemoWatches.filter((demoWatch) =>
+      !realWatches.some((savedWatch) =>
+        savedWatch.productId === demoWatch.productId &&
+        savedWatch.url === demoWatch.url
+      )
+    );
+
+    return [...unsavedSessionWatches, ...realWatches];
   }, [watches, products, sessionDemoWatches]);
 
   // Price update handler: updates in real API or local session
@@ -209,11 +225,13 @@ export function PriceWatchView({
         <>
           <ProductComparisonView product={discoveredProduct} />
 
-          <PriceAlertConfigurator
-            product={discoveredProduct}
-            onStartTracking={handleStartTracking}
-            isSaving={isSavingAlert}
-          />
+          {discoveredProduct.offers.some((offer) => Number.isFinite(offer.price) && offer.price > 0) && (
+            <PriceAlertConfigurator
+              product={discoveredProduct}
+              onStartTracking={handleStartTracking}
+              isSaving={isSavingAlert}
+            />
+          )}
         </>
       )}
 

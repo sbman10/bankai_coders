@@ -1,6 +1,21 @@
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
+
+const { createClient } = vi.hoisted(() => ({ createClient: vi.fn() }));
+vi.mock("@/lib/supabase/server", () => ({ createClient }));
+
 import { POST } from "./route";
 import { crossStoreService } from "@/lib/price-intelligence/cross-store-service";
+
+const quota = vi.fn();
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  quota.mockResolvedValue({ data: true, error: null });
+  createClient.mockResolvedValue({
+    auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-1" } }, error: null }) },
+    rpc: quota,
+  });
+});
 
 describe("POST /api/price-intelligence/analyze", () => {
   it("rejects non-JSON or missing URL with 400 Bad Request", async () => {
@@ -66,5 +81,31 @@ describe("POST /api/price-intelligence/analyze", () => {
     expect(data.success).toBe(true);
     expect(data.analysis.canonicalIdentity.brand).toBe("Realme");
     expect(data.analysis.sourceQuote.price.current).toBe(15999);
+    expect(quota).toHaveBeenCalledWith("consume_price_discovery_quota", { p_retailer: "Amazon" });
+  });
+
+  it("requires a signed-in session before retailer fetching", async () => {
+    createClient.mockResolvedValueOnce({
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }) },
+      rpc: quota,
+    });
+    const response = await POST(new Request("http://localhost:3000/api/price-intelligence/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: "https://www.amazon.in/dp/B0CX21CBRX" }),
+    }));
+    expect(response.status).toBe(401);
+    expect(quota).not.toHaveBeenCalled();
+  });
+
+  it("rejects unsupported hosts before fetching them", async () => {
+    const analyze = vi.spyOn(crossStoreService, "analyzeProductUrl");
+    const response = await POST(new Request("http://localhost:3000/api/price-intelligence/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: "https://attacker.example/item" }),
+    }));
+    expect(response.status).toBe(400);
+    expect(analyze).not.toHaveBeenCalled();
   });
 });

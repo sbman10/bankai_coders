@@ -55,6 +55,8 @@ beforeEach(() => {
     if (url === "/api/products" && !init?.method) return { ok: true, json: async () => ({ products: [] }) };
     if (url === "/api/price-watches" && !init?.method) return { ok: true, json: async () => ({ watches: [] }) };
     if (url === "/api/reminders" && !init?.method) return { ok: true, json: async () => ({ reminders: [] }) };
+    if (url === "/api/notifications" && !init?.method) return { ok: true, json: async () => ({ notifications: [], unreadCount: 0 }) };
+    if (url === "/api/notifications/notice-1" && init?.method === "PATCH") return { ok: true, json: async () => ({ read: true }) };
     if (url === "/api/auth" && init?.method === "POST") return { ok: true, json: async () => ({ ok: true }) };
     return { ok: false, json: async () => ({ error: "Unexpected test request" }) };
   }));
@@ -67,6 +69,25 @@ afterEach(() => {
 });
 
 describe("ClaimForge customer workflow", () => {
+  it("loads the notification inbox and opens a related workspace page", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/auth" && !init?.method) return { ok: true, json: async () => ({ user: { id: "user-test-1", email: "demo@example.com" } }) };
+      if (url === "/api/account/profile" && !init?.method) return { ok: true, json: async () => ({ profile: { displayName: "Kapish", hasAvatar: false } }) };
+      if (url === "/api/claims" && !init?.method) return { ok: true, json: async () => ({ claims: [] }) };
+      if (url === "/api/notifications" && !init?.method) return { ok: true, json: async () => ({ notifications: [{ id: "notice-1", kind: "reminder", title: "Warranty expires soon", body: "Review your coverage.", href: "/dashboard/products", created_at: new Date().toISOString(), read_at: null }], unreadCount: 1 }) };
+      if (url === "/api/notifications/notice-1" && init?.method === "PATCH") return { ok: true, json: async () => ({ read: true }) };
+      return { ok: false, json: async () => ({ error: "Unexpected test request" }) };
+    }));
+    render(<ClaimForgeWorkspace userEmail="demo@example.com" />);
+    const bell = await screen.findByRole("button", { name: "Notifications" });
+    await user.click(bell);
+    expect(await screen.findByText("Warranty expires soon")).toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: /warranty expires soon/i }));
+    expect(mockNavigation.push).toHaveBeenCalledWith("/dashboard/products");
+  });
+
   it("opens the signed-in account menu and its real profile settings page", async () => {
     const user = userEvent.setup();
     render(<ClaimForgeWorkspace userEmail="kapish@example.com" onSignOut={vi.fn()} />);

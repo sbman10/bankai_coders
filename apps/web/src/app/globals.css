@@ -5239,6 +5239,14 @@ body.dark .view-dashboard .workspace-top-navbar {
   border-top: 1px solid var(--border-subtle);
   font-size: 12px;
 }
+button.notif-row {
+  width: 100%;
+  text-align: left;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+button.notif-row:hover { background: var(--surface-hover); }
 .notif-row strong {
   display: block;
   font-size: 12.5px;

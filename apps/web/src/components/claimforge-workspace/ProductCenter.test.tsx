@@ -73,7 +73,7 @@ beforeEach(() => {
     if (url === `/api/products/${productId}/documents/doc-1` && method === "DELETE") return response({ removed: true });
     if (url === "/api/products" && method === "POST") return response({ product: { id: createdProductId, name: body.name, brand: body.brand, model: body.model, category: body.category, seller: body.seller, serial_number: body.serialNumber, purchase_date: body.purchaseDate, warranty_end: body.warrantyEnd, owner_name: body.ownerName, buying_method: body.buyingMethod, purchase_platform: body.purchasePlatform, price_paid: body.pricePaid } }, 201);
     if (url === `/api/products/${productId}` && method === "PATCH") return response({ product: { id: productId, name: body.name ?? "Daily sunscreen", brand: body.brand, model: body.model, category: body.category ?? "Personal care", seller: body.seller, serial_number: body.serialNumber, purchase_date: body.purchaseDate, warranty_end: body.warrantyEnd } });
-    if (url === "/api/price-watches" && method === "POST") return response({ watch: { id: "watch-1", product_id: body.productId, product_url: "", current_price: body.currentPrice, target_price: body.targetPrice, currency: "INR", products: { name: "Daily sunscreen" } } }, 201);
+    if (url === "/api/price-watches" && method === "POST") return response({ watch: { id: "watch-1", product_id: body.productId, product_url: body.productUrl, current_price: body.currentPrice, target_price: body.targetPrice, currency: "INR", products: { name: "Daily sunscreen" } } }, 201);
     if (url === "/api/price-watches/watch-1" && method === "PATCH") return response({ watch: { id: "watch-1", product_id: productId, product_url: "", current_price: body.currentPrice, target_price: 1000, currency: "INR", products: { name: "Daily sunscreen" } } });
     if (url === "/api/reminders" && method === "POST") return response({ reminder: { id: "reminder-1", product_id: body.productId, remind_at: `${body.remindAt}T09:00:00+05:30`, reason: `Replenishment reminder based on your estimated ${body.estimateDays}-day usage period.`, products: { name: "Daily sunscreen" } } }, 201);
     return response({ removed: true, cancelled: true }, 200);
@@ -155,6 +155,42 @@ describe("account-backed product tools", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/price-watches/watch-1", expect.objectContaining({ method: "PATCH" }));
   });
 
+  it("keeps Price Watch usable when the reminders endpoint is unavailable", async () => {
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/reminders") return response({ error: "Reminder service unavailable" }, 503);
+      if (url === "/api/products") return response({ products: [{ id: productId, name: "Daily sunscreen", category: "Personal care" }] });
+      if (url === "/api/price-watches") return response({ watches: [] });
+      if (url === "/api/claims") return response({ claims: [] });
+      return response({});
+    });
+
+    render(<ProductCenter view="prices" />);
+
+    expect(await screen.findByRole("heading", { name: /find the best price/i })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/paste a product link/i)).toBeInTheDocument();
+    expect(screen.queryByText(/reminder service unavailable/i)).not.toBeInTheDocument();
+  });
+
+  it("shows reminder-specific retry when reminders fail", async () => {
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/reminders") return response({ error: "Reminder service unavailable" }, 503);
+      if (url === "/api/products") return response({ products: [] });
+      if (url === "/api/price-watches") return response({ watches: [] });
+      if (url === "/api/claims") return response({ claims: [] });
+      return response({});
+    });
+
+    const user = userEvent.setup();
+    render(<ProductCenter view="reminders" />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/reminder service unavailable/i);
+    expect(screen.getByRole("button", { name: /retry reminders/i })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /retry reminders/i }));
+    expect(fetchMock.mock.calls.filter(([url]) => url === "/api/reminders")).toHaveLength(2);
+  });
+
   it("schedules an in-app replenishment reminder from the user's estimate", async () => {
     const user = userEvent.setup();
     render(<ProductCenter view="reminders" />);
@@ -164,8 +200,13 @@ describe("account-backed product tools", () => {
     await user.type(screen.getByLabelText(/remind me on/i), "2099-12-10");
     await user.click(screen.getByRole("button", { name: /save reminder/i }));
 
-    expect(await screen.findByText(/based on your 45-day estimate/i)).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledWith("/api/reminders", expect.objectContaining({ method: "POST" }));
+    expect(await screen.findByRole("status")).toHaveTextContent(/in-app reminder scheduled/i);
+    const createRequest = fetchMock.mock.calls.find(([url, init]) => url === "/api/reminders" && init?.method === "POST");
+    expect(JSON.parse(String(createRequest?.[1]?.body))).toEqual(expect.objectContaining({
+      type: "replenishment",
+      productId,
+      remindAt: expect.stringContaining("2099-12-10"),
+    }));
   });
 
   it("shows a product timeline across warranty, claims, price checks, and reminders", async () => {

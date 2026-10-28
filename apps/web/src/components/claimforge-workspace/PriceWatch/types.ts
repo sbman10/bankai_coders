@@ -34,7 +34,7 @@ export interface DiscoveredProduct {
   sourceRetailer: string;
   rating?: number;
   reviewsCount?: number;
-  verifiedTimestamp: string;
+  verifiedTimestamp?: string;
   isSamplePreview?: boolean;
   matchingConfidenceNote?: string;
   offers: RetailerOffer[];
@@ -65,6 +65,12 @@ export interface EnrichedPriceWatch {
   targetPrice: number;
   currency: string;
   lastCheckedAt?: string;
+  currentPriceSource?: "manual" | "verified" | "unverified";
+  lastCheckStatus?: string;
+  lastCheckErrorCode?: string;
+  manualPrice?: number;
+  nextCheckAt?: string;
+  checkingMode?: "manual" | "automated";
   createdAt: string;
   brand?: string;
   model?: string;

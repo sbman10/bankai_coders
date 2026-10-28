@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -33,7 +33,6 @@ import { ClaimsList, type SavedClaim } from "./ClaimsList";
 import { AssistantChat } from "./AssistantChat";
 import { AccountMenu } from "./AccountMenu";
 import { AccountSettings } from "./AccountSettings";
-import { NotificationCenter } from "./NotificationCenter";
 import { WorkspaceSettings } from "./WorkspaceSettings";
 import { HelpSupport } from "./HelpSupport";
 import { ClaimForgeLogoMark } from "./ProductVisuals";
@@ -46,6 +45,7 @@ import { workspaceRouteByView, workspaceViewForPathname, type WorkspaceView } fr
 let temporaryTheme: "light" | "dark" | null = null;
 
 type View = WorkspaceView;
+type InboxNotification = { id: string; kind: string; title: string; body: string; href: string | null; created_at: string; read_at: string | null };
 
 function subscribeTheme(callback: () => void) {
   window.addEventListener("storage", callback);
@@ -82,8 +82,9 @@ export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: stri
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(3);
-  const notificationBellRef = useRef<HTMLButtonElement>(null);
+  const [notifications, setNotifications] = useState<InboxNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationsError, setNotificationsError] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
@@ -135,6 +136,33 @@ export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: stri
       setClaimsLoading(false);
     }
   }, []);
+
+  const loadNotifications = useCallback(async () => {
+    setNotificationsError("");
+    try {
+      const response = await fetch("/api/notifications", { cache: "no-store" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? "Notifications could not be loaded.");
+      setNotifications(Array.isArray(result.notifications) ? result.notifications : []);
+      setUnreadCount(Number.isInteger(result.unreadCount) ? result.unreadCount : 0);
+    } catch (cause) {
+      setNotificationsError(cause instanceof Error ? cause.message : "Notifications could not be loaded.");
+    }
+  }, []);
+
+  async function openNotification(notification: InboxNotification) {
+    if (!notification.read_at) {
+      try {
+        const response = await fetch(`/api/notifications/${notification.id}`, { method: "PATCH" });
+        if (response.ok) {
+          setNotifications((items) => items.map((item) => item.id === notification.id ? { ...item, read_at: new Date().toISOString() } : item));
+          setUnreadCount((count) => Math.max(0, count - 1));
+        }
+      } catch { /* Keep navigation available if marking read is temporarily unavailable. */ }
+    }
+    setNotificationsOpen(false);
+    if (notification.href?.startsWith("/dashboard/")) router.push(notification.href);
+  }
 
   function navigateToView(targetView: View) {
     if (targetView === "claims") void loadClaims();
@@ -363,26 +391,43 @@ export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: stri
           {/* Notifications Bell */}
           <div className="notification-bell-wrap">
             <button
-              ref={notificationBellRef}
               type="button"
               className="navbar-circle-btn notification-bell-btn"
-              onClick={() => setNotificationsOpen((prev) => !prev)}
+              onClick={() => {
+                const next = !notificationsOpen;
+                setNotificationsOpen(next);
+                if (next) void loadNotifications();
+              }}
               aria-label="Notifications"
               aria-expanded={notificationsOpen}
               title="Notifications"
             >
               <Bell size={16} />
-              {unreadCount > 0 && <span className="bell-count-dot">{unreadCount}</span>}
+              {unreadCount > 0 ? <span className="bell-count-dot">{unreadCount > 99 ? "99+" : unreadCount}</span> : null}
             </button>
 
             {notificationsOpen && (
-              <NotificationCenter
-                onClose={() => setNotificationsOpen(false)}
-                onNavigate={(targetView) => navigateToView(targetView)}
-                triggerRef={notificationBellRef}
-                unreadCount={unreadCount}
-                onUnreadCountChange={setUnreadCount}
-              />
+              <div className="notifications-dropdown-menu" role="menu">
+                <div className="notifications-head">
+                  <strong>Notifications</strong>
+                  <button
+                    type="button"
+                    className="notif-close-link"
+                    onClick={() => setNotificationsOpen(false)}
+                  >
+                    Close
+                  </button>
+                </div>
+                {notificationsError ? <div className="notif-row"><p>{notificationsError}</p></div> : null}
+                {!notificationsError && notifications.length === 0 ? <div className="notif-row"><p>No notifications yet.</p></div> : null}
+                {notifications.map((notification) => (
+                  <button type="button" className={`notif-row ${notification.read_at ? "" : "unread"}`} key={notification.id}
+                    onClick={() => void openNotification(notification)}>
+                    <span className={`notif-status-dot ${notification.read_at ? "" : "amber"}`} />
+                    <div><strong>{notification.title}</strong><p>{notification.body}</p></div>
+                  </button>
+                ))}
+              </div>
             )}
           </div>
 

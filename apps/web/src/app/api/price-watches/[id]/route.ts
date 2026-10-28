@@ -2,8 +2,21 @@ import { NextResponse } from "next/server";
 import { isRecord, JsonBodyError, readJsonBody } from "@/lib/http/read-json-body";
 import { createClient } from "@/lib/supabase/server";
 
-const fields = "id, product_id, product_url, current_price, target_price, currency, checking_mode, last_checked_at, created_at, products(name, category)";
+const fields = "id, product_id, product_url, current_price, target_price, currency, checking_mode, current_price_source, manual_price, manual_price_entered_at, last_check_status, last_check_error_code, next_check_at, last_checked_at, created_at, products(name, category)";
+const baseFields = "id, product_id, product_url, current_price, target_price, currency, checking_mode, last_checked_at, created_at, products(name, category)";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function enrichRow(row: Record<string, unknown>) {
+  return {
+    current_price_source: row.current_price_source ?? "manual",
+    manual_price: row.manual_price ?? row.current_price,
+    manual_price_entered_at: row.manual_price_entered_at ?? row.created_at,
+    last_check_status: row.last_check_status ?? "not_checked",
+    last_check_error_code: row.last_check_error_code ?? null,
+    next_check_at: row.next_check_at ?? null,
+    ...row,
+  };
+}
 
 async function bodyOf(request: Request): Promise<Record<string, unknown> | NextResponse> {
   try {
@@ -35,11 +48,36 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       return NextResponse.json({ error: "Enter a valid non-negative price." }, { status: 400 });
     }
 
-    const { data, error } = await supabase.from("price_watches").update({
-      current_price: Math.round(amount * 100) / 100,
-      last_checked_at: new Date().toISOString(),
-    }).eq("id", id).eq("user_id", user.id).select(fields).maybeSingle();
-    if (error) return NextResponse.json({ error: "The price update could not be saved." }, { status: 503 });
+    const roundedPrice = Math.round(amount * 100) / 100;
+    const { data: observationId, error } = await supabase.rpc("record_manual_price_watch_observation", {
+      p_watch_id: id,
+      p_price: roundedPrice,
+    });
+    if (error) {
+      // Fallback: direct update if RPC is missing
+      const updateRes = await supabase.from("price_watches").update({
+        current_price: roundedPrice,
+        last_checked_at: new Date().toISOString(),
+      }).eq("id", id).eq("user_id", user.id).select("id").maybeSingle();
+      if (updateRes.error || !updateRes.data) {
+        const notFound = !updateRes.data;
+        return NextResponse.json({ error: notFound ? "This price watch could not be found." : "The price update could not be saved." }, { status: notFound ? 404 : 503 });
+      }
+    } else if (!observationId) {
+      return NextResponse.json({ error: "This price watch could not be found." }, { status: 404 });
+    }
+
+    let { data, error: readError } = await supabase.from("price_watches").select(fields)
+      .eq("id", id).eq("user_id", user.id).maybeSingle();
+    if (readError) {
+      const baseRead = await supabase.from("price_watches").select(baseFields)
+        .eq("id", id).eq("user_id", user.id).maybeSingle();
+      if (!baseRead.error && baseRead.data) {
+        data = enrichRow(baseRead.data as Record<string, unknown>) as typeof data;
+        readError = null;
+      }
+    }
+    if (readError) return NextResponse.json({ error: "The saved price update could not be loaded." }, { status: 503 });
     if (!data) return NextResponse.json({ error: "This price watch could not be found." }, { status: 404 });
     return NextResponse.json({ watch: data }, { headers: { "Cache-Control": "private, no-store" } });
   } catch {

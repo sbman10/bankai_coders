@@ -2,13 +2,13 @@
 
 **Status:** Draft for pitch and MVP planning
 **Owner:** Product team
-**Last updated:** 2026-10-27
+**Last updated:** 2026-10-28
 
 ## 1. Product summary
 
 ProductVault is a product and coverage assistant that helps people make informed decisions before and after they buy. Before purchase, a user can ask plain-language questions about a product’s warranty, protection plan, or an insurance policy/service—for example, exclusions, waiting periods, required documents, and how claims are filed. Answers must be grounded in the relevant documents or official source material, with citations and clear uncertainty.
 
-After purchase, ProductVault helps the user keep product details and documents together, track a price manually, set replenishment or service reminders, and understand and prepare a warranty claim. The user remains in control of all external communication and claim submissions.
+After purchase, ProductVault helps the user keep product details and documents together, track prices manually or through a verified retailer check, receive warranty/policy/service/replenishment/claim reminders, and understand and prepare a warranty claim. The user remains in control of all external communication and claim submissions.
 
 **Product promise:** Turn product ownership into peace of mind—from understanding coverage before you buy to managing products and claims afterward.
 
@@ -36,7 +36,8 @@ The India-first market framing is an assumption for the pitch/demo. Terms, regul
 - Ground policy explanations in retrieved source text and show the document name plus page/section for each material statement.
 - Make uncertainty visible; ask a focused follow-up or abstain when evidence is missing, incomplete, illegible, or conflicting.
 - Help users organize purchased products, receipts, warranty/policy documents, and key dates in one ownership record.
-- Support manual price entries and user-set service or replenishment reminders.
+- Support manually entered prices, optional verified retailer checks, and user-owned reminders for warranty/policy expiry, service, replenishment, and claim follow-up.
+- Provide a durable owner-scoped in-app notification inbox; send email reminders only after explicit opt-in and provider configuration.
 - Help users understand post-purchase claim steps, identify missing evidence, and prepare an editable claim draft.
 - Preserve explicit human approval before any claim, complaint, settlement response, or personal document is sent externally.
 - Demonstrate how n8n can orchestrate selected events while Supabase remains the durable source of truth for app data.
@@ -92,7 +93,8 @@ The India-first market framing is an assumption for the pitch/demo. Terms, regul
 - Relevant cited clauses and an evidence/next-step checklist.
 - A transparent claim-assessment explanation, not an approval decision.
 - Editable support/claim draft and a claim record.
-- In-app reminders for user-set follow-up, service, warranty, or replenishment dates.
+- In-app reminders for warranty/policy expiry, user-set service and replenishment dates, and claim follow-up.
+- Price checks only from supported retailer adapters and only label an observation verified when its retailer, availability, price, and product match pass validation. Manual entries remain labeled as manual.
 - Manually recorded price history; entries must show their user-entered source/date and must not be presented as live market data.
 
 ### 6.3 Demo boundary
@@ -170,7 +172,7 @@ Measure on a small, disclosed test set; report sample size and method. Do not pr
 - **Status and logs:** the app reads claim/product/reminder state from Supabase. n8n execution logs help operators diagnose workflow runs; they do not replace app records and should not contain document content or secrets.
 - **RAG document Q&A/ingestion:** answering is intended to stay on the authenticated Next.js path with owner- and selection-scoped retrieval. Document ingestion/embedding worker design is separate and remains proposed until the queue, Edge Function, and database flow are verified. Do not put the chatbot's critical answer path in n8n.
 
-**Current implementation truth:** claim intake now uploads selected files to private Supabase Storage and submits only document references through the authenticated app route. The `ProductVault App API` n8n workflow has an authenticated intake webhook, immediate 202 response, and an app-side processing request, but it remains inactive and awaits its outbound credential, the local outbox migration, and an HTTPS end-to-end test. The app-side claim processor uses the existing Groq setup after OCR; extracted invoice/warranty text goes to Groq, never to n8n. A signed-in user can retry a pending webhook handoff from the saved claim screen. No production execution has been verified. Product price entries are manual, reminders are in-app, and no automated price scraping or outbound notification is connected. The RAG migration/worker is not live-verified.
+**Current implementation truth (2026-10-28):** claim intake and protected app-side claim processing code are present, but the related n8n workflow remains inactive and end-to-end execution is unverified. The local reminders feature code now includes the five reminder categories, a Supabase notification inbox, opt-in preference APIs, a protected daily processing endpoint, and a retailer-check path using the merged adapters. Its additive migration and scheduled n8n workflow are not yet live-verified; the workflow has not been activated, no production retailer check has run, and Postmark is not configured. The RAG migration/worker remains not live-verified. Treat these as local implementation pending database/workflow setup and synthetic end-to-end checks, not as production-ready services.
 
 ## 11. Open decisions
 
@@ -179,6 +181,9 @@ Measure on a small, disclosed test set; report sample size and method. Do not pr
 - Confirm whether the initial pre-purchase assistant answers only from user-selected material or also from a vetted public-source catalog.
 - Select approved OCR, embedding, and language-model providers, and document processing/data-residency constraints.
 - Decide whether the first demo creates a copyable claim draft only or supports an explicitly approved delivery action.
-- Define reminder delivery scope: in-app only for MVP, or another channel after consent and configuration.
+- Confirm Postmark sender verification and credentials before enabling opt-in email reminders.
+- Review and apply the local reminders/price-check migration to the intended Supabase project; verify migration history and RLS before using the new APIs against production.
+- Configure and validate the inactive daily n8n scheduler with the current public HTTPS app URL and matching Header Auth secret; do not activate before synthetic tests.
+- Confirm scraper usage/cost and retailer terms for each supported adapter before automated checks run for real users.
 - Define and verify n8n webhook authentication, payload contract, idempotency, callback authorization, and safe execution-data retention before activating a workflow.
 - Agree public behavior seams before implementation or test writing; keep the MVP limited to confirmed product behavior.

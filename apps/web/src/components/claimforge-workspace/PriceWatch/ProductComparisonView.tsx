@@ -31,7 +31,7 @@ export function ProductComparisonView({ product }: ProductComparisonViewProps) {
     : undefined;
 
   // Sorted offers based on user preference
-  const sortedOffers = [...product.offers].sort((a, b) => {
+  const sortedOffers = [...validOffers].sort((a, b) => {
     if (sortBy === "price_asc") return a.price - b.price;
     return b.price - a.price;
   });
@@ -68,10 +68,12 @@ export function ProductComparisonView({ product }: ProductComparisonViewProps) {
               <span className="pw2-brand-tag">{product.brand}</span>
             )}
             <span className="pw2-source-tag">Via {product.sourceRetailer}</span>
-            <span className="pw2-live-tag">
-              <CheckCircle size={12} />
-              <span>{product.verifiedTimestamp || "Verified live"}</span>
-            </span>
+            {product.verifiedTimestamp && (
+              <span className="pw2-live-tag">
+                <CheckCircle size={12} />
+                <span>{product.verifiedTimestamp}</span>
+              </span>
+            )}
           </div>
 
           <h2 className="pw2-product-name" title={product.title}>
@@ -97,7 +99,7 @@ export function ProductComparisonView({ product }: ProductComparisonViewProps) {
         <div className="pw2-summary-item">
           <span className="pw2-summary-label">Lowest verified price</span>
           <span className="pw2-summary-value-accent">
-            {lowestOffer ? formatINR(lowestOffer.price) : formatINR(product.lowestPrice)}
+            {lowestOffer ? formatINR(lowestOffer.price) : "Price unavailable"}
           </span>
           {lowestOffer && (
             <span className="pw2-summary-sub">At {lowestOffer.retailerName}</span>
@@ -108,13 +110,13 @@ export function ProductComparisonView({ product }: ProductComparisonViewProps) {
 
         <div className="pw2-summary-item">
           <span className="pw2-summary-label">Verified store offers</span>
-          <span className="pw2-summary-value">{product.offers.length}</span>
+          <span className="pw2-summary-value">{validOffers.length}</span>
           <span className="pw2-summary-sub">
-            {product.offers.length === 1 ? "Single store verified" : "Across checked stores"}
+            {validOffers.length === 1 ? "Single store verified" : validOffers.length > 1 ? "Across checked stores" : "No verified store offers"}
           </span>
         </div>
 
-        {product.potentialSavings > 0 && product.offers.length > 1 && (
+        {product.potentialSavings > 0 && validOffers.length > 1 && (
           <>
             <div className="pw2-summary-divider" aria-hidden="true" />
             <div className="pw2-summary-item">
@@ -130,10 +132,10 @@ export function ProductComparisonView({ product }: ProductComparisonViewProps) {
       <div className="pw2-store-grid-wrap">
         <div className="pw2-store-grid-header">
           <h3 className="pw2-store-grid-title">
-            Store offers ({product.offers.length})
+            Store offers ({validOffers.length})
           </h3>
 
-          {product.offers.length > 1 && (
+          {validOffers.length > 1 && (
             <div className="pw2-sort-controls">
               <ArrowUpDown size={13} />
               <label htmlFor="pw2-sort-select">Sort by:</label>
@@ -151,7 +153,7 @@ export function ProductComparisonView({ product }: ProductComparisonViewProps) {
           )}
         </div>
 
-        {product.offers.length === 0 ? (
+        {validOffers.length === 0 ? (
           <div className="pw2-offers-empty">
             <AlertCircle size={22} className="pw2-empty-alert-icon" />
             <p className="pw2-offers-empty-title">No verified offers found</p>
@@ -162,7 +164,7 @@ export function ProductComparisonView({ product }: ProductComparisonViewProps) {
         ) : (
           <div className="pw2-store-cards-grid">
             {sortedOffers.map((offer) => {
-              const isLowest = lowestOffer?.id === offer.id;
+      const isLowest = lowestOffer?.id === offer.id;
               const isOutOfStock = offer.availability === "out_of_stock";
 
               return (
@@ -245,7 +247,7 @@ export function ProductComparisonView({ product }: ProductComparisonViewProps) {
         )}
 
         {/* 5E. Partial Results Notice if some stores could not be verified */}
-        {missingRetailers.length > 0 && product.offers.length > 0 && (
+        {missingRetailers.length > 0 && validOffers.length > 0 && (
           <p className="pw2-partial-notice">
             Note: {missingRetailers.join(" and ")} listings could not be verified for this exact variant or were unavailable.
           </p>

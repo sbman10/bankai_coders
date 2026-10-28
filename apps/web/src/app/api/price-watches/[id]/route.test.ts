@@ -7,6 +7,7 @@ import { DELETE, PATCH } from "./route";
 
 const userId = "f9d28d2e-50c4-4c1c-a23c-60a5af4eb3f1";
 const update = vi.fn();
+const rpc = vi.fn();
 const remove = vi.fn();
 const eq = vi.fn();
 const select = vi.fn();
@@ -23,14 +24,16 @@ function makeRequest(method: string, body?: unknown) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  rpc.mockResolvedValue({ data: "observation-id", error: null });
   maybeSingle.mockResolvedValue({ data: { id: "watch-1", current_price: 1899 }, error: null });
   select.mockReturnValue({ maybeSingle });
-  eq.mockReturnValue({ eq, select });
+  eq.mockReturnValue({ eq, select, maybeSingle });
   update.mockReturnValue({ eq });
   remove.mockReturnValue({ eq });
   createClient.mockResolvedValue({
     auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: userId } }, error: null }) },
-    from: vi.fn().mockReturnValue({ update, delete: remove }),
+    rpc,
+    from: vi.fn().mockReturnValue({ update, delete: remove, select: vi.fn(() => ({ eq })) }),
   });
 });
 
@@ -39,7 +42,8 @@ describe("manual price watches", () => {
     const response = await PATCH(makeRequest("PATCH", { currentPrice: 1899 }), context);
 
     expect(response.status).toBe(200);
-    expect(update).toHaveBeenCalledWith(expect.objectContaining({ current_price: 1899, last_checked_at: expect.any(String) }));
+    expect(rpc).toHaveBeenCalledWith("record_manual_price_watch_observation", { p_watch_id: "3f2be616-8139-4c51-9f9e-7a46f388ab2d", p_price: 1899 });
+    expect(update).not.toHaveBeenCalled();
     expect(eq).toHaveBeenCalledWith("user_id", userId);
   });
 

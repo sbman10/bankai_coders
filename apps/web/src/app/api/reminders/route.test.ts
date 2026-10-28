@@ -9,6 +9,7 @@ const userId = "f9d28d2e-50c4-4c1c-a23c-60a5af4eb3f1";
 const insert = vi.fn();
 const select = vi.fn();
 const single = vi.fn();
+const rpc = vi.fn();
 
 function makeRequest(body: unknown) {
   return new Request("http://localhost/api/reminders", {
@@ -20,11 +21,13 @@ function makeRequest(body: unknown) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  rpc.mockResolvedValue({ data: [{ id: "coverage-30", reminder_type: "warranty_expiry" }, { id: "coverage-7", reminder_type: "warranty_expiry" }], error: null });
   single.mockResolvedValue({ data: { id: "reminder-1", status: "scheduled" }, error: null });
   select.mockReturnValue({ single });
   insert.mockReturnValue({ select });
   createClient.mockResolvedValue({
     auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: userId } }, error: null }) },
+    rpc,
     from: vi.fn().mockReturnValue({ insert }),
   });
 });
@@ -50,6 +53,29 @@ describe("replenishment reminders", () => {
     }));
   });
 
+  it("creates a service reminder without trusting identity or delivery fields from the browser", async () => {
+    const response = await POST(makeRequest({
+      type: "service",
+      productId: "a746fbe1-a663-44ac-88f7-2e99e9022bc5",
+      remindAt: "2026-12-01",
+      title: "Annual refrigerator service",
+      reason: "Book the annual maintenance visit.",
+      user_id: "another-user",
+      channel: "email",
+    }));
+
+    expect(response.status).toBe(201);
+    expect(insert).toHaveBeenCalledWith(expect.objectContaining({
+      user_id: userId,
+      product_id: "a746fbe1-a663-44ac-88f7-2e99e9022bc5",
+      reminder_type: "service",
+      title: "Annual refrigerator service",
+      channel: "in_app",
+      status: "scheduled",
+      remind_at: "2026-12-01T09:00:00+05:30",
+    }));
+  });
+
   it("rejects unusable reminder dates and estimates without writing", async () => {
     const response = await POST(makeRequest({
       productId: "a746fbe1-a663-44ac-88f7-2e99e9022bc5",
@@ -59,5 +85,25 @@ describe("replenishment reminders", () => {
 
     expect(response.status).toBe(400);
     expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("creates idempotent warranty expiry reminders through the owner-bound database function", async () => {
+    const response = await POST(makeRequest({
+      type: "warranty_expiry",
+      productId: "a746fbe1-a663-44ac-88f7-2e99e9022bc5",
+      expiresAt: "2026-12-20",
+      coverageLabel: "Manufacturer warranty",
+      user_id: "another-user",
+    }));
+
+    expect(response.status).toBe(201);
+    expect(rpc).toHaveBeenCalledWith("create_coverage_expiry_reminders", {
+      p_product_id: "a746fbe1-a663-44ac-88f7-2e99e9022bc5",
+      p_reminder_type: "warranty_expiry",
+      p_expires_at: "2026-12-20",
+      p_coverage_label: "Manufacturer warranty",
+      p_title: null,
+      p_reason: null,
+    });
   });
 });

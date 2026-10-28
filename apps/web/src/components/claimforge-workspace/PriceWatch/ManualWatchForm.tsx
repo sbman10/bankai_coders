@@ -14,6 +14,7 @@ interface ManualWatchFormProps {
     productUrl: string;
     currentPrice: number;
     targetPrice: number;
+    checkingMode: "manual" | "automated";
   }) => Promise<boolean>;
   isOpen?: boolean;
   onToggleOpen?: () => void;
@@ -30,6 +31,7 @@ export function ManualWatchForm({
   const [url, setUrl] = useState("");
   const [currentPrice, setCurrentPrice] = useState("");
   const [targetPrice, setTargetPrice] = useState("");
+  const [checkingMode, setCheckingMode] = useState<"manual" | "automated">("manual");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -40,6 +42,7 @@ export function ManualWatchForm({
       productUrl: url.trim(),
       currentPrice: Number(currentPrice),
       targetPrice: Number(targetPrice),
+      checkingMode,
     });
     setIsSubmitting(false);
     if (saved) {
@@ -47,6 +50,7 @@ export function ManualWatchForm({
       setCurrentPrice("");
       setTargetPrice("");
       setProductId("");
+      setCheckingMode("manual");
     }
   }
 
@@ -204,6 +208,14 @@ export function ManualWatchForm({
                   }}
                 />
               </label>
+              <label>
+                Check method
+                <select value={checkingMode} onChange={(event) => setCheckingMode(event.target.value as "manual" | "automated")}>
+                  <option value="manual">Manual updates</option>
+                  <option value="automated">Daily retailer checks</option>
+                </select>
+                <span className="optional-label">AUTOMATED CHECKS NEED A SUPPORTED RETAILER LINK</span>
+              </label>
             </div>
           )}
 
@@ -224,7 +236,7 @@ export function ManualWatchForm({
               }}
             >
               <Plus size={15} />
-              <span>Add manual watch</span>
+              <span>{checkingMode === "automated" ? "Start daily watch" : "Add manual watch"}</span>
             </button>
           </div>
         </form>

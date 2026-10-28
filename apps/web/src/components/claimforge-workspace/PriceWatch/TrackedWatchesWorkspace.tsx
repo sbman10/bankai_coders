@@ -225,28 +225,56 @@ export function TrackedWatchesWorkspace({
                   <h3 className="pw2-watch-title" title={watch.name}>
                     {watch.name}
                   </h3>
-
-                  {/* Price Hierarchy */}
+                  <div className="pw2-watch-sub">
+                    {watch.brand && <span style={{ fontWeight: 600 }}>{watch.brand}</span>}
+                    {watch.retailerName && <span>· Via {watch.retailerName}</span>}
+                    {watch.url && (
+                      <a
+                        href={watch.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="pw2-watch-link"
+                        aria-label={`Open product link for ${watch.name}`}
+                      >
+                        <span>Open product link</span>
+                        <ExternalLink size={11} />
+                      </a>
+                    )}
+                  </div>
+                  <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginTop: "0.25rem" }}>
+                    {getStatusBadge(watch.status)}
+                    {watch.currentPriceSource === "verified" ? (
+                      <span className="pw2-watch-status-pill watching">Verified retailer price</span>
+                    ) : watch.currentPriceSource === "unverified" ? (
+                      <span className="pw2-watch-status-pill manual">Initial estimate · awaiting retailer check</span>
+                    ) : (
+                      <span className="pw2-watch-status-pill manual">User-entered price</span>
+                    )}
+                    {watch.lastCheckedAt && (
+                      <span style={{ fontSize: "0.7188rem", color: "#8C827A" }}>
+                        Checked {watch.lastCheckedAt.slice(0, 10)}
+                      </span>
+                    )}
+                    {watch.checkingMode === "automated" && watch.lastCheckStatus && watch.lastCheckStatus !== "success" ? (
+                      <span style={{ fontSize: "0.7188rem", color: "#9A3412" }}>
+                        {watch.lastCheckStatus === "failed" ? "Latest retailer check unavailable" : "Waiting for the next retailer check"}
+                      </span>
+                    ) : null}
+                  </div>
                   <div className="pw2-watch-pricing-block">
                     <div className="pw2-watch-price-row">
-                      <span className="pw2-watch-current-val">
-                        {formatINR(watch.currentPrice)}
-                      </span>
-                      <span className="pw2-watch-target-label">
-                        Target · {formatINR(watch.targetPrice)}
-                      </span>
+                      <span className="pw2-watch-current-val">{formatINR(watch.currentPrice)}</span>
+                      <span className="pw2-watch-target-label">Target · {formatINR(watch.targetPrice)}</span>
                     </div>
-
-                    {/* Deal unlocked / difference pill */}
                     <div className="pw2-watch-diff-row">
-                      {isTargetReached ? (
+                      {watch.currentPriceSource === "unverified" ? (
+                        <span>Target comparison will start after a verified retailer check.</span>
+                      ) : isTargetReached ? (
                         <span className="pw2-diff-tag is-unlocked">
                           Deal unlocked ({formatINR(Math.abs(diff))} under target)
                         </span>
                       ) : (
-                        <span className="pw2-diff-tag is-above">
-                          {formatINR(diff)} above target
-                        </span>
+                        <span className="pw2-diff-tag is-above">{formatINR(diff)} above target</span>
                       )}
                     </div>
                   </div>
@@ -392,6 +420,12 @@ export function TrackedWatchesWorkspace({
             </div>
           </div>
         </div>
+      )}
+      {/* Price History Disclaimer */}
+      {watches.length > 0 && (
+        <p style={{ fontSize: "0.75rem", color: "#8C827A", textAlign: "center", margin: "0.5rem 0 0 0" }}>
+          Automated prices are marked verified only when the retailer and product variant can be matched. Manual updates remain separate from verified retailer observations.
+        </p>
       )}
     </section>
   );

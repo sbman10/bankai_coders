@@ -1,5 +1,4 @@
 import { DiscoveredProduct, RetailerOffer, WatchStatus } from "./types";
-import { SAMPLE_PRODUCTS } from "./priceWatchDemoData";
 
 export interface UrlValidationResult {
   isValid: boolean;
@@ -83,6 +82,17 @@ export function validateProductUrl(inputUrl: string): UrlValidationResult {
   const retailerName = SUPPORTED_DOMAINS[hostname] || "";
   const isSupportedRetailer = Boolean(retailerName);
 
+  if (hostname === "amazon.com" || hostname === "www.amazon.com") {
+    return {
+      isValid: false,
+      normalizedUrl: parsed.toString(),
+      hostname,
+      retailerName: "Amazon.com",
+      isSupportedRetailer: false,
+      error: "Price Watch currently supports Amazon India (INR), not Amazon.com (USD). Paste an Amazon.in product link.",
+    };
+  }
+
   return {
     isValid: true,
     normalizedUrl: parsed.toString(),
@@ -98,8 +108,14 @@ function transformBackendAnalysisToDiscoveredProduct(
 ): DiscoveredProduct {
   const id = analysis.canonicalIdentity;
   const quote = analysis.sourceQuote;
-  const currentPrice = quote?.price?.current || 0;
-  const mrp = quote?.price?.mrp || currentPrice;
+  const quotedPrice = quote?.price?.current;
+  const currentPrice = typeof quotedPrice === "number" && Number.isFinite(quotedPrice) && quotedPrice > 0
+    ? quotedPrice
+    : null;
+  const quotedMrp = quote?.price?.mrp;
+  const mrp = typeof quotedMrp === "number" && Number.isFinite(quotedMrp) && quotedMrp > 0
+    ? quotedMrp
+    : currentPrice;
 
   // Format variant details (RAM, Storage, Color, Size)
   const variantParts: string[] = [];
@@ -120,13 +136,13 @@ function transformBackendAnalysisToDiscoveredProduct(
     ? "meesho"
     : "other";
 
-  const sourceOffer: RetailerOffer = {
+  const sourceOffer: RetailerOffer | null = currentPrice === null ? null : {
     id: `off-${validation.hostname.replace(/[^a-z0-9]/g, "")}-${id.sku || "source"}`,
     retailerId: sourceRetailerId,
     retailerName: validation.retailerName,
     storeDomain: validation.hostname,
     price: currentPrice,
-    originalPrice: mrp > currentPrice ? mrp : undefined,
+    originalPrice: mrp !== null && mrp > currentPrice ? mrp : undefined,
     currency: "INR",
     availability: isAvailable ? "in_stock" : "out_of_stock",
     availabilityText: quote?.availability?.evidence || (isAvailable ? "In Stock (Verified Offer)" : "Currently unavailable"),
@@ -137,11 +153,16 @@ function transformBackendAnalysisToDiscoveredProduct(
     isLowestPrice: true,
   };
 
-  const offers: RetailerOffer[] = [sourceOffer];
+  const offers: RetailerOffer[] = sourceOffer ? [sourceOffer] : [];
 
   if (analysis.candidateEvaluations && Array.isArray(analysis.candidateEvaluations)) {
     for (const cand of analysis.candidateEvaluations) {
-      if (cand.isEligibleForComparison && cand.quote?.price?.current) {
+      if (
+        cand.isEligibleForComparison &&
+        typeof cand.quote?.price?.current === "number" &&
+        Number.isFinite(cand.quote.price.current) &&
+        cand.quote.price.current > 0
+      ) {
         const cPrice = cand.quote.price.current;
         const cMrp = cand.quote.price.mrp;
         const cPlatform = cand.quote.platform || "Other";
@@ -200,12 +221,14 @@ function transformBackendAnalysisToDiscoveredProduct(
     sourceRetailer: validation.retailerName,
     rating: 4.5,
     reviewsCount: undefined,
-    verifiedTimestamp: "Verified live just now",
+    verifiedTimestamp: offers.length > 0 ? "Verified live just now" : undefined,
     isSamplePreview: false,
-    matchingConfidenceNote: `Live verified catalog data from ${validation.retailerName}${id.sku ? ` (ASIN: ${id.sku})` : ""}. Availability: ${isAvailable ? "In Stock" : "Unavailable"}.`,
+    matchingConfidenceNote: offers.length > 0
+      ? `Live verified catalog data from ${validation.retailerName}${id.sku ? ` (ASIN: ${id.sku})` : ""}. Availability: ${isAvailable ? "In Stock" : "Unavailable"}.`
+      : "Product details were identified from the source page, but no current price could be verified.",
     offers,
-    lowestPrice: metrics.lowestPrice || currentPrice,
-    highestPrice: metrics.highestPrice || mrp,
+    lowestPrice: metrics.lowestPrice,
+    highestPrice: metrics.highestPrice,
     potentialSavings: metrics.potentialSavings,
     storesCount: offers.length,
   };
@@ -214,7 +237,6 @@ function transformBackendAnalysisToDiscoveredProduct(
 /**
  * Discovers live multi-retailer offers for a product link.
  * Connects to the backend Price Intelligence API (/api/price-intelligence/analyze).
- * Falls back to predefined sample fixtures only for the designated 1-click preview chips.
  */
 export async function discoverProductFromUrl(url: string): Promise<DiscoveredProduct> {
   const validation = validateProductUrl(url);
@@ -222,15 +244,7 @@ export async function discoverProductFromUrl(url: string): Promise<DiscoveredPro
     throw new Error(validation.error || "Invalid URL.");
   }
 
-  // 1. Check if user clicked an explicit sample demo chip
-  const exactSample = SAMPLE_PRODUCTS.find(
-    (p) => p.sourceUrl.toLowerCase().trim() === validation.normalizedUrl.toLowerCase().trim()
-  );
-  if (exactSample) {
-    return { ...exactSample, sourceUrl: validation.normalizedUrl };
-  }
-
-  // 2. Call real backend Price Intelligence API
+  // Only backend results count as live data; never substitute sample prices after a lookup.
   try {
     const res = await fetch("/api/price-intelligence/analyze", {
       method: "POST",
@@ -251,21 +265,8 @@ export async function discoverProductFromUrl(url: string): Promise<DiscoveredPro
       throw new Error(errJson?.error || `Failed to analyze link from ${validation.retailerName}.`);
     }
   } catch (err: unknown) {
-    // If running in browser or network threw an error, check if this was a known sample keyword in test runner
-    if (typeof window === "undefined" || (err instanceof TypeError && err.message.includes("fetch"))) {
-      const lower = url.toLowerCase();
-      if (lower.includes("macbook") || lower.includes("m3") || lower.includes("b0cx23v253") || lower.includes("apple")) {
-        return { ...SAMPLE_PRODUCTS[0], sourceUrl: validation.normalizedUrl };
-      }
-      if (lower.includes("sony") || lower.includes("xm5") || lower.includes("b09xs7jwhh") || lower.includes("headphone")) {
-        return { ...SAMPLE_PRODUCTS[1], sourceUrl: validation.normalizedUrl };
-      }
-      if (lower.includes("s24") || lower.includes("galaxy") || lower.includes("samsung") || lower.includes("b0cs5xw9g9")) {
-        return { ...SAMPLE_PRODUCTS[2], sourceUrl: validation.normalizedUrl };
-      }
-      if (lower.includes("dyson") || lower.includes("vacuum") || lower.includes("b0b5dfj38f")) {
-        return { ...SAMPLE_PRODUCTS[3], sourceUrl: validation.normalizedUrl };
-      }
+    if (err instanceof TypeError) {
+      throw new Error("We couldn't reach the price checker. Please try again.");
     }
     throw err;
   }

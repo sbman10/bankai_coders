@@ -134,6 +134,7 @@ export class CrossStorePriceIntelligenceService {
       recordObservation?: boolean;
       priceWatchId?: string | null;
       productId?: string | null;
+      timeoutMs?: number;
     } = {}
   ): Promise<CrossStoreAnalysisResult> {
     const sourceAdapter = this.getAdapterForUrl(url);
@@ -141,6 +142,7 @@ export class CrossStorePriceIntelligenceService {
     // 1. Scrape through server-side Firecrawl with strict caching
     const scrapeRes = await this.firecrawlClient.scrapeUrl(url, {
       forceRefresh: options.forceRefresh,
+      timeoutMs: options.timeoutMs,
     });
 
     const scrapedContent: ScrapedContent = {
@@ -327,6 +329,7 @@ export class CrossStorePriceIntelligenceService {
             try {
               const candScrape = await this.firecrawlClient.scrapeUrl(candItem.url, {
                 forceRefresh: options.forceRefresh,
+                timeoutMs: options.timeoutMs,
               });
 
               const candContent: ScrapedContent = {

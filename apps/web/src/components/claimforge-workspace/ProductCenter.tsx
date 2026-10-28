@@ -75,12 +75,21 @@ type PriceWatch = {
   currency: string;
   lastCheckedAt: string;
   createdAt: string;
+  checkingMode: "manual" | "automated";
+  currentPriceSource: "manual" | "verified" | "unverified";
+  manualPrice?: number;
+  lastCheckStatus?: string;
+  lastCheckErrorCode?: string;
+  nextCheckAt?: string;
 };
 
 type Reminder = {
   id: string;
   productId: string;
   product: string;
+  type: string;
+  title: string;
+  status: string;
   estimateDays: number;
   remindAt: string;
   reason?: string;
@@ -304,6 +313,12 @@ function priceWatchFromRow(row: Record<string, unknown>): PriceWatch {
     id: String(row.id), productId: String(row.product_id), name: relationName(row.products), url: String(row.product_url ?? ""),
     currentPrice: Number(row.current_price ?? 0), targetPrice: Number(row.target_price ?? 0), currency: String(row.currency ?? "INR"),
     lastCheckedAt: String(row.last_checked_at ?? ""), createdAt: String(row.created_at ?? ""),
+    checkingMode: row.checking_mode === "automated" ? "automated" : "manual",
+    currentPriceSource: row.current_price_source === "verified" ? "verified" : row.current_price_source === "unverified" ? "unverified" : "manual",
+    manualPrice: row.manual_price == null ? undefined : Number(row.manual_price),
+    lastCheckStatus: row.last_check_status ? String(row.last_check_status) : undefined,
+    lastCheckErrorCode: row.last_check_error_code ? String(row.last_check_error_code) : undefined,
+    nextCheckAt: row.next_check_at ? String(row.next_check_at) : undefined,
   };
 }
 
@@ -330,7 +345,8 @@ function productDocumentFromRow(row?: Record<string, unknown>): ProductDocument 
 function reminderFromRow(row: Record<string, unknown>): Reminder {
   const estimate = String(row.reason ?? "").match(/estimated (\d+)-day/);
   return {
-    id: String(row.id), productId: String(row.product_id), product: relationName(row.products),
+    id: String(row.id), productId: String(row.product_id ?? ""), product: relationName(row.products),
+    type: String(row.reminder_type ?? "replenishment"), title: String(row.title ?? "Reminder"), status: String(row.status ?? "scheduled"),
     estimateDays: estimate ? Number(estimate[1]) : 0, remindAt: String(row.remind_at).slice(0, 10),
     reason: row.reason ? String(row.reason) : undefined,
   };
@@ -362,27 +378,49 @@ export function ProductCenter({
   const documentsRequest = useRef(0);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
+  const [reminderError, setReminderError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function load() {
     setReady(false);
     setError("");
+    setReminderError("");
     try {
-      const [productResult, watchResult, reminderResult, claimResult] = await Promise.all([
+      const [productResult, watchResult, reminderResult, claimResult] = await Promise.allSettled([
         api<{ products: Record<string, unknown>[] }>("/api/products"),
         api<{ watches: Record<string, unknown>[] }>("/api/price-watches"),
         api<{ reminders: Record<string, unknown>[] }>("/api/reminders"),
         api<{ claims: Record<string, unknown>[] }>("/api/claims"),
       ]);
-      setProducts((productResult?.products || []).map(productFromRow));
-      setWatches((watchResult?.watches || []).map(priceWatchFromRow));
-      setReminders((reminderResult?.reminders || []).map(reminderFromRow));
-      setClaims((claimResult?.claims || []).map(claimFromRow));
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Your account items could not be loaded.");
+      if (productResult.status === "fulfilled") {
+        setProducts((productResult.value?.products || []).map(productFromRow));
+      } else {
+        setError(productResult.reason instanceof Error ? productResult.reason.message : "Your products could not be loaded.");
+      }
+      if (watchResult.status === "fulfilled") {
+        setWatches((watchResult.value?.watches || []).map(priceWatchFromRow));
+      }
+      if (reminderResult.status === "fulfilled") {
+        setReminders((reminderResult.value?.reminders || []).map(reminderFromRow));
+      } else {
+        setReminderError(reminderResult.reason instanceof Error ? reminderResult.reason.message : "Your reminders could not be loaded.");
+      }
+      if (claimResult.status === "fulfilled") {
+        setClaims((claimResult.value?.claims || []).map(claimFromRow));
+      }
     } finally {
       setReady(true);
+    }
+  }
+
+  async function retryReminders() {
+    setReminderError("");
+    try {
+      const result = await api<{ reminders: Record<string, unknown>[] }>("/api/reminders");
+      setReminders((result?.reminders || []).map(reminderFromRow));
+    } catch (cause) {
+      setReminderError(cause instanceof Error ? cause.message : "Your reminders could not be loaded.");
     }
   }
 
@@ -430,10 +468,10 @@ export function ProductCenter({
     setNotice("Product removed.");
   }
 
-  async function addWatch(payload: { productId: string; productUrl: string; currentPrice: number; targetPrice: number }) {
+  async function addWatch(payload: { productId: string; productUrl: string; currentPrice: number; targetPrice: number; checkingMode: "manual" | "automated" }) {
     const result = await api<{ watch: Record<string, unknown> }>("/api/price-watches", { method: "POST", body: JSON.stringify(payload) });
     setWatches((current) => [priceWatchFromRow(result.watch), ...current]);
-    setNotice("Manual price watch saved.");
+    setNotice(payload.checkingMode === "automated" ? "Daily price checks enabled for this retailer link." : "Manual price watch saved.");
   }
 
   async function updateWatch(id: string, currentPrice: number) {
@@ -448,16 +486,19 @@ export function ProductCenter({
     setNotice("Price watch removed.");
   }
 
-  async function addReminder(payload: { productId: string; estimateDays: number; remindAt: string }) {
-    const result = await api<{ reminder: Record<string, unknown> }>("/api/reminders", { method: "POST", body: JSON.stringify(payload) });
-    setReminders((current) => [...current, reminderFromRow(result.reminder)].sort((a, b) => a.remindAt.localeCompare(b.remindAt)));
+  async function addReminder(payload: Record<string, unknown>) {
+    const result = await api<{ reminder?: Record<string, unknown>; reminders?: Record<string, unknown>[] }>("/api/reminders", { method: "POST", body: JSON.stringify(payload) });
+    const rows = result.reminders ?? (result.reminder ? [result.reminder] : []);
+    setReminders((current) => [...rows.map(reminderFromRow), ...current].sort((a, b) => a.remindAt.localeCompare(b.remindAt)));
     setNotice("In-app reminder scheduled.");
   }
 
-  async function removeReminder(id: string) {
-    await api(`/api/reminders/${id}`, { method: "DELETE" });
-    setReminders((current) => current.filter((reminder) => reminder.id !== id));
-    setNotice("Reminder cancelled.");
+  async function updateReminder(id: string, action: string, remindAt?: string) {
+    await api(`/api/reminders/${id}`, { method: "PATCH", body: JSON.stringify({ action, ...(remindAt ? { remindAt } : {}) }) });
+    if (action === "cancel") setReminders((current) => current.filter((reminder) => reminder.id !== id));
+    else if (action === "complete") setReminders((current) => current.filter((reminder) => reminder.id !== id));
+    else if (remindAt) setReminders((current) => current.map((reminder) => reminder.id === id ? { ...reminder, remindAt } : reminder).sort((a, b) => a.remindAt.localeCompare(b.remindAt)));
+    setNotice(action === "cancel" ? "Reminder cancelled." : action === "complete" ? "Reminder completed." : "Reminder rescheduled.");
   }
 
   async function showProductTimeline(id: string) {
@@ -636,6 +677,13 @@ export function ProductCenter({
               <button type="button" onClick={() => void load()}>Try again</button>
             </div>
           )}
+          {activeView === "reminders" && reminderError && (
+            <div className="product-feedback product-feedback-error" role="alert">
+              <AlertTriangle size={15} />
+              {reminderError}
+              <button type="button" onClick={() => void retryReminders()}>Retry reminders</button>
+            </div>
+          )}
           {notice && !error && (
             <p role="status" className="product-feedback product-feedback-success">
               <CheckCircle2 size={15} />
@@ -671,10 +719,11 @@ export function ProductCenter({
           {activeView === "reminders" ? (
             <ReminderList
               products={products}
+              claims={claims}
               reminders={reminders}
               busy={busy}
               onAdd={(reminder) => perform(() => addReminder(reminder))}
-              onRemove={(id) => perform(() => removeReminder(id))}
+              onUpdate={(id, action, date) => perform(() => updateReminder(id, action, date))}
             />
           ) : null}
 
@@ -1382,25 +1431,58 @@ function ProductLibrary({
 // ─────────────────────────────────────────────────────────────────────────────
 function ReminderList({
   products,
+  claims,
   reminders,
   busy,
   onAdd,
-  onRemove,
+  onUpdate,
 }: {
   products: Product[];
+  claims: ClaimTimelineRecord[];
   reminders: Reminder[];
   busy: boolean;
-  onAdd: (reminder: { productId: string; estimateDays: number; remindAt: string }) => Promise<boolean>;
-  onRemove: (id: string) => Promise<boolean>;
+  onAdd: (reminder: Record<string, unknown>) => Promise<boolean>;
+  onUpdate: (id: string, action: string, remindAt?: string) => Promise<boolean>;
 }) {
+  const [type, setType] = useState("replenishment");
   const [productId, setProductId] = useState("");
+  const [claimId, setClaimId] = useState("");
   const [estimateDays, setEstimateDays] = useState("");
   const [remindAt, setRemindAt] = useState("");
+  const [expiresAt, setExpiresAt] = useState("");
+  const [coverageLabel, setCoverageLabel] = useState("");
+  const [emailEnabled, setEmailEnabled] = useState(false);
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [editDates, setEditDates] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    void fetch("/api/notification-preferences", { cache: "no-store" }).then(async (response) => {
+      if (response.ok) setEmailEnabled(Boolean((await response.json()).reminderEmailEnabled));
+    }).catch(() => undefined);
+  }, []);
+
+  async function changeEmailPreference(enabled: boolean) {
+    setEmailBusy(true);
+    try {
+      const response = await fetch("/api/notification-preferences", {
+        method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ reminderEmailEnabled: enabled }),
+      });
+      if (!response.ok) throw new Error("Email preference could not be saved.");
+      setEmailEnabled(enabled);
+    } finally { setEmailBusy(false); }
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const saved = await onAdd({ productId, estimateDays: Number(estimateDays), remindAt });
-    if (saved) { setEstimateDays(""); setRemindAt(""); }
+    const coverage = type === "warranty_expiry" || type === "policy_expiry";
+    const claimFollowUp = type === "claim_follow_up";
+    const saved = await onAdd({
+      type,
+      ...(claimFollowUp ? { claimId } : { productId }),
+      ...(coverage ? { expiresAt, coverageLabel: coverageLabel.trim() } : { remindAt }),
+      ...(type === "replenishment" ? { estimateDays: Number(estimateDays) } : {}),
+    });
+    if (saved) { setEstimateDays(""); setRemindAt(""); setExpiresAt(""); setCoverageLabel(""); }
   }
 
   return (
@@ -1409,11 +1491,31 @@ function ReminderList({
         <div className="tool-form-title">
           <span className="tool-icon"><Bell size={17} /></span>
           <div>
-            <h2>Set a replenishment reminder</h2>
-            <p>Choose the date yourself, guided by your estimated usage period.</p>
+            <h2>Schedule a reminder</h2>
+            <p>Warranty alerts are set for 30 and 7 days before expiry. Other reminders use your chosen date.</p>
           </div>
         </div>
-        {products.length === 0 ? (
+        <div className="tool-fields tool-fields-three">
+          <label>Reminder type
+            <select value={type} onChange={(event) => setType(event.target.value)}>
+              <option value="replenishment">Replenishment</option>
+              <option value="service">Service or maintenance</option>
+              <option value="warranty_expiry">Warranty expiry</option>
+              <option value="policy_expiry">Policy expiry</option>
+              <option value="claim_follow_up">Claim follow-up</option>
+            </select>
+          </label>
+        </div>
+        {type === "claim_follow_up" ? (
+          claims.length === 0 ? <p className="tool-empty">Create a claim before scheduling a follow-up.</p> : (
+            <label>Claim
+              <select required value={claimId} onChange={(event) => setClaimId(event.target.value)}>
+                <option value="">Choose a claim</option>
+                {claims.map((claim) => <option key={claim.id} value={claim.id}>{claim.fault}</option>)}
+              </select>
+            </label>
+          )
+        ) : products.length === 0 ? (
           <p className="tool-empty">Add a product in Products before scheduling a reminder.</p>
         ) : (
           <div className="tool-fields tool-fields-three">
@@ -1421,19 +1523,26 @@ function ReminderList({
               Saved product
               <select required value={productId} onChange={(event) => setProductId(event.target.value)}>
                 <option value="">Choose a product</option>
-                {products.map((product) => (
+              {products.map((product) => (
                   <option value={product.id} key={product.id}>{product.name}</option>
                 ))}
               </select>
             </label>
-            <label>
-              Estimated usage period (days)
-              <input required type="number" min="1" max="3650" value={estimateDays} onChange={(event) => setEstimateDays(event.target.value)} placeholder="45" />
-            </label>
-            <label>
-              Remind me on
-              <input required type="date" min={todayInIndia()} value={remindAt} onChange={(event) => setRemindAt(event.target.value)} />
-            </label>
+            {(type === "warranty_expiry" || type === "policy_expiry") ? <>
+              <label>Coverage expires on
+                <input required type="date" min={todayInIndia()} value={expiresAt || (type === "warranty_expiry" ? products.find((product) => product.id === productId)?.warrantyEnd ?? "" : "")} onChange={(event) => setExpiresAt(event.target.value)} />
+              </label>
+              <label>Coverage label (optional)
+                <input value={coverageLabel} onChange={(event) => setCoverageLabel(event.target.value)} placeholder="Manufacturer warranty" />
+              </label>
+            </> : <>
+              {type === "replenishment" ? <label>Estimated usage period (days)
+                <input required type="number" min="1" max="3650" value={estimateDays} onChange={(event) => setEstimateDays(event.target.value)} placeholder="45" />
+              </label> : null}
+              <label>{type === "service" ? "Service date" : type === "claim_follow_up" ? "Follow-up date" : "Remind me on"}
+                <input required type="date" min={todayInIndia()} value={remindAt} onChange={(event) => setRemindAt(event.target.value)} />
+              </label>
+            </>}
           </div>
         )}
         <div className="tool-form-actions">
@@ -1460,15 +1569,25 @@ function ReminderList({
                 <strong>{new Date(`${reminder.remindAt}T12:00:00`).getDate()}</strong>
               </div>
               <div className="watch-main">
-                <strong>{reminder.product}</strong>
-                <span>{reminder.estimateDays ? `Based on your ${reminder.estimateDays}-day estimate · ` : "Based on your estimate · "}{formatDate(reminder.remindAt)}</span>
+                <strong>{reminder.title || reminder.product}</strong>
+                <span>{reminder.type.replaceAll("_", " ")} · {formatDate(reminder.remindAt)} {reminder.status === "sent" ? "· Notified" : ""}</span>
               </div>
-              <button className="tool-icon-button" aria-label={`Cancel reminder for ${reminder.product}`} disabled={busy} onClick={() => onRemove(reminder.id)}>
+              <input aria-label={`New date for ${reminder.title}`} type="date" min={todayInIndia()} value={editDates[reminder.id] ?? ""} onChange={(event) => setEditDates((dates) => ({ ...dates, [reminder.id]: event.target.value }))} />
+              <button type="button" className="button button-secondary" disabled={busy || !editDates[reminder.id]} onClick={async () => { const saved = await onUpdate(reminder.id, "edit", editDates[reminder.id]); if (saved) setEditDates((dates) => ({ ...dates, [reminder.id]: "" })); }}>Save date</button>
+              <button type="button" className="button button-secondary" disabled={busy || !["scheduled", "sent"].includes(reminder.status)} onClick={() => { const date = new Date(`${todayInIndia()}T00:00:00.000Z`); date.setUTCDate(date.getUTCDate() + 7); void onUpdate(reminder.id, "snooze", date.toISOString().slice(0, 10)); }}>Snooze 7 days</button>
+              <button type="button" className="button button-secondary" disabled={busy || !["scheduled", "sent"].includes(reminder.status)} onClick={() => onUpdate(reminder.id, "complete")}>Done</button>
+              <button type="button" className="tool-icon-button" aria-label={`Cancel reminder for ${reminder.product}`} disabled={busy || !["scheduled", "sent"].includes(reminder.status)} onClick={() => onUpdate(reminder.id, "cancel")}>
                 <Trash2 size={15} />
               </button>
             </article>
           ))
         )}
+      </section>
+      <section className="tool-form" aria-label="Email reminder settings">
+        <label style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <input type="checkbox" checked={emailEnabled} disabled={emailBusy} onChange={(event) => void changeEmailPreference(event.target.checked).catch(() => setEmailEnabled(!event.target.checked))} />
+          Send reminder emails (optional). In-app notifications stay on.
+        </label>
       </section>
     </>
   );
