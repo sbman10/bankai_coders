@@ -1,7 +1,8 @@
-import { AmazonAdapter, amazonAdapter } from "../platforms/amazon-adapter";
+import { AmazonAdapter, amazonAdapter, isAmazonBlockedOrErrorContent } from "../platforms/amazon-adapter";
 import type { PriceInfo, AvailabilityInfo, NormalizedProductQuote, ScrapedContent } from "../platforms/platform.types";
 import { defaultFirecrawlClient } from "../firecrawl/firecrawl-client";
-import { extractAsin } from "@/lib/amazon/asin";
+import { extractAsin, canonicalizeAmazonUrl } from "@/lib/amazon/asin";
+import { isBlockedOrErrorTitle } from "../price-intelligence/canonical-identity";
 
 export * from "../platforms/amazon-adapter";
 
@@ -124,6 +125,8 @@ export class AmazonPriceProvider extends AmazonAdapter {
       throw new InvalidAmazonUrlError(`Not an Amazon URL: ${targetUrl}`);
     }
 
+    const normalizedUrl = canonicalizeAmazonUrl(targetUrl);
+    targetUrl = normalizedUrl;
     const asin = targetAsin || extractAsin(targetUrl);
 
     let html = "";
@@ -135,9 +138,15 @@ export class AmazonPriceProvider extends AmazonAdapter {
       markdown = effectiveOptions.markdownOverride || "";
       statusCode = 200;
 
-      // Check if htmlOverride simulates a 404 or captcha block
-      if (html.includes("Robot Check") || html.includes("Type the characters you see")) {
-        throw new AmazonAccessError("Amazon access blocked by bot detection challenge");
+      // Check if htmlOverride simulates a 404, captcha block, or advertising block page
+      if (
+        html.includes("Robot Check") ||
+        html.includes("Type the characters you see") ||
+        html.includes("is blocked") ||
+        html.includes("amazon-adsystem") ||
+        html.includes("aax-eu")
+      ) {
+        throw new AmazonAccessError("Amazon access blocked by bot detection challenge or advertising block page");
       }
       if (html.includes("Page Not Found") || html.includes("Looking for something?")) {
         throw new AmazonAccessError("Amazon page not found (404)");
@@ -168,11 +177,19 @@ export class AmazonPriceProvider extends AmazonAdapter {
       statusCode,
     };
 
+    if (isAmazonBlockedOrErrorContent(scrapedContent)) {
+      throw new AmazonAccessError("Amazon access blocked: advertising domain or bot challenge detected");
+    }
+
     const priceInfo = this.extractPrice(scrapedContent);
     const availabilityInfo = this.extractAvailability(scrapedContent);
     const identity = this.extractCanonicalIdentity(scrapedContent, targetUrl);
 
-    if (!priceInfo || priceInfo.current === null || priceInfo.current === undefined) {
+    if (!identity.cleanTitle || isBlockedOrErrorTitle(identity.cleanTitle)) {
+      throw new AmazonAccessError("Amazon product identity extraction failed: Invalid product page or blocked content");
+    }
+
+    if (!priceInfo || priceInfo.current === null || priceInfo.current === undefined || priceInfo.current <= 0) {
       throw new PriceUnavailableError(`No current selling price available for ASIN ${asin || targetUrl}`);
     }
 

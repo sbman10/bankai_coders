@@ -1,5 +1,6 @@
 import { defaultFirecrawlClient, type FirecrawlClient } from "../firecrawl/firecrawl-client";
 import { amazonAdapter, AmazonAdapter } from "../platforms/amazon-adapter";
+import { canonicalizeAmazonUrl } from "@/lib/amazon/asin";
 import { flipkartAdapter, FlipkartAdapter } from "../platforms/flipkart-adapter";
 import { cromaAdapter, CromaAdapter } from "../platforms/croma-adapter";
 import { meeshoAdapter, MeeshoAdapter } from "../platforms/meesho-adapter";
@@ -139,8 +140,11 @@ export class CrossStorePriceIntelligenceService {
   ): Promise<CrossStoreAnalysisResult> {
     const sourceAdapter = this.getAdapterForUrl(url);
 
+    // Normalize Amazon URL before acquisition so Firecrawl receives canonical product URL, not advertising redirects
+    const targetUrl = sourceAdapter.platform === "Amazon" ? canonicalizeAmazonUrl(url) : url;
+
     // 1. Scrape through server-side Firecrawl with strict caching
-    const scrapeRes = await this.firecrawlClient.scrapeUrl(url, {
+    const scrapeRes = await this.firecrawlClient.scrapeUrl(targetUrl, {
       forceRefresh: options.forceRefresh,
       timeoutMs: options.timeoutMs,
     });
@@ -152,8 +156,8 @@ export class CrossStorePriceIntelligenceService {
     };
 
     // 2. Canonical Product Identity & Price Extraction via source adapter
-    const canonicalIdentity = sourceAdapter.extractCanonicalIdentity(scrapedContent, url);
-    const sourceQuote = sourceAdapter.normalize(scrapedContent, url);
+    const canonicalIdentity = sourceAdapter.extractCanonicalIdentity(scrapedContent, targetUrl);
+    const sourceQuote = sourceAdapter.normalize(scrapedContent, targetUrl);
 
     // 3. Diagnostic Check: URL vs Extracted Identity Protection
     const identityCheck = validateExtractedIdentityAgainstUrl(url, canonicalIdentity, scrapedContent);
@@ -217,8 +221,8 @@ export class CrossStorePriceIntelligenceService {
         );
 
         const candIdentity = candAdapter.extractCanonicalIdentity(cand.rawContent, cand.url);
-        const candBrand = cand.brand || candIdentity.brand || detectBrandFromTitle(cand.title || "");
-        const candModel = cand.model || candIdentity.model || (candBrand ? extractModelFromTitle(cand.title || "", candBrand) : null);
+        const candBrand = cand.brand || (cand.title ? detectBrandFromTitle(cand.title) : null) || candIdentity.brand;
+        const candModel = cand.model || (cand.title && candBrand ? extractModelFromTitle(cand.title, candBrand) : null) || candIdentity.model;
 
         const candQuote: NormalizedProductQuote = {
           platform: cand.platform,
@@ -289,112 +293,127 @@ export class CrossStorePriceIntelligenceService {
         (p) => supportedPlatforms.includes(p) && p !== canonicalIdentity.platform
       );
 
-      for (const targetPlatform of targetPlatforms) {
-        const targetAdapter = this.getAdapterForPlatform(targetPlatform);
-        const targetDomain = this.getDomainForPlatform(targetPlatform);
+      await Promise.allSettled(
+        targetPlatforms.map(async (targetPlatform) => {
+          const targetAdapter = this.getAdapterForPlatform(targetPlatform);
+          const targetDomain = this.getDomainForPlatform(targetPlatform);
 
-        const brand = canonicalIdentity.brand;
-        const model = canonicalIdentity.model;
-        const cleanModel =
-          model && brand && model.toLowerCase().startsWith(brand.toLowerCase())
-            ? model.slice(brand.length).trim()
-            : model || "";
+          const brand = canonicalIdentity.brand;
+          const model = canonicalIdentity.model;
+          const cleanModel =
+            model && brand && model.toLowerCase().startsWith(brand.toLowerCase())
+              ? model.slice(brand.length).trim()
+              : model || "";
 
-        const specParts = [
-          brand,
-          cleanModel,
-          canonicalIdentity.variant.capacity,
-          canonicalIdentity.variant.connectivity,
-          canonicalIdentity.variant.appliance_type,
-          canonicalIdentity.variant.ram,
-          canonicalIdentity.variant.storage,
-          canonicalIdentity.variant.size,
-          canonicalIdentity.variant.volume_or_weight,
-          canonicalIdentity.variant.pack_size && canonicalIdentity.variant.pack_size > 1
-            ? `Pack of ${canonicalIdentity.variant.pack_size}`
-            : null,
-        ].filter(Boolean);
+          const specParts = [
+            brand,
+            cleanModel,
+            canonicalIdentity.variant.capacity,
+            canonicalIdentity.variant.connectivity,
+            canonicalIdentity.variant.appliance_type,
+            canonicalIdentity.variant.ram,
+            canonicalIdentity.variant.storage,
+            canonicalIdentity.variant.size,
+            canonicalIdentity.variant.volume_or_weight,
+            canonicalIdentity.variant.pack_size && canonicalIdentity.variant.pack_size > 1
+              ? `Pack of ${canonicalIdentity.variant.pack_size}`
+              : null,
+          ].filter(Boolean);
 
-        const targetedQuery = `site:${targetDomain} ${specParts.join(" ")}`.trim();
+          const queryTerms =
+            specParts.length > 0
+              ? specParts.join(" ")
+              : (canonicalIdentity.cleanTitle || "").slice(0, 50);
 
-        try {
-          const searchRes = await this.firecrawlClient.search(targetedQuery, {
-            limit: 2,
-            forceRefresh: options.forceRefresh,
-          });
+          const targetedQuery = `site:${targetDomain} ${queryTerms}`.trim();
 
-          const validResults = searchRes.results.filter((r) => targetAdapter.canHandle(r.url));
+          try {
+            const searchRes = await this.firecrawlClient.search(targetedQuery, {
+              limit: 2,
+              forceRefresh: options.forceRefresh,
+            });
 
-          for (const candItem of validResults) {
-            try {
-              const candScrape = await this.firecrawlClient.scrapeUrl(candItem.url, {
-                forceRefresh: options.forceRefresh,
-                timeoutMs: options.timeoutMs,
-              });
+            const validResults = searchRes.results.filter((r) => targetAdapter.canHandle(r.url));
 
-              const candContent: ScrapedContent = {
-                markdown: candScrape.markdown,
-                html: candScrape.html,
-                statusCode: candScrape.statusCode,
-              };
-
-              const candQuote = targetAdapter.normalize(candContent, candItem.url);
-
-              const matchResult = defaultProductMatcher.evaluateMatch(canonicalIdentity, {
-                title: candQuote.title,
-                brand: candQuote.brand,
-                model: candQuote.model,
-                category: detectedCategory,
-                variant: candQuote.variant,
-              });
-
-              const isEligible =
-                matchResult.isMatch &&
-                matchResult.confidenceScore >= 90 &&
-                candQuote.availability.status === "IN_STOCK" &&
-                candQuote.price !== null;
-
-              candidateEvaluations.push({
-                quote: candQuote,
-                matchResult,
-                isEligibleForComparison: isEligible,
-              });
-
-              if (isEligible) {
-                quotesForComparison.push(candQuote);
-
-                if (options.recordObservation && candQuote.price) {
-                  await defaultPriceObservationStore.recordObservation({
-                    priceWatchId: options.priceWatchId,
-                    productId: options.productId,
-                    platform: candQuote.platform,
-                    productUrl: candQuote.productUrl,
-                    title: candQuote.title,
-                    price: candQuote.price.current,
-                    mrp: candQuote.price.mrp,
-                    currency: candQuote.price.currency,
-                    availability: candQuote.availability.status,
-                    availabilityEvidence: candQuote.availability.evidence,
-                    seller: candQuote.seller,
-                    matchConfidence: matchResult.confidenceScore,
+            await Promise.allSettled(
+              validResults.map(async (candItem) => {
+                try {
+                  const candScrape = await this.firecrawlClient.scrapeUrl(candItem.url, {
+                    forceRefresh: options.forceRefresh,
+                    timeoutMs: options.timeoutMs ?? 8000,
                   });
+
+                  const candContent: ScrapedContent = {
+                    markdown: candScrape.markdown,
+                    html: candScrape.html,
+                    statusCode: candScrape.statusCode,
+                  };
+
+                  const candQuote = targetAdapter.normalize(candContent, candItem.url);
+
+                  const matchResult = defaultProductMatcher.evaluateMatch(canonicalIdentity, {
+                    title: candQuote.title,
+                    brand: candQuote.brand,
+                    model: candQuote.model,
+                    category: detectedCategory,
+                    variant: candQuote.variant,
+                  });
+
+                  const isEligible =
+                    matchResult.isMatch &&
+                    matchResult.confidenceScore >= 75 &&
+                    candQuote.availability.status === "IN_STOCK" &&
+                    candQuote.price !== null &&
+                    candQuote.price.current > 0;
+
+                  candidateEvaluations.push({
+                    quote: candQuote,
+                    matchResult,
+                    isEligibleForComparison: isEligible,
+                  });
+
+                  if (isEligible) {
+                    quotesForComparison.push(candQuote);
+
+                    if (options.recordObservation && candQuote.price) {
+                      await defaultPriceObservationStore.recordObservation({
+                        priceWatchId: options.priceWatchId,
+                        productId: options.productId,
+                        platform: candQuote.platform,
+                        productUrl: candQuote.productUrl,
+                        title: candQuote.title,
+                        price: candQuote.price.current,
+                        mrp: candQuote.price.mrp,
+                        currency: candQuote.price.currency,
+                        availability: candQuote.availability.status,
+                        availabilityEvidence: candQuote.availability.evidence,
+                        seller: candQuote.seller,
+                        matchConfidence: matchResult.confidenceScore,
+                      });
+                    }
+                  }
+                } catch {
+                  // Non-fatal for individual candidate
                 }
-              }
-            } catch {
-              // Non-fatal for individual candidate
-            }
+              })
+            );
+          } catch {
+            // Non-fatal if search service fails
           }
-        } catch {
-          // Non-fatal if search service fails
-        }
-      }
+        })
+      );
     }
 
     // 7. Compare Prices
     const comparisonSummary = defaultPriceComparisonEngine.compare(quotesForComparison);
 
-    // 8. Record Observation if requested and source price was found
-    if (options.recordObservation && sourceQuote.price) {
+    // 8. Record Observation if requested and source price was found and valid (> 0)
+    if (
+      options.recordObservation &&
+      sourceQuote.price &&
+      typeof sourceQuote.price.current === "number" &&
+      sourceQuote.price.current > 0
+    ) {
       await defaultPriceObservationStore.recordObservation({
         priceWatchId: options.priceWatchId,
         productId: options.productId,

@@ -58,6 +58,9 @@ const KNOWN_BRANDS = [
 ];
 
 export function extractVariantAttributes(title: string, specText?: string): CanonicalProductVariant {
+  if (isBlockedOrErrorTitle(title)) {
+    return {};
+  }
   const combined = `${title} ${specText || ""}`;
   const variant: CanonicalProductVariant = {};
 
@@ -224,8 +227,35 @@ export function extractVariantAttributes(title: string, specText?: string): Cano
   return variant;
 }
 
+export function isBlockedOrErrorTitle(title: string | null | undefined): boolean {
+  if (!title) return true;
+  const lower = title.toLowerCase().trim();
+  return (
+    lower.includes("amazon-adsystem") ||
+    lower.includes("aax-") ||
+    lower.includes("is blocked") ||
+    lower.includes("was blocked") ||
+    lower.includes("blocked by client") ||
+    lower.includes("net::err_") ||
+    lower.includes("access denied") ||
+    lower.includes("robot check") ||
+    lower.includes("automated access") ||
+    lower.includes("page not found") ||
+    lower.includes("looking for something?") ||
+    lower.includes("something went wrong") ||
+    lower.includes("we're sorry") ||
+    lower.includes("403 forbidden") ||
+    lower.includes("404 not found") ||
+    lower.includes("500 internal") ||
+    lower === "amazon.in" ||
+    lower === "amazon" ||
+    lower === "online shopping"
+  );
+}
+
 export function cleanProductTitle(rawTitle: string): string {
   if (!rawTitle) return "";
+  if (isBlockedOrErrorTitle(rawTitle)) return "";
   return rawTitle
     .replace(/^Amazon\.in\s*:?\s*/i, "")
     .replace(/: Amazon\.in$/i, "")

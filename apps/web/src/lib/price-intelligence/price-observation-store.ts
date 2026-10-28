@@ -52,6 +52,17 @@ export class PriceObservationStore {
    * Records a verified price observation in Supabase or PrototypeStore.
    */
   async recordObservation(input: RecordObservationInput, userId?: string): Promise<PriceObservationRecord> {
+    if (
+      input.price === null ||
+      input.price === undefined ||
+      typeof input.price !== "number" ||
+      Number.isNaN(input.price) ||
+      !Number.isFinite(input.price) ||
+      input.price <= 0
+    ) {
+      throw new Error(`Invalid price observation: Price must be a positive number, got ${input.price}`);
+    }
+
     if (isSupabaseConfigured()) {
       try {
         const supabase = await createClient();

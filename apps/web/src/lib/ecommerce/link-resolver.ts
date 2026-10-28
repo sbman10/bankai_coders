@@ -5,6 +5,7 @@
  */
 
 import { extractAsin, extractMarketplace } from "@/lib/amazon/asin";
+import { isBlockedOrErrorTitle } from "../price-intelligence/canonical-identity";
 
 export type SupportedPlatform = "Amazon" | "Flipkart" | "Meesho";
 export type FieldExtractionStatus = "found" | "not_found" | "needs_review";
@@ -265,6 +266,10 @@ function extractAmazonData(html: string): RawExtractedFields {
       const cleaned = cleanText(headTitle[1]);
       productName = cleaned ? cleaned.replace(/^Amazon\.in\s*:?\s*/i, "").replace(/: Amazon\.in$/i, "") : null;
     }
+  }
+
+  if (productName && isBlockedOrErrorTitle(productName)) {
+    productName = null;
   }
 
   // 2. Images
@@ -786,12 +791,15 @@ export async function resolveProductLink(
 
     html = await res.text();
 
-    // Check for captcha or bot challenge pages
+    // Check for captcha, bot challenge, or advertising blocked pages
     if (
       html.includes("Robot Check") ||
       html.includes("Type the characters you see in this image") ||
       html.includes("Access Denied") ||
-      html.includes("cf-browser-verification")
+      html.includes("cf-browser-verification") ||
+      html.includes("amazon-adsystem") ||
+      html.includes("aax-eu") ||
+      html.includes("is blocked")
     ) {
       throw new MarketplaceAccessError();
     }

@@ -7,18 +7,108 @@ import type {
   ScrapedContent,
   SupportedStorePlatform,
 } from "./platform.types";
-import { extractAsin, extractMarketplace } from "@/lib/amazon/asin";
+import { extractAsin, extractMarketplace, canonicalizeAmazonUrl } from "@/lib/amazon/asin";
 import {
   cleanProductTitle,
   detectBrandFromTitle,
   extractModelFromTitle,
   extractVariantAttributes,
+  isBlockedOrErrorTitle,
 } from "../price-intelligence/canonical-identity";
 import { defaultCategoryRouter } from "../price-intelligence/category-router";
 import { validateCurrentSellingPrice } from "../price-intelligence/price-validator";
 
+export function isAmazonBlockedOrErrorContent(
+  content: ScrapedContent | { html?: string; markdown?: string; title?: string }
+): boolean {
+  const html = content.html || "";
+  const md = content.markdown || "";
+
+  // 1. Explicit bot challenge or captcha
+  const lowerHtml = html.toLowerCase();
+  const lowerMd = md.toLowerCase();
+  if (
+    lowerHtml.includes("enter the characters you see below") ||
+    lowerHtml.includes("to discuss automated access to amazon data") ||
+    lowerHtml.includes("api-services-support@amazon.com") ||
+    lowerMd.includes("enter the characters you see below") ||
+    lowerMd.includes("to discuss automated access to amazon data")
+  ) {
+    return true;
+  }
+
+  // If a valid product title element exists, it's definitely a real product page, NOT a block page!
+  const prodMatch = html.match(/id=["']productTitle["'][^>]*>([\s\S]*?)<\/span>/i);
+  if (prodMatch) {
+    const prodTitle = prodMatch[1].replace(/<[^>]+>/g, "").trim();
+    if (prodTitle && !isBlockedOrErrorTitle(prodTitle)) {
+      return false;
+    }
+  }
+
+  // 2. If NO valid productTitle exists, check if title tag or main heading indicates a blocked domain / error
+  const titleTagMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  const titleTag = (titleTagMatch ? titleTagMatch[1] : "").toLowerCase();
+  if (
+    titleTag.includes("robot check") ||
+    titleTag.includes("amazon-adsystem") ||
+    titleTag.includes("is blocked") ||
+    titleTag.includes("err_blocked") ||
+    titleTag.includes("blocked by client")
+  ) {
+    return true;
+  }
+
+  const firstMdH1Match = md.match(/^#\s+(.+)$/m);
+  const firstH1 = (firstMdH1Match ? firstMdH1Match[1] : "").toLowerCase();
+  if (
+    firstH1.includes("amazon-adsystem") ||
+    firstH1.includes("is blocked") ||
+    firstH1.includes("err_blocked") ||
+    firstH1.includes("access denied")
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Extracts a product title slug from Amazon URL as a fallback.
+ * e.g. /Samsung-A36-Dark-Green-128/dp/B0HJ255RGS -> "Samsung A36 Dark Green 128"
+ */
+export function extractAmazonTitleFromUrl(url: string): string | null {
+  if (!url || typeof url !== "string") return null;
+  try {
+    let trimmed = url.trim();
+    if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmed)) {
+      trimmed = `https://${trimmed}`;
+    }
+    const parsed = new URL(trimmed);
+    const match = parsed.pathname.match(/^\/([a-zA-Z0-9%_-]+)\/dp\//i);
+    if (match && match[1]) {
+      const decoded = decodeURIComponent(match[1]);
+      if (/^(?:gp|dp)$/i.test(decoded)) return null;
+      return decoded
+        .split(/[-_]+/)
+        .map((w) => {
+          if (/^(?:5g|4g|gb|tb|mb|ram|rom|mah)$/i.test(w)) return w.toUpperCase();
+          return w.charAt(0).toUpperCase() + w.slice(1);
+        })
+        .join(" ");
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export class AmazonAdapter implements PlatformAdapter {
   readonly platform: SupportedStorePlatform = "Amazon";
+
+  canonicalizeUrl(url: string): string {
+    return canonicalizeAmazonUrl(url);
+  }
 
   canHandle(url: string): boolean {
     if (!url || typeof url !== "string") return false;
@@ -38,6 +128,10 @@ export class AmazonAdapter implements PlatformAdapter {
   }
 
   extractPrice(content: ScrapedContent): PriceInfo | null {
+    if (isAmazonBlockedOrErrorContent(content)) {
+      return null;
+    }
+
     const html = content.html || "";
     const md = content.markdown || "";
 
@@ -71,9 +165,30 @@ export class AmazonAdapter implements PlatformAdapter {
         currentPrice = parseAmount(apexMatch[1]);
       }
 
-      // Secondary HTML fallback: a-price-whole
+      // Secondary HTML fallback: search for a-price with a-offscreen
       if (!currentPrice) {
-        const wholeMatch = html.match(/id=["']corePriceDisplay_desktop_feature_div["'][\s\S]*?class=["']a-price-whole["']>([^<]+)<\/span>/i);
+        const allOffscreenMatches = [...html.matchAll(/class=["'][^"']*a-price[^"']*["'][\s\S]*?class=["']a-offscreen["']>([^<]+)<\/span>/gi)];
+        for (const m of allOffscreenMatches) {
+          const amt = parseAmount(m[1]);
+          if (amt && amt > 0) {
+            currentPrice = amt;
+            break;
+          }
+        }
+      }
+
+      // Tertiary: generic a-offscreen or a-price-whole
+      if (!currentPrice) {
+        const offscreenMatch = html.match(/class=["']a-offscreen["']>([^<]+)<\/span>/i);
+        if (offscreenMatch) {
+          currentPrice = parseAmount(offscreenMatch[1]);
+        }
+      }
+
+      if (!currentPrice) {
+        const wholeMatch =
+          html.match(/id=["']corePriceDisplay_desktop_feature_div["'][\s\S]*?class=["']a-price-whole["']>([^<]+)/i) ||
+          html.match(/class=["']a-price-whole["']>([^<]+)/i);
         if (wholeMatch) {
           currentPrice = parseAmount(wholeMatch[1]);
         }
@@ -145,7 +260,24 @@ export class AmazonAdapter implements PlatformAdapter {
     const html = content.html || "";
     const md = content.markdown || "";
 
-    // 1. Positive Purchase Evidence for IN_STOCK
+    // 1. Not Found (404 or product removed)
+    if (content.statusCode === 404 || /Looking for something\?[\s\S]*?We're sorry/i.test(html)) {
+      return {
+        status: "NOT_FOUND",
+        evidence: "Amazon page not found or product removed (404)",
+        confidence: 0.99,
+      };
+    }
+
+    if (isAmazonBlockedOrErrorContent(content)) {
+      return {
+        status: "UNKNOWN",
+        evidence: "Page blocked or ad-system error encountered",
+        confidence: 0,
+      };
+    }
+
+    // 2. Positive Purchase Evidence for IN_STOCK
     const hasAddToCartButton =
       /id=["']add-to-cart-button["']/i.test(html) ||
       /name=["']submit\.add-to-cart["']/i.test(html) ||
@@ -176,7 +308,7 @@ export class AmazonAdapter implements PlatformAdapter {
       };
     }
 
-    // 2. Explicit Out of Stock Evidence
+    // 3. Explicit Out of Stock Evidence
     const isExplicitlyOutOfStock =
       /id=["']availability["'][\s\S]*?Currently unavailable\./i.test(html) ||
       /Currently unavailable\./i.test(md) ||
@@ -194,15 +326,6 @@ export class AmazonAdapter implements PlatformAdapter {
       };
     }
 
-    // 3. Not Found (404 or product removed)
-    if (content.statusCode === 404 || /Looking for something\?[\s\S]*?We're sorry/i.test(html)) {
-      return {
-        status: "NOT_FOUND",
-        evidence: "Amazon page not found or product removed (404)",
-        confidence: 0.99,
-      };
-    }
-
     // 4. Inconclusive or no purchase evidence: UNKNOWN
     return {
       status: "UNKNOWN",
@@ -212,6 +335,26 @@ export class AmazonAdapter implements PlatformAdapter {
   }
 
   extractCanonicalIdentity(content: ScrapedContent, url: string): CanonicalProductIdentity {
+    const asin = extractAsin(url);
+    if (isAmazonBlockedOrErrorContent(content)) {
+      return {
+        platform: "Amazon",
+        sourceUrl: url,
+        rawTitle: "",
+        cleanTitle: "",
+        brand: null,
+        model: null,
+        modelNumber: null,
+        productIdentifier: asin || undefined,
+        identifierType: asin ? "ASIN" : undefined,
+        sku: asin || undefined,
+        category: "Electronics",
+        variant: {},
+        seller: null,
+        imageUrl: null,
+      };
+    }
+
     const html = content.html || "";
     const md = content.markdown || "";
 
@@ -219,19 +362,48 @@ export class AmazonAdapter implements PlatformAdapter {
     let rawTitle = "";
     const titleMatch = html.match(/id=["']productTitle["'][^>]*>([\s\S]*?)<\/span>/i);
     if (titleMatch) {
-      rawTitle = titleMatch[1].replace(/<[^>]+>/g, "").trim();
-    } else {
-      const mdH1 = md.match(/^#\s+(.+)$/m);
-      if (mdH1) {
-        rawTitle = mdH1[1].trim();
-      } else {
-        const headTitle = html.match(/<title>([\s\S]*?)<\/title>/i);
-        if (headTitle) {
-          rawTitle = headTitle[1].trim();
+      const candidate = titleMatch[1].replace(/<[^>]+>/g, "").trim();
+      if (!isBlockedOrErrorTitle(candidate)) {
+        rawTitle = candidate;
+      }
+    }
+
+    if (!rawTitle && md) {
+      const allMdH1s = [...md.matchAll(/^#\s+(.+)$/gm)].map((m) => m[1].trim());
+      for (const h of allMdH1s) {
+        if (
+          !isBlockedOrErrorTitle(h) &&
+          !/^(?:skip to|keyboard shortcut|select the department|see personalized recommendations)/i.test(h)
+        ) {
+          rawTitle = h;
+          break;
         }
       }
     }
 
+    if (!rawTitle && html) {
+      const headTitle = html.match(/<title>([\s\S]*?)<\/title>/i);
+      if (headTitle) {
+        const candidate = headTitle[1]
+          .replace(/\s*:\s*Amazon\.[a-z.]+.*$/i, "")
+          .replace(/\s*-\s*Amazon\.[a-z.]+.*$/i, "")
+          .trim();
+        if (!isBlockedOrErrorTitle(candidate) && !/^(?:amazon\.[a-z.]+|online shopping site)/i.test(candidate)) {
+          rawTitle = candidate;
+        }
+      }
+    }
+
+    if (!rawTitle || isBlockedOrErrorTitle(rawTitle)) {
+      const slugTitle = extractAmazonTitleFromUrl(url);
+      if (slugTitle && !isBlockedOrErrorTitle(slugTitle)) {
+        rawTitle = slugTitle;
+      }
+    }
+
+    if (isBlockedOrErrorTitle(rawTitle)) {
+      rawTitle = "";
+    }
     const cleanTitle = cleanProductTitle(rawTitle);
 
     // 2. Brand
@@ -258,7 +430,7 @@ export class AmazonAdapter implements PlatformAdapter {
     const model = explicitModel || extractModelFromTitle(cleanTitle, brand);
 
     // 4. Variant attributes
-    const variant = extractVariantAttributes(cleanTitle, md);
+    const variant = cleanTitle ? extractVariantAttributes(cleanTitle, md) : {};
 
     // 5. Category
     let breadcrumbText: string | null = null;
@@ -299,8 +471,6 @@ export class AmazonAdapter implements PlatformAdapter {
         }
       }
     }
-
-    const asin = extractAsin(url);
 
     return {
       platform: "Amazon",
