@@ -50,6 +50,10 @@ export function calculateMedianPrice(prices: number[]): number {
   }
 }
 
+export interface VerifiedStorePriceQuote extends StorePriceQuote {
+  price: number;
+}
+
 export class PriceComparisonEngine {
   /**
    * Compares prices across verified, available store quotes.
@@ -57,7 +61,7 @@ export class PriceComparisonEngine {
    * are factored into Lowest, Median Price, and Highest calculations.
    */
   compare(quotes: NormalizedProductQuote[]): PriceComparisonSummary | null {
-    const verifiedQuotes: StorePriceQuote[] = [];
+    const verifiedQuotes: VerifiedStorePriceQuote[] = [];
     const unverifiedOrUnavailable: StorePriceQuote[] = [];
 
     for (const q of quotes) {
@@ -75,8 +79,11 @@ export class PriceComparisonEngine {
         matchConfidence: q.rawConfidence,
       };
 
-      if (isAvailable && hasPrice) {
-        verifiedQuotes.push(storeQuote);
+      if (isAvailable && hasPrice && typeof q.price?.current === "number") {
+        verifiedQuotes.push({
+          ...storeQuote,
+          price: q.price.current,
+        });
       } else {
         unverifiedOrUnavailable.push(storeQuote);
       }
