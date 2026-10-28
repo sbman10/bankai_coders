@@ -9,6 +9,45 @@ export interface UrlValidationResult {
   error?: string;
 }
 
+interface BackendPrice {
+  current?: number | null;
+  mrp?: number | null;
+  currency?: string | null;
+}
+
+interface BackendAvailability {
+  status?: string;
+  evidence?: string;
+}
+
+interface BackendQuote {
+  price?: BackendPrice | null;
+  availability?: BackendAvailability | null;
+  platform?: string | null;
+  productUrl?: string | null;
+}
+
+interface BackendAnalysis {
+  canonicalIdentity: {
+    brand?: string | null;
+    model?: string | null;
+    cleanTitle?: string | null;
+    rawTitle?: string | null;
+    sku?: string | null;
+    imageUrl?: string | null;
+    variant?: {
+      ram?: string | null;
+      storage?: string | null;
+      color?: string | null;
+      size?: string | null;
+      volume_or_weight?: string | null;
+    } | null;
+  };
+  sourceQuote?: BackendQuote | null;
+  candidateEvaluations?: Array<{ isEligibleForComparison?: boolean; quote?: BackendQuote | null }>;
+  detectedCategory?: string | null;
+}
+
 const SUPPORTED_DOMAINS: Record<string, string> = {
   "amazon.in": "Amazon India",
   "www.amazon.in": "Amazon India",
@@ -102,12 +141,33 @@ export function validateProductUrl(inputUrl: string): UrlValidationResult {
   };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isBackendAnalysis(value: unknown): value is BackendAnalysis {
+  if (!isRecord(value) || !isRecord(value.canonicalIdentity)) return false;
+  const identity = value.canonicalIdentity;
+  return typeof identity.cleanTitle === "string" || typeof identity.rawTitle === "string";
+}
+
+function safeRetailerUrl(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 function transformBackendAnalysisToDiscoveredProduct(
-  analysis: any,
+  analysis: BackendAnalysis,
   validation: UrlValidationResult
 ): DiscoveredProduct {
   const id = analysis.canonicalIdentity;
   const quote = analysis.sourceQuote;
+  const productTitle = id.cleanTitle || id.rawTitle || "Product from retailer";
   const quotedPrice = quote?.price?.current;
   const currentPrice = typeof quotedPrice === "number" && Number.isFinite(quotedPrice) && quotedPrice > 0
     ? quotedPrice
@@ -157,8 +217,10 @@ function transformBackendAnalysisToDiscoveredProduct(
 
   if (analysis.candidateEvaluations && Array.isArray(analysis.candidateEvaluations)) {
     for (const cand of analysis.candidateEvaluations) {
+      const candidateUrl = safeRetailerUrl(cand.quote?.productUrl);
       if (
         cand.isEligibleForComparison &&
+        candidateUrl &&
         typeof cand.quote?.price?.current === "number" &&
         Number.isFinite(cand.quote.price.current) &&
         cand.quote.price.current > 0
@@ -182,9 +244,10 @@ function transformBackendAnalysisToDiscoveredProduct(
           ? "amazon.in"
           : `${pLower}.com`;
 
+        const retailerId: RetailerOffer["retailerId"] = cId;
         offers.push({
           id: `off-${cId}-${Date.now()}`,
-          retailerId: cId as any,
+          retailerId,
           retailerName: cPlatform,
           storeDomain: cDomain,
           price: cPrice,
@@ -192,7 +255,7 @@ function transformBackendAnalysisToDiscoveredProduct(
           currency: "INR",
           availability: cand.quote.availability?.status === "IN_STOCK" ? "in_stock" : "out_of_stock",
           availabilityText: cand.quote.availability?.evidence || "In Stock",
-          url: cand.quote.productUrl,
+          url: candidateUrl,
           lastCheckedAt: "Just now",
           deliveryDays: 3,
           condition: "new",
@@ -211,9 +274,9 @@ function transformBackendAnalysisToDiscoveredProduct(
 
   return {
     id: `discovered-${id.sku || Date.now()}`,
-    title: id.cleanTitle || id.rawTitle,
+    title: productTitle,
     brand: id.brand || validation.retailerName,
-    model: id.model && id.brand && !id.model.toLowerCase().includes(id.brand.toLowerCase()) ? `${id.brand} ${id.model}` : (id.model || id.cleanTitle),
+    model: id.model && id.brand && !id.model.toLowerCase().includes(id.brand.toLowerCase()) ? `${id.brand} ${id.model}` : (id.model || productTitle),
     variant: variantStr,
     category: analysis.detectedCategory || "General",
     imageUrl: id.imageUrl || undefined,
@@ -257,7 +320,7 @@ export async function discoverProductFromUrl(url: string): Promise<DiscoveredPro
 
     if (res.ok) {
       const data = await res.json();
-      if (data?.success && data?.analysis) {
+      if (data?.success && isBackendAnalysis(data.analysis)) {
         return transformBackendAnalysisToDiscoveredProduct(data.analysis, validation);
       }
     } else {
