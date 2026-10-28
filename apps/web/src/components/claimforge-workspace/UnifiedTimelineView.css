@@ -38,7 +38,7 @@
 /* Scoped Full Timeline View Assembly — Centered Editorial Column */
 .unified-timeline-view {
   width: 100%;
-  max-width: 660px;
+  max-width: 540px;
   margin: 0 auto;
   padding: 0;
   position: relative;
@@ -49,12 +49,13 @@
    02. Page Header & Introduction (Coordinated Column Composition)
    ───────────────────────────────────────────────────────────────────────────── */
 .product-page-header-row.timeline-header-row {
-  max-width: 660px;
-  margin: 0 auto 1.5rem auto;
-  padding: 0 0.25rem;
+  max-width: 540px;
+  margin: 0 auto 1.75rem auto;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
+  text-align: center;
   gap: 0.35rem;
   position: relative;
   z-index: 2;
@@ -62,35 +63,30 @@
 
 .timeline-header-row .product-page-title-block {
   width: 100%;
-}
-
-.timeline-header-row .eyebrow {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #F97316;
-  margin-bottom: 0.25rem;
+  text-align: center;
 }
 
-.timeline-header-row .eyebrow-line {
-  display: inline-block;
-  width: 14px;
-  height: 2px;
-  background: #F97316;
-  margin-right: 8px;
-  border-radius: 1px;
+.timeline-main-heading {
+  font-size: 2.25rem;
+  font-weight: 800;
+  line-height: 1.15;
+  color: #1C1917;
+  letter-spacing: -0.03em;
+  margin: 0;
+  text-align: center;
+  font-family: inherit;
 }
 
 .timeline-header-row .product-page-subtitle {
   color: var(--text-secondary, #574C42);
-  font-size: 0.9375rem;
+  font-size: 0.95rem;
   line-height: 1.5;
   margin-top: 0.35rem;
-  max-width: 560px;
+  max-width: 480px;
+  text-align: center;
   letter-spacing: -0.01em;
 }
 
@@ -106,11 +102,11 @@
   border: 1px solid #E8DFD5;
   border-radius: 12px;
   padding: 0.5rem 0.75rem;
-  margin-bottom: 1.75rem;
+  margin: 0 auto 2rem auto;
   box-shadow: 0 1px 3px rgba(44, 39, 34, 0.04), 0 4px 12px rgba(44, 39, 34, 0.02);
   flex-wrap: wrap;
   width: 100%;
-  max-width: 660px;
+  max-width: 540px;
   box-sizing: border-box;
 }
 
@@ -242,18 +238,18 @@
 
 .aceternity-timeline-body {
   position: relative;
-  max-width: 660px;
+  max-width: 540px;
   margin: 0 auto;
   padding-bottom: 3.5rem;
 }
 
 /* Continuous Rail Track & Animated Burnt-Orange Scroll-Following Beam
-   Mathematically positioned at center of Node Column (left: 128px) */
+   Mathematically positioned at center of Node Column (left: 112px = 96px date + 16px center) */
 .aceternity-timeline-rail-track {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 128px;
+  left: 112px;
   width: 2px;
   transform: translateX(-50%);
   pointer-events: none;
@@ -285,9 +281,9 @@
    ───────────────────────────────────────────────────────────────────────────── */
 .timeline-year-chapter {
   display: grid;
-  grid-template-columns: 110px 36px 1fr;
+  grid-template-columns: 96px 32px 360px;
   align-items: center;
-  margin: 2rem 0 1rem 0;
+  margin: 2.25rem 0 1.25rem 0;
   position: relative;
   z-index: 3;
 }
@@ -320,19 +316,19 @@
   grid-column: 3;
   height: 1px;
   background: linear-gradient(to right, #D8CEC4, rgba(216, 206, 196, 0.02));
-  margin-left: 10px;
-  max-width: 480px;
+  margin-left: 8px;
+  max-width: 360px;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   06. Timeline Entry Row: Spatial Alignment (Date 110px | Rail 36px | Card 480px)
+   06. Timeline Entry Row: Spatial Alignment (Date 96px | Rail 32px | Card 360px)
    ───────────────────────────────────────────────────────────────────────────── */
 .aceternity-timeline-entry {
   position: relative;
   display: grid;
-  grid-template-columns: 110px 36px minmax(0, 480px);
+  grid-template-columns: 96px 32px 360px;
   align-items: flex-start;
-  margin-bottom: 1.5rem;
+  margin-bottom: 2.25rem;
   z-index: 2;
 }
 
@@ -515,106 +511,96 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   10. Compact Archival Event Card Anatomy (430–500px Target Width)
+   10. Image-First Archival Event Card Anatomy (~360px Target Width)
    ───────────────────────────────────────────────────────────────────────────── */
 .timeline-card {
-  width: 100%;
-  max-width: 480px;
+  width: 360px;
+  max-width: 360px;
   background: #FFFFFF;
   border: 1px solid #EAE5DC;
-  border-radius: 14px;
-  padding: 0.9375rem 1.125rem;
-  box-shadow: 0 1px 3px rgba(44, 39, 34, 0.03), 0 4px 12px rgba(44, 39, 34, 0.02);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(44, 39, 34, 0.04), 0 8px 24px rgba(44, 39, 34, 0.03);
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
   box-sizing: border-box;
-  margin-left: 10px;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  margin-left: 8px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .timeline-card:hover {
   border-color: #D8CEC4;
-  box-shadow: 0 4px 14px rgba(44, 39, 34, 0.06);
-  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(44, 39, 34, 0.08), 0 12px 36px rgba(44, 39, 34, 0.05);
+  transform: translateY(-2px);
 }
 
-/* Level 1: Product Context Row */
-.timeline-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  min-width: 0;
-}
-
-.timeline-product-identity,
-.timeline-product-pill {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  min-width: 0;
-  max-width: 76%;
-  background: transparent;
-  border: none;
-  padding: 0;
-}
-
-.timeline-product-thumb {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  overflow: hidden;
-  background: #E2E8F0;
+/* Level 1: Upper 45-55% Hero Product Image Stage */
+.timeline-card-image-stage {
+  height: 180px;
+  width: 100%;
+  background: #FAF7F2;
+  border-bottom: 1px solid #F0EAE1;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  position: relative;
+  padding: 1rem;
+  box-sizing: border-box;
 }
 
-.timeline-product-thumb img {
+.timeline-card-image-wrap {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.timeline-product-name {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: #475569;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
+.timeline-card-hero-img {
+  max-height: 145px;
+  max-width: 82%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.06));
+  transition: transform 0.25s ease;
 }
 
-.timeline-product-variant {
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: #94A3B8;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex-shrink: 1;
+.timeline-card:hover .timeline-card-hero-img {
+  transform: scale(1.03);
+}
+
+.timeline-card-image-stage .library-product-fallback-icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.timeline-card-image-stage .fallback-category-icon {
+  color: #8C827A;
+}
+
+.timeline-card-type-tag {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.55rem;
+  border-radius: 9999px;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  box-shadow: 0 1px 3px rgba(44, 39, 34, 0.05);
+  z-index: 2;
 }
 
 /* Event Category Badges */
-.timeline-type-tag {
-  display: inline-flex;
-  align-items: center;
-  font-size: 0.625rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 0.175rem 0.45rem;
-  border-radius: 4px;
-  white-space: nowrap;
-  flex-shrink: 0;
-  background: #F1F5F9;
-  color: #475569;
-  border: 1px solid #E2E8F0;
-}
-
 .timeline-tag-purchase {
   background: #EFF6FF;
   color: #1D4ED8;
@@ -657,81 +643,81 @@
   border: 1px solid #FDE68A;
 }
 
-/* Level 2: Primary Event Headline & Supporting Description */
-.timeline-card-body {
+/* Level 2: Editorial Content Body */
+.timeline-card-content {
+  padding: 1rem 1.125rem 1rem 1.125rem;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  flex: 1;
 }
 
-.timeline-event-title {
-  margin: 0;
-  font-size: 1.0625rem;
+.timeline-card-product-title {
+  font-size: 0.9375rem;
   font-weight: 700;
-  color: #0F172A;
+  color: #1C1917;
   line-height: 1.35;
+  margin: 0 0 0.35rem 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
   letter-spacing: -0.015em;
-}
-
-.timeline-event-detail {
-  margin: 0;
-  font-size: 0.8125rem;
-  line-height: 1.45;
-  color: #64748B;
   word-break: break-word;
 }
 
-/* Level 3: Metadata & Integrated Action (No Dead Space) */
-.timeline-card-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-top: 0.125rem;
-  padding-top: 0.4rem;
-  border-top: 1px solid rgba(241, 245, 249, 0.8);
+.timeline-card-event-title {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #EA580C;
+  line-height: 1.3;
+  margin: 0 0 0.3rem 0;
+  letter-spacing: -0.01em;
 }
 
-.timeline-card-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.75rem;
-  color: #64748B;
-  min-width: 0;
-}
-
-.timeline-meta-seller,
-.timeline-meta-item {
-  white-space: nowrap;
+.timeline-card-event-detail {
+  font-size: 0.8125rem;
+  color: #574C42;
+  line-height: 1.45;
+  margin: 0 0 0.75rem 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: #64748B;
+  word-break: break-word;
+}
+
+/* Level 3: Restrained Passport Action */
+.timeline-card-action-row {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-top: 0.5rem;
+  border-top: 1px solid #F5F1EB;
 }
 
 .timeline-action-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  background: #F8FAFC;
-  border: 1px solid #E2E8F0;
-  color: #475569;
-  padding: 0.25rem 0.55rem;
-  border-radius: 6px;
-  font-size: 0.6875rem;
+  gap: 0.35rem;
+  font-size: 0.75rem;
   font-weight: 600;
+  color: #44403C;
+  background: #FAF7F2;
+  border: 1px solid #E7E0D6;
+  border-radius: 6px;
+  padding: 0.35rem 0.65rem;
   cursor: pointer;
   transition: all 0.15s ease;
-  margin-left: auto;
   white-space: nowrap;
 }
 
 .timeline-action-btn:hover {
-  background: #FFF7ED;
-  border-color: #FDBA74;
-  color: #EA580C;
+  background: #1C1917;
+  color: #FAF7F2;
+  border-color: #1C1917;
 }
 
 .timeline-action-btn:focus-visible {
@@ -823,12 +809,13 @@
     margin-left: 0;
     margin-top: 0.5rem;
     width: 100%;
+    max-width: 100%;
   }
 
   .aceternity-timeline-entry {
     grid-template-columns: 36px 1fr;
     gap: 0.5rem;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.75rem;
   }
 
   .aceternity-timeline-sticky-date {
@@ -894,12 +881,17 @@
   }
 
   .timeline-card {
+    width: 100%;
     max-width: 100%;
     margin-left: 0;
   }
 
-  .timeline-product-name {
-    max-width: 200px;
+  .timeline-card-image-stage {
+    height: 160px;
+  }
+
+  .timeline-card-hero-img {
+    max-height: 130px;
   }
 }
 
@@ -923,25 +915,12 @@
     width: 100%;
   }
 
-  .timeline-product-name {
-    max-width: 140px;
+  .timeline-main-heading {
+    font-size: 1.75rem;
   }
 
-  .timeline-card-header {
-    flex-direction: row;
-    align-items: center;
-    gap: 0.35rem;
-  }
-
-  .timeline-product-identity,
-  .timeline-product-pill {
-    max-width: 75%;
-  }
-
-  .timeline-card-footer {
-    flex-direction: row;
-    align-items: center;
-    gap: 0.35rem;
+  .timeline-card-image-stage {
+    height: 150px;
   }
 }
 
