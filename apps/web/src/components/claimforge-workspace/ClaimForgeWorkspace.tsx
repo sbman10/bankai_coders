@@ -276,7 +276,7 @@ export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: stri
 
   return (
     <div
-      className={`app-shell ${isDarkTheme ? "dark-theme" : "light-theme"} ${view === "workspace" ? "view-dashboard" : "view-subpage"}`}
+      className={`app-shell ${isDarkTheme ? "dark-theme" : "light-theme"} ${view === "workspace" || view === "timeline" ? "view-dashboard" : "view-subpage"}`}
       suppressHydrationWarning
     >
       {/* Top Horizontal Navigation Bar (Image A) */}

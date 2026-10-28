@@ -1,30 +1,31 @@
 /* =============================================================================
-   PRODUCTVAULT — UNIFIED TIMELINE V4
-   Complete Visual Hierarchy & Chronological Editorial Experience
+   PRODUCTVAULT — UNIFIED TIMELINE
+   Warm Skin / Beige Canvas — Chronological Ownership Journal
    ============================================================================= */
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   01. Canvas Scope & Blueprint Background
-   Strictly scoped to the Unified Timeline view. Never affects other pages.
+   01. Canvas Scope & Warm Skin/Beige Background
+   Strictly scoped to the Unified Timeline view. Harmonizes with ProductVault Warm Beige.
    ───────────────────────────────────────────────────────────────────────────── */
 
-/* Viewport & App Shell Coverage */
+/* Viewport & App Shell Coverage — Transparent to reveal the Dashboard Mountain Background */
 .workspace-main-viewport:has(.timeline-page-shell),
 .app-shell:has(.timeline-page-shell) {
-  background-color: #013f7c !important;
-  background-image: url("/timeline-blueprint-bg.png") !important;
-  background-repeat: repeat !important;
-  background-size: auto !important;
-  background-attachment: fixed !important;
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+.app-shell:has(.timeline-page-shell) .workspace-top-navbar {
+  background-color: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-bottom: 1px solid transparent;
 }
 
 /* Timeline Page Shell Container */
 .page-content.subpage-content.timeline-page-shell {
-  background-color: #013f7c;
-  background-image: url("/timeline-blueprint-bg.png");
-  background-repeat: repeat;
-  background-size: auto;
-  background-attachment: fixed;
+  background-color: transparent !important;
+  background-image: none !important;
   min-height: calc(100vh - 64px);
   width: 100%;
   max-width: 100% !important;
@@ -55,6 +56,8 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 0.35rem;
+  position: relative;
+  z-index: 2;
 }
 
 .timeline-header-row .product-page-title-block {
@@ -83,7 +86,7 @@
 }
 
 .timeline-header-row .product-page-subtitle {
-  color: #CBD5E1;
+  color: var(--text-secondary, #574C42);
   font-size: 0.9375rem;
   line-height: 1.5;
   margin-top: 0.35rem;
@@ -100,11 +103,11 @@
   justify-content: space-between;
   gap: 0.75rem;
   background: #FFFFFF;
-  border: 1px solid rgba(226, 232, 240, 0.9);
+  border: 1px solid #E8DFD5;
   border-radius: 12px;
   padding: 0.5rem 0.75rem;
   margin-bottom: 1.75rem;
-  box-shadow: 0 2px 8px rgba(1, 31, 61, 0.16), 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 3px rgba(44, 39, 34, 0.04), 0 4px 12px rgba(44, 39, 34, 0.02);
   flex-wrap: wrap;
   width: 100%;
   max-width: 660px;
@@ -263,7 +266,7 @@
   bottom: 0;
   left: 0;
   width: 100%;
-  background: rgba(147, 197, 253, 0.28);
+  background: #D8CEC4;
   border-radius: 9999px;
 }
 
@@ -300,23 +303,23 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #041B33;
+  background: #292524;
   color: #FAF7F2;
-  border: 1px solid rgba(148, 163, 184, 0.4);
+  border: 1px solid #44403C;
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
   font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.1em;
   padding: 0.175rem 0.5rem;
   border-radius: 6px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 1px 3px rgba(44, 39, 34, 0.1);
   user-select: none;
 }
 
 .timeline-year-line {
   grid-column: 3;
   height: 1px;
-  background: linear-gradient(to right, rgba(148, 163, 184, 0.3), rgba(148, 163, 184, 0.02));
+  background: linear-gradient(to right, #D8CEC4, rgba(216, 206, 196, 0.02));
   margin-left: 10px;
   max-width: 480px;
 }
@@ -360,11 +363,10 @@
   font-size: 2rem;
   font-weight: 800;
   line-height: 1;
-  color: #FAF7F2;
+  color: #1C1917;
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.04em;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .timeline-month-year-wrap {
@@ -378,7 +380,7 @@
 .timeline-month-txt {
   font-size: 0.75rem;
   font-weight: 800;
-  color: #F97316;
+  color: #EA580C;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
@@ -387,7 +389,7 @@
 .timeline-year-txt {
   font-size: 0.6875rem;
   font-weight: 600;
-  color: #94A3B8;
+  color: #78716C;
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
 }
 
@@ -395,7 +397,7 @@
   margin: 0;
   font-size: 1.25rem;
   font-weight: 800;
-  color: #FAF7F2;
+  color: #1C1917;
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
   letter-spacing: -0.02em;
 }
@@ -428,19 +430,19 @@
 }
 
 .badge-upcoming {
-  color: #A7F3D0;
+  color: #047857;
 }
 
 .badge-upcoming .timeline-status-pip {
-  background: #34D399;
+  background: #10B981;
 }
 
 .badge-expired {
-  color: #94A3B8;
+  color: #78716C;
 }
 
 .badge-expired .timeline-status-pip {
-  background: #94A3B8;
+  background: #78716C;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -461,15 +463,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #FAF7F2;
-  border: 2px solid #002244;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25), 0 2px 6px rgba(0, 0, 0, 0.4);
+  background: #FFFFFF;
+  border: 2px solid #E5DDD3;
+  box-shadow: 0 1px 3px rgba(44, 39, 34, 0.08);
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .aceternity-node-circle:hover {
   transform: scale(1.1);
-  box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.4), 0 4px 10px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.2), 0 3px 8px rgba(44, 39, 34, 0.12);
 }
 
 .aceternity-node-dot {
@@ -519,10 +521,10 @@
   width: 100%;
   max-width: 480px;
   background: #FFFFFF;
-  border: 1px solid rgba(226, 232, 240, 0.9);
+  border: 1px solid #EAE5DC;
   border-radius: 14px;
   padding: 0.9375rem 1.125rem;
-  box-shadow: 0 2px 8px rgba(1, 31, 61, 0.08), 0 1px 2px rgba(1, 31, 61, 0.04);
+  box-shadow: 0 1px 3px rgba(44, 39, 34, 0.03), 0 4px 12px rgba(44, 39, 34, 0.02);
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -532,8 +534,8 @@
 }
 
 .timeline-card:hover {
-  border-color: rgba(234, 88, 12, 0.35);
-  box-shadow: 0 4px 14px rgba(1, 31, 61, 0.14), 0 2px 4px rgba(0, 0, 0, 0.06);
+  border-color: #D8CEC4;
+  box-shadow: 0 4px 14px rgba(44, 39, 34, 0.06);
   transform: translateY(-1px);
 }
 
@@ -741,8 +743,8 @@
    11. Empty Search / Filter Results State
    ───────────────────────────────────────────────────────────────────────────── */
 .timeline-empty-card {
-  background: #FFFFFF;
-  border: 1px solid rgba(226, 232, 240, 0.9);
+  background: #FAF7F2;
+  border: 1px dashed #D8CEC4;
   border-radius: 14px;
   padding: 2.5rem 1.5rem;
   text-align: center;
@@ -752,7 +754,7 @@
   gap: 0.625rem;
   max-width: 480px;
   margin: 2rem auto;
-  box-shadow: 0 4px 16px rgba(1, 31, 61, 0.2);
+  box-shadow: 0 1px 3px rgba(44, 39, 34, 0.04);
 }
 
 .timeline-empty-icon {

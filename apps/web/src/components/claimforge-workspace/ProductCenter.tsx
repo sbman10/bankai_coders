@@ -612,6 +612,11 @@ export function ProductCenter({
   // Saved Products, Prices, Reminders, Timeline Views
   return (
     <div className={`page-content subpage-content ${activeView === "timeline" ? "timeline-page-shell" : ""}`}>
+      {activeView === "timeline" && (
+        <div className="dashboard-bg-system" aria-hidden="true">
+          <div className="dashboard-bg-image" />
+        </div>
+      )}
       {activeView !== "prices" && (
         <div className={`product-page-header-row ${activeView === "timeline" ? "timeline-header-row" : ""}`}>
           <div className="product-page-title-block">
@@ -635,7 +640,6 @@ export function ProductCenter({
                 text={heading[1]}
                 fontSize={40}
                 height={58}
-                color={activeView === "timeline" ? "#FAF7F2" : undefined}
                 accentColor="#EA580C"
                 strokeWidth={2.0}
                 specks={6}
