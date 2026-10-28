@@ -22,6 +22,7 @@
   --bg-pill: #F3ECE2;
   --bg-pill-hover: #ECE3D7;
   --bg-input: #F5EEE6;
+  --bg-card-elevated: #FAF7F2;
 
   --border-subtle: rgba(60, 45, 30, 0.05);
   --border-default: #E8DFD5;
@@ -115,6 +116,7 @@ body.dark,
   --bg-pill: #2A2622;
   --bg-pill-hover: #36312C;
   --bg-input: #24201C;
+  --bg-card-elevated: #24201D;
 
   --border-subtle: rgba(255, 255, 255, 0.05);
   --border-default: rgba(255, 255, 255, 0.1);

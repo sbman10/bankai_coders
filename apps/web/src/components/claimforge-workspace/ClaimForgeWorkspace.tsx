@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -33,6 +33,9 @@ import { ClaimsList, type SavedClaim } from "./ClaimsList";
 import { AssistantChat } from "./AssistantChat";
 import { AccountMenu } from "./AccountMenu";
 import { AccountSettings } from "./AccountSettings";
+import { NotificationCenter } from "./NotificationCenter";
+import { WorkspaceSettings } from "./WorkspaceSettings";
+import { HelpSupport } from "./HelpSupport";
 import { ClaimForgeLogoMark } from "./ProductVisuals";
 import { TechHeading } from "../TechText";
 import { sampleClaim, type ClaimIntakePayload, type ClaimSubmission } from "./types";
@@ -79,6 +82,8 @@ export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: stri
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(3);
+  const notificationBellRef = useRef<HTMLButtonElement>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
@@ -358,50 +363,26 @@ export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: stri
           {/* Notifications Bell */}
           <div className="notification-bell-wrap">
             <button
+              ref={notificationBellRef}
               type="button"
               className="navbar-circle-btn notification-bell-btn"
-              onClick={() => setNotificationsOpen(!notificationsOpen)}
+              onClick={() => setNotificationsOpen((prev) => !prev)}
               aria-label="Notifications"
+              aria-expanded={notificationsOpen}
               title="Notifications"
             >
               <Bell size={16} />
-              <span className="bell-count-dot">3</span>
+              {unreadCount > 0 && <span className="bell-count-dot">{unreadCount}</span>}
             </button>
 
             {notificationsOpen && (
-              <div className="notifications-dropdown-menu" role="menu">
-                <div className="notifications-head">
-                  <strong>Notifications</strong>
-                  <button
-                    type="button"
-                    className="notif-close-link"
-                    onClick={() => setNotificationsOpen(false)}
-                  >
-                    Close
-                  </button>
-                </div>
-                <div className="notif-row unread">
-                  <span className="notif-status-dot red" />
-                  <div>
-                    <strong>LG Refrigerator AMC Due</strong>
-                    <p>Renewal is due in 14 days. Review your plan.</p>
-                  </div>
-                </div>
-                <div className="notif-row unread">
-                  <span className="notif-status-dot green" />
-                  <div>
-                    <strong>Sony WH-1000XM5 Price Drop</strong>
-                    <p>Dropped to ₹24,990 (₹3,000 below purchase price).</p>
-                  </div>
-                </div>
-                <div className="notif-row unread">
-                  <span className="notif-status-dot amber" />
-                  <div>
-                    <strong>Minimalist Sunscreen Restock</strong>
-                    <p>Estimated refill needed in 8 days.</p>
-                  </div>
-                </div>
-              </div>
+              <NotificationCenter
+                onClose={() => setNotificationsOpen(false)}
+                onNavigate={(targetView) => navigateToView(targetView)}
+                triggerRef={notificationBellRef}
+                unreadCount={unreadCount}
+                onUnreadCountChange={setUnreadCount}
+              />
             )}
           </div>
 
@@ -635,10 +616,19 @@ export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: stri
             onNavigateView={(nextView) => navigateToView(nextView as View)}
             onStartClaim={() => beginClaim()}
           />
-        ) : view === "settings" && userEmail ? (
-          <AccountSettings email={userEmail} onBack={() => navigateToView("workspace")} />
-        ) : view === "settings" || view === "help" ? (
-          <PublicDemoNotice onBack={() => navigateToView("workspace")} currentView={view} />
+        ) : view === "settings" ? (
+          <WorkspaceSettings
+            userEmail={userEmail}
+            isDarkTheme={isDarkTheme}
+            onToggleTheme={toggleTheme}
+            onBack={() => navigateToView("workspace")}
+            onNavigate={(nextView) => navigateToView(nextView as View)}
+          />
+        ) : view === "help" ? (
+          <HelpSupport
+            onBack={() => navigateToView("workspace")}
+            onNavigate={(nextView) => navigateToView(nextView as View)}
+          />
         ) : (
           <DashboardHome
             onStartClaim={beginClaim}

@@ -723,9 +723,11 @@ export function ProductCenter({
           ) : null}
         </>
       )}
-      <p className="local-data-note">
-        <AlertTriangle size={14} /> Price checks are manual; reminders currently appear inside ProductVault.
-      </p>
+      {activeView !== "prices" && (
+        <p className="local-data-note">
+          <AlertTriangle size={14} /> Reminders currently appear inside ProductVault.
+        </p>
+      )}
     </div>
   );
 }

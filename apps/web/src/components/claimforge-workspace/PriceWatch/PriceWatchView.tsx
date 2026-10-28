@@ -4,12 +4,10 @@ import { PriceDiscoveryHero } from "./PriceDiscoveryHero";
 import { ProductComparisonView } from "./ProductComparisonView";
 import { PriceAlertConfigurator } from "./PriceAlertConfigurator";
 import { TrackedWatchesWorkspace } from "./TrackedWatchesWorkspace";
-import { ManualWatchForm } from "./ManualWatchForm";
 import { DiscoveredProduct, EnrichedPriceWatch, PriceAlertConfig, WatchStatus } from "./types";
 import {
   discoverProductFromUrl,
   determineWatchStatus,
-  computePriceMetrics,
 } from "./priceWatchAdapter";
 
 export interface ExistingProduct {
@@ -59,7 +57,6 @@ export function PriceWatchView({
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [isSavingAlert, setIsSavingAlert] = useState(false);
   const [sessionDemoWatches, setSessionDemoWatches] = useState<EnrichedPriceWatch[]>([]);
-  const [isManualOpen, setIsManualOpen] = useState(true);
 
   // URL Discovery Handler
   const handleDiscover = async (url: string) => {
@@ -84,12 +81,17 @@ export function PriceWatchView({
           p.name.toLowerCase().includes(discoveredProduct.brand.toLowerCase()) ||
           discoveredProduct.title.toLowerCase().includes(p.name.toLowerCase())
       );
+      const targetProductId = matchingSavedProduct
+        ? matchingSavedProduct.id
+        : products.length > 0
+        ? products[0].id
+        : `sample-${Date.now()}`;
 
-      // If user has a matching saved product in their Supabase library, attempt to persist to real API
-      if (matchingSavedProduct) {
+      // If user has products in their library, persist to real API
+      if (products.length > 0) {
         try {
           await onAdd({
-            productId: matchingSavedProduct.id,
+            productId: targetProductId,
             productUrl: discoveredProduct.sourceUrl,
             currentPrice: discoveredProduct.lowestPrice,
             targetPrice: config.targetPrice,
@@ -99,10 +101,10 @@ export function PriceWatchView({
         }
       }
 
-      // Add to session demonstration watches for immediate live feedback
+      // Add to session watches for immediate feedback
       const newWatch: EnrichedPriceWatch = {
         id: `watch-${Date.now()}`,
-        productId: matchingSavedProduct ? matchingSavedProduct.id : `sample-${Date.now()}`,
+        productId: targetProductId,
         name: discoveredProduct.title,
         url: discoveredProduct.sourceUrl,
         currentPrice: discoveredProduct.lowestPrice,
@@ -147,20 +149,16 @@ export function PriceWatchView({
       };
     });
 
-    // Deduplicate if a session watch was persisted to database
-    const combined = [...sessionDemoWatches, ...realWatches];
-    return combined;
+    return [...sessionDemoWatches, ...realWatches];
   }, [watches, products, sessionDemoWatches]);
 
   // Price update handler: updates in real API or local session
   const handleUpdatePrice = async (id: string, price: number): Promise<boolean> => {
-    // Check if it's a real watch or a session watch
     const isRealWatch = watches.some((w) => w.id === id);
     if (isRealWatch) {
       return await onUpdate(id, price);
     }
 
-    // Session watch update
     setSessionDemoWatches((current) =>
       current.map((w) => {
         if (w.id === id) {
@@ -189,9 +187,9 @@ export function PriceWatchView({
     return true;
   };
 
-  // Smooth scroll or focus to discovery input
+  // Smooth scroll and focus to discovery input
   const handleFocusDiscovery = () => {
-    const input = document.querySelector<HTMLInputElement>(".pw2-url-input");
+    const input = document.querySelector<HTMLInputElement>(".pw2-search-input");
     if (input) {
       input.focus();
       input.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -200,19 +198,17 @@ export function PriceWatchView({
 
   return (
     <div className="pw2-root" aria-label="Price Watch Intelligence Experience">
-      {/* SECTION A: Product URL Discovery */}
+      {/* Search-First Top Section: Standalone "Find the best price.", horizontal input, centered Compare prices CTA */}
       <PriceDiscoveryHero
         onDiscover={handleDiscover}
         isLoading={isDiscovering}
       />
 
-      {/* SECTION B & C: Revealed when product is identified */}
+      {/* Comparison Results & Target Tracking: Revealed when product is identified */}
       {discoveredProduct && (
         <>
-          {/* SECTION B: Product Identification & Price Comparison */}
           <ProductComparisonView product={discoveredProduct} />
 
-          {/* SECTION C: Intelligent Price Alert Configuration */}
           <PriceAlertConfigurator
             product={discoveredProduct}
             onStartTracking={handleStartTracking}
@@ -221,23 +217,13 @@ export function PriceWatchView({
         </>
       )}
 
-      {/* SECTION D: Tracked Products Workspace */}
+      {/* Image-Led Product Cards Workspace */}
       <TrackedWatchesWorkspace
         watches={allEnrichedWatches}
         busy={busy}
         onUpdatePrice={handleUpdatePrice}
         onRemoveWatch={handleRemoveWatch}
-        onOpenManualModal={() => setIsManualOpen(true)}
         onFocusDiscoveryInput={handleFocusDiscovery}
-      />
-
-      {/* MANUAL PRICE WATCH FORM (Preserves exact fields for saved library products & tests) */}
-      <ManualWatchForm
-        products={products}
-        busy={busy}
-        onAdd={onAdd}
-        isOpen={isManualOpen}
-        onToggleOpen={() => setIsManualOpen(!isManualOpen)}
       />
     </div>
   );

@@ -2,9 +2,8 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PriceWatchView } from "./PriceWatchView";
-import { SAMPLE_PRODUCTS } from "./priceWatchDemoData";
 
-describe("PriceWatchView 2.0 Suite", () => {
+describe("PriceWatch Complete Experience Redesign Suite", () => {
   const mockOnAdd = vi.fn();
   const mockOnUpdate = vi.fn();
   const mockOnRemove = vi.fn();
@@ -48,7 +47,7 @@ describe("PriceWatchView 2.0 Suite", () => {
   });
 
   afterEach(() => {
-    // Clear dangling UI timeouts (e.g. 4000ms success banner) to prevent jsdom teardown leak
+    // Clear dangling UI timeouts to prevent jsdom teardown leaks
     let id = setTimeout(() => {}, 0) as unknown as number;
     while (id > 0) {
       clearTimeout(id);
@@ -56,7 +55,7 @@ describe("PriceWatchView 2.0 Suite", () => {
     }
   });
 
-  it("renders the Section A discovery card with eyebrow, headline, and URL input", () => {
+  it("renders the standalone search header 'Find the best price.' without eyebrow or promotional subtitle", () => {
     render(
       <PriceWatchView
         products={sampleProducts}
@@ -68,12 +67,28 @@ describe("PriceWatchView 2.0 Suite", () => {
       />
     );
 
-    expect(screen.getByText(/price intelligence/i)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /find the right price/i })).toBeInTheDocument();
+    // Standalone central heading
+    expect(screen.getByRole("heading", { name: /^find the best price\.$/i })).toBeInTheDocument();
+
+    // STRICT RULE: No eyebrow, no promotional subtitle, no noisy badges
+    expect(screen.queryByText(/price intelligence/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/never miss the drop/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/multi-store discovery engine/i)).not.toBeInTheDocument();
+
+    // Prominent search input with exact placeholder
     expect(
-      screen.getByPlaceholderText(/paste a product link from a supported store/i)
+      screen.getByPlaceholderText(/paste a product link from amazon, flipkart or meesho/i)
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /compare prices/i })).toBeInTheDocument();
+
+    // Single primary Compare prices CTA beneath input
+    expect(screen.getByRole("button", { name: /^compare prices$/i })).toBeInTheDocument();
+
+    // Discreet indication of supported stores
+    expect(screen.getByText(/supported stores: amazon india · flipkart · meesho/i)).toBeInTheDocument();
+
+    // DO NOT advertise Croma or Reliance Digital
+    expect(screen.queryByText("Croma")).not.toBeInTheDocument();
+    expect(screen.queryByText("Reliance Digital")).not.toBeInTheDocument();
   });
 
   it("validates malformed URLs and provides helpful feedback without network calls", async () => {
@@ -91,12 +106,12 @@ describe("PriceWatchView 2.0 Suite", () => {
 
     const input = screen.getByPlaceholderText(/paste a product link/i);
     await user.type(input, "not-a-valid-url");
-    await user.click(screen.getByRole("button", { name: /compare prices/i }));
+    await user.click(screen.getByRole("button", { name: /^compare prices$/i }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/please enter a valid web url/i);
   });
 
-  it("discovers a sample product, revealing Section B comparison and Section C alert configurator", async () => {
+  it("analyzes a product URL, revealing product identity, 3-store comparison grid, and tracking action", async () => {
     const user = userEvent.setup();
     render(
       <PriceWatchView
@@ -109,28 +124,31 @@ describe("PriceWatchView 2.0 Suite", () => {
       />
     );
 
-    // Click 1-click sample chip for MacBook
-    const sampleChip = screen.getByTitle(/compare prices for macbook air/i);
-    await user.click(sampleChip);
+    // Enter valid Amazon product link
+    const input = screen.getByPlaceholderText(/paste a product link/i);
+    await user.type(input, "https://www.amazon.in/dp/B0CX23V253");
+    await user.click(screen.getByRole("button", { name: /^compare prices$/i }));
 
-    // Section B Product Identity Card and Metrics appear after discovery
-    expect(await screen.findByText(/lowest current offer/i)).toBeInTheDocument();
-    expect(await screen.findByRole("heading", { name: /available store offers/i })).toBeInTheDocument();
-    expect(screen.getByText(/highest observed offer/i)).toBeInTheDocument();
-    expect(screen.getByText(/potential difference/i)).toBeInTheDocument();
-    expect(screen.getByText(/stores compared/i)).toBeInTheDocument();
+    // Product Identity Header and Summary appear
+    const lowestLabels = await screen.findAllByText(/lowest verified price/i);
+    expect(lowestLabels.length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole("heading", { name: /store offers/i })).toBeInTheDocument();
 
-    // Multi-retailer table rows
-    expect(screen.getAllByText("Croma").length).toBeGreaterThanOrEqual(1);
+    // Supported stores are represented (Amazon, Flipkart, Meesho)
     expect(screen.getAllByText("Amazon India").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText("Reliance Digital").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Flipkart").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Meesho").length).toBeGreaterThanOrEqual(1);
 
-    // Section C Alert Configurator is revealed
-    expect(screen.getByRole("heading", { name: /set your price alert/i })).toBeInTheDocument();
+    // Unsupported stores must NOT appear
+    expect(screen.queryByText("Croma")).not.toBeInTheDocument();
+    expect(screen.queryByText("Reliance Digital")).not.toBeInTheDocument();
+
+    // Target tracking section is revealed
+    expect(screen.getByRole("heading", { name: /track this product/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /start tracking/i })).toBeInTheDocument();
   });
 
-  it("supports sorting retailer offers by price and retailer name", async () => {
+  it("supports sorting retailer offers by price", async () => {
     const user = userEvent.setup();
     render(
       <PriceWatchView
@@ -143,16 +161,16 @@ describe("PriceWatchView 2.0 Suite", () => {
       />
     );
 
-    await user.click(screen.getByTitle(/compare prices for macbook air/i));
+    const input = screen.getByPlaceholderText(/paste a product link/i);
+    await user.type(input, "https://www.amazon.in/dp/B0CX23V253");
+    await user.click(screen.getByRole("button", { name: /^compare prices$/i }));
+
     const sortSelect = await screen.findByLabelText(/sort retailer offers/i);
     await user.selectOptions(sortSelect, "price_desc");
     expect((sortSelect as HTMLSelectElement).value).toBe("price_desc");
-
-    await user.selectOptions(sortSelect, "retailer");
-    expect((sortSelect as HTMLSelectElement).value).toBe("retailer");
   });
 
-  it("activates tracking from alert configurator and enriches tracked products workspace", async () => {
+  it("tracks a product from search results, persisting via onAdd and adding card to watchlist", async () => {
     const user = userEvent.setup();
     render(
       <PriceWatchView
@@ -166,7 +184,10 @@ describe("PriceWatchView 2.0 Suite", () => {
     );
 
     // Discover product
-    await user.click(screen.getByTitle(/compare prices for wh-1000xm5/i));
+    const input = screen.getByPlaceholderText(/paste a product link/i);
+    await user.type(input, "https://www.amazon.in/dp/B09XS7JWHH");
+    await user.click(screen.getByRole("button", { name: /^compare prices$/i }));
+
     await screen.findByRole("heading", { name: /sony wh-1000xm5/i });
 
     // Set custom target price in configurator
@@ -180,6 +201,11 @@ describe("PriceWatchView 2.0 Suite", () => {
 
     // Watchlist should now display the newly tracked item
     expect(await screen.findByText(/watch activated/i)).toBeInTheDocument();
+    expect(mockOnAdd).toHaveBeenCalledWith(
+      expect.objectContaining({
+        targetPrice: 23000,
+      })
+    );
   });
 
   it("allows removing a price watch with confirmation dialog", async () => {
@@ -195,11 +221,11 @@ describe("PriceWatchView 2.0 Suite", () => {
       />
     );
 
-    // Find delete button on existing watch
+    // Find delete button on existing watch card
     const deleteBtn = screen.getByLabelText(/remove price watch for apple macbook air/i);
     await user.click(deleteBtn);
 
-    // Modal appears
+    // Confirmation modal appears
     expect(screen.getByRole("heading", { name: /remove price watch/i })).toBeInTheDocument();
 
     // Confirm delete
@@ -209,8 +235,7 @@ describe("PriceWatchView 2.0 Suite", () => {
     expect(mockOnRemove).toHaveBeenCalledWith("watch-101");
   });
 
-  it("preserves manual watch form entry and calls onAdd with valid values", async () => {
-    const user = userEvent.setup();
+  it("verifies manual watch section is completely removed from the DOM", () => {
     render(
       <PriceWatchView
         products={sampleProducts}
@@ -222,23 +247,15 @@ describe("PriceWatchView 2.0 Suite", () => {
       />
     );
 
-    await user.selectOptions(screen.getByLabelText("Product"), "prod-2");
-    await user.type(screen.getByLabelText(/current price/i), "25000");
-    await user.type(screen.getByLabelText(/alert below/i), "22000");
-    await user.click(screen.getByRole("button", { name: /add manual watch/i }));
-
-    expect(mockOnAdd).toHaveBeenCalledWith(
-      expect.objectContaining({
-        productId: "prod-2",
-        currentPrice: 25000,
-        targetPrice: 22000,
-      })
-    );
+    // Section 8: "Start a manual watch" form is completely removed
+    expect(screen.queryByText(/start a manual watch/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/add manual watch/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/alert below/i)).not.toBeInTheDocument();
   });
 
-  it("discovers live OnePlus product from backend API and displays OnePlus N6 instead of demo MacBook", async () => {
+  it("discovers live OnePlus product from backend API and displays clean product comparison", async () => {
     const user = userEvent.setup();
-    const onePlusUrl = "https://www.amazon.in/OnePlus-Midnight-Smoothness-Military-Grade-Durability/dp/B0H3LKPC2K/ref=sr_1_3?sr=8-3";
+    const onePlusUrl = "https://www.amazon.in/OnePlus-Midnight-Smoothness-Military-Grade-Durability/dp/B0H3LKPC2K";
 
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
       ok: true,
@@ -255,7 +272,7 @@ describe("PriceWatchView 2.0 Suite", () => {
           },
           sourceQuote: {
             price: { current: 26999, mrp: 33999, currency: "INR" },
-            availability: { status: "IN_STOCK", evidence: "Add to Cart button present" },
+            availability: { status: "IN_STOCK", evidence: "In Stock" },
           },
           detectedCategory: "Mobiles & Tablets",
         },
@@ -275,14 +292,13 @@ describe("PriceWatchView 2.0 Suite", () => {
 
     const input = screen.getByPlaceholderText(/paste a product link/i);
     await user.type(input, onePlusUrl);
-    await user.click(screen.getByRole("button", { name: /compare prices/i }));
+    await user.click(screen.getByRole("button", { name: /^compare prices$/i }));
 
     const comparisonSection = await screen.findByRole("region", {
       name: /Product Identification and Multi-Store Comparison/i,
     });
     expect(within(comparisonSection).getByRole("heading", { name: /OnePlus N6/i })).toBeInTheDocument();
     expect(within(comparisonSection).getByText(/6GB RAM · 128GB Storage · Midnight Green/i)).toBeInTheDocument();
-    expect(within(comparisonSection).queryByRole("heading", { name: /Apple MacBook Air/i })).not.toBeInTheDocument();
 
     fetchSpy.mockRestore();
   });

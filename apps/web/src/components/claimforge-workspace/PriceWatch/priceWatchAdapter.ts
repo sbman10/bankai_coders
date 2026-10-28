@@ -17,14 +17,8 @@ const SUPPORTED_DOMAINS: Record<string, string> = {
   "www.amazon.com": "Amazon",
   "flipkart.com": "Flipkart",
   "www.flipkart.com": "Flipkart",
-  "croma.com": "Croma",
-  "www.croma.com": "Croma",
-  "reliancedigital.in": "Reliance Digital",
-  "www.reliancedigital.in": "Reliance Digital",
-  "vijaysales.com": "Vijay Sales",
-  "www.vijaysales.com": "Vijay Sales",
-  "tatacliq.com": "Tata CLiQ",
-  "www.tatacliq.com": "Tata CLiQ",
+  "meesho.com": "Meesho",
+  "www.meesho.com": "Meesho",
 };
 
 /**
@@ -117,16 +111,25 @@ function transformBackendAnalysisToDiscoveredProduct(
   const variantStr = variantParts.join(" · ") || undefined;
 
   const isAvailable = quote?.availability?.status === "IN_STOCK";
+  const hostnameLower = validation.hostname.toLowerCase();
+  const sourceRetailerId = hostnameLower.includes("amazon")
+    ? "amazon"
+    : hostnameLower.includes("flipkart")
+    ? "flipkart"
+    : hostnameLower.includes("meesho")
+    ? "meesho"
+    : "other";
+
   const sourceOffer: RetailerOffer = {
     id: `off-${validation.hostname.replace(/[^a-z0-9]/g, "")}-${id.sku || "source"}`,
-    retailerId: validation.hostname.includes("amazon") ? "amazon" : "other",
+    retailerId: sourceRetailerId,
     retailerName: validation.retailerName,
     storeDomain: validation.hostname,
     price: currentPrice,
     originalPrice: mrp > currentPrice ? mrp : undefined,
     currency: "INR",
     availability: isAvailable ? "in_stock" : "out_of_stock",
-    availabilityText: quote?.availability?.evidence || (isAvailable ? "In Stock (Add to Cart)" : "Currently unavailable"),
+    availabilityText: quote?.availability?.evidence || (isAvailable ? "In Stock (Verified Offer)" : "Currently unavailable"),
     url: validation.normalizedUrl,
     lastCheckedAt: "Just now",
     deliveryDays: 2,
@@ -142,8 +145,21 @@ function transformBackendAnalysisToDiscoveredProduct(
         const cPrice = cand.quote.price.current;
         const cMrp = cand.quote.price.mrp;
         const cPlatform = cand.quote.platform || "Other";
-        const cDomain = `${cPlatform.toLowerCase()}.com`;
-        const cId = cPlatform.toLowerCase() === "flipkart" ? "flipkart" : cPlatform.toLowerCase() === "croma" ? "croma" : "other";
+        const pLower = cPlatform.toLowerCase();
+        const cId = pLower === "flipkart"
+          ? "flipkart"
+          : pLower === "meesho"
+          ? "meesho"
+          : pLower.includes("amazon")
+          ? "amazon"
+          : "other";
+        const cDomain = pLower === "flipkart"
+          ? "flipkart.com"
+          : pLower === "meesho"
+          ? "meesho.com"
+          : pLower.includes("amazon")
+          ? "amazon.in"
+          : `${pLower}.com`;
 
         offers.push({
           id: `off-${cId}-${Date.now()}`,
@@ -219,7 +235,10 @@ export async function discoverProductFromUrl(url: string): Promise<DiscoveredPro
     const res = await fetch("/api/price-intelligence/analyze", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: validation.normalizedUrl }),
+      body: JSON.stringify({
+        url: validation.normalizedUrl,
+        platforms: ["Amazon", "Flipkart", "Meesho"],
+      }),
     });
 
     if (res.ok) {
