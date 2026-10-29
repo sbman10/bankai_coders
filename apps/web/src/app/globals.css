@@ -6067,6 +6067,26 @@ body.dark .products-count-num {
   gap: 10px;
 }
 
+.dashboard-data-status {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 12px 4px;
+}
+.dashboard-data-status button {
+  margin-top: 8px;
+  border: 1px solid var(--border-pill);
+  border-radius: 999px;
+  padding: 6px 12px;
+  color: var(--text-primary);
+  background: var(--bg-card);
+  cursor: pointer;
+}
+.product-visual-stage .product-cutout-img-fallback {
+  color: var(--text-muted);
+  opacity: 0.65;
+}
+
 /* Product Card (Image A Reference) */
 .product-card-ref {
   position: relative;
@@ -6371,6 +6391,10 @@ body.dark .products-count-num {
   object-fit: contain;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.06));
 }
+.event-thumb-wrap > svg {
+  color: var(--text-muted);
+  opacity: 0.7;
+}
 
 .event-desc-col {
   flex: 1;
@@ -6549,6 +6573,10 @@ body.dark .products-count-num {
   max-width: 46px;
   object-fit: contain;
   filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.1));
+}
+.passport-cutout-img-fallback {
+  color: var(--text-muted);
+  opacity: 0.7;
 }
 .passport-brand-tag {
   font-size: 11px;

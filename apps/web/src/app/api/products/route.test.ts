@@ -4,6 +4,7 @@ const { createClient } = vi.hoisted(() => ({ createClient: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ createClient }));
 
 import { POST } from "./route";
+import * as imageSearch from "@/lib/ecommerce/image-search";
 
 const userId = "f9d28d2e-50c4-4c1c-a23c-60a5af4eb3f1";
 const insert = vi.fn();
@@ -65,6 +66,25 @@ describe("product creation", () => {
 
     expect(response.status).toBe(400);
     expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("automatically attaches product photo when created without an imageUrl", async () => {
+    vi.spyOn(imageSearch, "searchProductImage").mockResolvedValueOnce({
+      imageUrl: "https://m.media-amazon.com/images/I/71cRONPYuVL._SL1500_.jpg",
+      source: "retail_search",
+    });
+
+    const response = await POST(makeRequest({
+      name: "Adjustable dumbbell pad",
+      brand: "Kobo",
+    }));
+
+    expect(response.status).toBe(201);
+    expect(insert).toHaveBeenCalledWith(expect.objectContaining({
+      name: "Adjustable dumbbell pad",
+      brand: "Kobo",
+      image_url: "https://m.media-amazon.com/images/I/71cRONPYuVL._SL1500_.jpg",
+    }));
   });
 
   it("requires a signed-in user", async () => {

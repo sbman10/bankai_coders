@@ -7,6 +7,7 @@ import { findPotentialDuplicates } from "@/lib/ocr/duplicate-detector";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/configured";
 import { prototypeStore } from "@/lib/store/prototype-store";
+import { searchProductImage } from "@/lib/ecommerce/image-search";
 import { findGtinCandidates, lookupBarcodeProductImage } from "@/lib/ecommerce/product-catalog";
 import {
   resolveProductLink,
@@ -82,6 +83,38 @@ async function addBarcodeProductImage(
   const match = await lookupBarcodeProductImage(gtin);
   if (!match) return fields;
   return { ...fields, image_url: match.imageUrl, image_urls: [match.imageUrl] };
+}
+
+async function enrichProductImage(
+  fields: ExtractedProductFields,
+  rawText: string
+): Promise<ExtractedProductFields> {
+  const withBarcode = await addBarcodeProductImage(fields, rawText);
+  if (withBarcode.image_url) return withBarcode;
+
+  const productName = withBarcode.product_name;
+  if (!productName || !productName.trim()) return withBarcode;
+
+  try {
+    const found = await searchProductImage({
+      name: productName,
+      brand: withBarcode.brand,
+      model: withBarcode.model,
+      category: withBarcode.category,
+    });
+
+    if (found?.imageUrl) {
+      return {
+        ...withBarcode,
+        image_url: found.imageUrl,
+        image_urls: [found.imageUrl, ...(withBarcode.image_urls || [])],
+      };
+    }
+  } catch {
+    // Non-blocking enrichment failure
+  }
+
+  return withBarcode;
 }
 
 function createExtractionFailureResponse(ocrResult: OcrRawResult): NextResponse {
@@ -410,7 +443,7 @@ export async function POST(request: Request) {
             }
           }
 
-          const imageFields = await addBarcodeProductImage(extracted, ocrResult.text);
+          const imageFields = await enrichProductImage(extracted, ocrResult.text);
           const existingProducts = await getExistingProducts();
           const duplicates = findPotentialDuplicates(imageFields, existingProducts);
 
@@ -484,7 +517,7 @@ export async function POST(request: Request) {
           engine = "hybrid-invoice-link";
         }
       }
-      const imageFields = await addBarcodeProductImage(extracted, body.text);
+      const imageFields = await enrichProductImage(extracted, body.text);
       const existingProducts = await getExistingProducts();
       const duplicates = findPotentialDuplicates(imageFields, existingProducts);
 
@@ -518,7 +551,7 @@ export async function POST(request: Request) {
           engine = "hybrid-invoice-link";
         }
       }
-      const imageFields = await addBarcodeProductImage(extracted, ocrResult.text);
+      const imageFields = await enrichProductImage(extracted, ocrResult.text);
 
       const existingProducts = await getExistingProducts();
       const duplicates = findPotentialDuplicates(imageFields, existingProducts);

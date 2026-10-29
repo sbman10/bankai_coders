@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import React, { useMemo, useRef, useState, useSyncExternalStore } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useGreeting } from "@/lib/time/useGreeting";
 import {
   addDays,
@@ -20,6 +20,7 @@ import {
   LayoutGrid,
   List,
   MoreHorizontal,
+  Package,
   Plus,
   X,
 } from "lucide-react";
@@ -29,15 +30,16 @@ export type ProductCardItem = {
   name: string;
   brand: string;
   category: "Electronics" | "Appliances" | "Personal Care" | "Accessories";
+  categoryLabel?: string;
   statusText: string;
   statusKind: "warranty-active" | "renew-soon" | "restock-soon" | "amc-active" | "added-manually";
   addedDate: string;
-  documentCount: number;
-  imageSrc: string;
+  documentCount?: number;
+  imageSrc?: string;
   serialNumber: string;
   price: string;
   warrantyEnd: string;
-  invoiceName: string;
+  invoiceName?: string;
   supportLink?: string;
 };
 
@@ -309,6 +311,9 @@ export type MasterTimelineEntry = {
   imageSrc: string;
 };
 
+const emptyDashboardProducts: ProductCardItem[] = [];
+const emptyDashboardTimeline: MasterTimelineEntry[] = [];
+
 export function createMasterTimelineData(baseDate: Date = new Date()): MasterTimelineEntry[] {
   const target1 = addDays(baseDate, 14);
   const target2 = addDays(baseDate, 8);
@@ -412,10 +417,249 @@ export function createMasterTimelineData(baseDate: Date = new Date()): MasterTim
 
 export const masterTimelineData: MasterTimelineEntry[] = createMasterTimelineData();
 
+type DashboardCollections = {
+  products: Record<string, unknown>[];
+  reminders: Record<string, unknown>[];
+  watches: Record<string, unknown>[];
+  claims: Record<string, unknown>[];
+};
+
+type OwnerDashboardSnapshot = {
+  ownerKey: string;
+  products: ProductCardItem[];
+  timeline: MasterTimelineEntry[];
+};
+
+const dashboardCollectionEndpoints = [
+  ["products", "/api/products"],
+  ["reminders", "/api/reminders"],
+  ["watches", "/api/price-watches"],
+  ["claims", "/api/claims"],
+] as const;
+
+function dashboardText(row: Record<string, unknown>, key: string): string {
+  return typeof row[key] === "string" ? String(row[key]).trim() : "";
+}
+
+function dashboardCategory(category: string): ProductCardItem["category"] {
+  const value = category.toLowerCase();
+  if (/personal|care|beauty|skin|cosmetic/.test(value)) return "Personal Care";
+  if (/appliance|home|refrigerator|fridge|washing|microwave|air conditioner/.test(value)) return "Appliances";
+  if (/electronic|audio|phone|mobile|computer|laptop|tablet|headphone|camera|television|\btv\b/.test(value)) return "Electronics";
+  return "Accessories";
+}
+
+function dashboardImageUrl(value: unknown): string | undefined {
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  const imageUrl = value.trim();
+  if (imageUrl.startsWith("/")) return imageUrl;
+  try {
+    return new URL(imageUrl).protocol === "https:" ? imageUrl : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function dashboardDisplayDate(value: string): string {
+  return value ? formatCalendarDateWithWeekday(value) : "Not recorded";
+}
+
+function dashboardCurrency(amount: number, currency: string): string {
+  const safeCurrency = /^[A-Z]{3}$/.test(currency) ? currency : "INR";
+  try {
+    return new Intl.NumberFormat("en-IN", { style: "currency", currency: safeCurrency }).format(amount);
+  } catch {
+    return `${safeCurrency} ${amount.toLocaleString("en-IN")}`;
+  }
+}
+
+function dashboardProductFromRow(row: Record<string, unknown>, baseDate: Date): ProductCardItem | null {
+  const id = dashboardText(row, "id");
+  const name = dashboardText(row, "name");
+  if (!id || !name) return null;
+
+  const categoryLabel = dashboardText(row, "category") || "Other";
+  const warrantyEnd = dashboardText(row, "warranty_end");
+  const warrantyCountdown = warrantyEnd ? calculateRelativeCountdown(warrantyEnd, baseDate) : null;
+  const price = Number(row.price_paid);
+  const currency = dashboardText(row, "currency") || "INR";
+  let formattedPrice = "Not recorded";
+  if (Number.isFinite(price) && price > 0) {
+    formattedPrice = dashboardCurrency(price, currency);
+  }
+
+  const createdAt = dashboardText(row, "created_at") || dashboardText(row, "purchase_date");
+  const imageSrc = dashboardImageUrl(row.image_url) ?? dashboardImageUrl(row.image_urls instanceof Array ? row.image_urls[0] : undefined);
+  const isPersonalCare = dashboardCategory(categoryLabel) === "Personal Care";
+  const warrantyExpired = warrantyCountdown?.daysRemaining !== undefined && warrantyCountdown.daysRemaining < 0;
+  const warrantySoon = warrantyCountdown?.daysRemaining !== undefined && warrantyCountdown.daysRemaining >= 0 && warrantyCountdown.daysRemaining <= 30;
+
+  return {
+    id,
+    name,
+    brand: dashboardText(row, "brand"),
+    category: dashboardCategory(categoryLabel),
+    categoryLabel,
+    statusText: warrantyEnd
+      ? warrantyExpired ? "Warranty expired" : warrantySoon ? `Renew in ${warrantyCountdown?.daysRemaining} days` : "Warranty active"
+      : isPersonalCare ? "Restock reminder available" : "Details incomplete",
+    statusKind: warrantyEnd && !warrantyExpired ? warrantySoon ? "renew-soon" : "warranty-active" : isPersonalCare ? "restock-soon" : "added-manually",
+    addedDate: createdAt ? `Added ${dashboardDisplayDate(createdAt)}` : "Purchase date not recorded",
+    imageSrc,
+    serialNumber: dashboardText(row, "serial_number") || "Not recorded",
+    price: formattedPrice,
+    warrantyEnd: dashboardDisplayDate(warrantyEnd),
+  };
+}
+
+function dashboardProductImage(product: ProductCardItem, className: string, decorative = false) {
+  return product.imageSrc ? (
+    <img src={product.imageSrc} alt={decorative ? "" : product.name} className={className} loading="lazy" />
+  ) : (
+    <Package size={decorative ? 20 : 42} strokeWidth={1.5} className={`${className}-fallback`} aria-hidden="true" />
+  );
+}
+
+function dashboardTimelineFromRows(collections: DashboardCollections, baseDate: Date): MasterTimelineEntry[] {
+  const productById = new Map(collections.products.map((product) => [dashboardText(product, "id"), product]));
+  const events: Array<MasterTimelineEntry & { sortDate: string }> = [];
+  const addEvent = (input: {
+    id: string;
+    productId: string;
+    date: string;
+    subtitle: string;
+    badgeText?: string;
+    badgeKind?: MasterTimelineEntry["badgeKind"];
+  }) => {
+    if (!input.date) return;
+    const date = input.date.slice(0, 10);
+    const parsedDate = parseDateOnly(date);
+    if (Number.isNaN(parsedDate.getTime())) return;
+    const product = productById.get(input.productId);
+    const title = product ? dashboardText(product, "name") : "Product activity";
+    const countdown = calculateRelativeCountdown(parsedDate, baseDate);
+    events.push({
+      id: input.id,
+      day: String(parsedDate.getDate()).padStart(2, "0"),
+      month: parsedDate.toLocaleDateString("en-GB", { month: "short" }),
+      dotColor: input.badgeKind === "red" ? "#EF4444" : input.badgeKind === "amber" ? "#F59E0B" : input.badgeKind === "blue" ? "#3B82F6" : "#94A3B8",
+      title,
+      subtitle: input.subtitle,
+      badgeText: input.badgeText ?? countdown.badgeText,
+      badgeKind: input.badgeKind ?? (countdown.urgency === "red" ? "red" : countdown.urgency === "amber" ? "amber" : "gray"),
+      imageSrc: dashboardImageUrl(product?.image_url) ?? "",
+      sortDate: date,
+    });
+  };
+
+  for (const product of collections.products) {
+    const id = dashboardText(product, "id");
+    if (dashboardText(product, "purchase_date")) addEvent({ id: `purchase-${id}`, productId: id, date: dashboardText(product, "purchase_date"), subtitle: "Product purchased", badgeText: "Purchased", badgeKind: "gray" });
+    if (dashboardText(product, "warranty_end")) addEvent({ id: `warranty-${id}`, productId: id, date: dashboardText(product, "warranty_end"), subtitle: "Warranty expires", badgeKind: "amber" });
+  }
+
+  const reminderLabels: Record<string, string> = {
+    warranty_expiry: "Warranty or policy expiry",
+    service: "Service and maintenance",
+    replenishment: "Replenishment reminder",
+    claim_follow_up: "Claim follow-up",
+    price_target: "Price target alert",
+  };
+  for (const reminder of collections.reminders) {
+    const status = dashboardText(reminder, "status");
+    if (status && !["scheduled", "snoozed", "due", "sent"].includes(status)) continue;
+    const type = dashboardText(reminder, "reminder_type");
+    const title = dashboardText(reminder, "title") || reminderLabels[type] || "Reminder";
+    addEvent({
+      id: `reminder-${dashboardText(reminder, "id")}`,
+      productId: dashboardText(reminder, "product_id"),
+      date: dashboardText(reminder, "remind_at"),
+      subtitle: status === "sent" ? `${title} · notification sent` : title,
+      badgeText: status === "sent" ? "Sent" : undefined,
+      badgeKind: status === "sent" ? "gray" : "amber",
+    });
+  }
+
+  for (const claim of collections.claims) {
+    const status = dashboardText(claim, "status").replaceAll("_", " ");
+    addEvent({ id: `claim-${dashboardText(claim, "id")}`, productId: dashboardText(claim, "product_id"), date: dashboardText(claim, "created_at"), subtitle: `Claim · ${status || "received"}`, badgeText: status || "Received", badgeKind: "blue" });
+  }
+
+  for (const watch of collections.watches) {
+    const currentPrice = Number(watch.current_price);
+    const manualPrice = Number(watch.manual_price);
+    const targetPrice = Number(watch.target_price);
+    const source = dashboardText(watch, "current_price_source");
+    const checkStatus = dashboardText(watch, "last_check_status");
+    const hasVerifiedPrice = source === "verified" && checkStatus === "verified" && Number.isFinite(currentPrice) && currentPrice > 0;
+    const hasLastVerifiedPrice = source === "verified" && Number.isFinite(currentPrice) && currentPrice > 0;
+    const hasManualPrice = source === "manual" && Number.isFinite(manualPrice) && manualPrice > 0;
+    const reached = hasVerifiedPrice && Number.isFinite(targetPrice) && targetPrice > 0 && currentPrice <= targetPrice;
+    const date = hasManualPrice
+      ? dashboardText(watch, "manual_price_entered_at") || dashboardText(watch, "created_at")
+      : dashboardText(watch, "last_checked_at") || dashboardText(watch, "created_at");
+    const statusLabel: Record<string, string> = {
+      failed: "Automated price check failed",
+      unavailable: "Price unavailable",
+      unsupported: "Automated checks unsupported",
+      not_checked: "Price not verified",
+    };
+    addEvent({
+      id: `watch-${dashboardText(watch, "id")}`,
+      productId: dashboardText(watch, "product_id"),
+      date,
+      subtitle: hasVerifiedPrice
+        ? `Verified price · ${dashboardCurrency(currentPrice, dashboardText(watch, "currency") || "INR")}`
+        : hasLastVerifiedPrice
+          ? `Last verified price · ${dashboardCurrency(currentPrice, dashboardText(watch, "currency") || "INR")}`
+          : hasManualPrice
+            ? `Manual price · ${dashboardCurrency(manualPrice, dashboardText(watch, "currency") || "INR")}`
+            : statusLabel[checkStatus] ?? "Price watch started",
+      badgeText: reached
+        ? "Target reached"
+        : hasVerifiedPrice
+          ? "Verified"
+          : hasLastVerifiedPrice
+            ? "Last verified"
+            : hasManualPrice
+              ? "Manual"
+              : checkStatus === "failed" || checkStatus === "unavailable" || checkStatus === "unsupported"
+                ? "Check unavailable"
+                : "Tracking",
+      badgeKind: reached ? "amber" : hasVerifiedPrice ? "blue" : "gray",
+    });
+  }
+
+  const today = baseDate.toISOString().slice(0, 10);
+  const upcoming = events.filter((event) => event.sortDate >= today).sort((a, b) => a.sortDate.localeCompare(b.sortDate));
+  const history = events.filter((event) => event.sortDate < today).sort((a, b) => b.sortDate.localeCompare(a.sortDate));
+  return [...upcoming, ...history].slice(0, 12).map((event, index) => ({
+    id: event.id,
+    section: index === 0 && upcoming.length > 0 ? "Upcoming" : index === upcoming.length && history.length > 0 ? "Later" : undefined,
+    day: event.day,
+    month: event.month,
+    dotColor: event.dotColor,
+    title: event.title,
+    subtitle: event.subtitle,
+    badgeText: event.badgeText,
+    badgeKind: event.badgeKind,
+    imageSrc: event.imageSrc,
+  }));
+}
+
+async function loadDashboardCollection<T>(path: string, key: string): Promise<T[]> {
+  const response = await fetch(path, { cache: "no-store" });
+  const payload = await response.json().catch(() => ({})) as Record<string, unknown>;
+  if (!response.ok) throw new Error("Dashboard data could not be loaded.");
+  return Array.isArray(payload[key]) ? payload[key] as T[] : [];
+}
+
 interface DashboardHomeProps {
   onStartClaim: () => void;
   onOpenReview: () => void;
   onNavigateTab: (tab: string) => void;
+  isSignedIn?: boolean;
+  ownerKey?: string;
   isDarkTheme?: boolean;
   referenceDate?: Date | string;
 }
@@ -424,6 +668,8 @@ export function DashboardHome({
   onStartClaim,
   onOpenReview,
   onNavigateTab,
+  isSignedIn = false,
+  ownerKey,
   referenceDate,
 }: DashboardHomeProps) {
   const greeting = useGreeting();
@@ -437,25 +683,84 @@ export function DashboardHome({
     return formatCalendarDateWithWeekday(baseDate);
   }, [baseDate]);
 
-  const timelineItems = useMemo(() => {
+  const previewTimelineItems = useMemo(() => {
     return createMasterTimelineData(baseDate);
   }, [baseDate]);
+
+  const [ownerSnapshot, setOwnerSnapshot] = useState<OwnerDashboardSnapshot | null>(null);
+  const [ownerLoading, setOwnerLoading] = useState(false);
+  const [ownerError, setOwnerError] = useState<{ ownerKey: string; message: string } | null>(null);
+  const ownerRequestId = useRef(0);
+  const effectiveOwnerKey = isSignedIn ? ownerKey || "signed-in" : "";
+
+  const reloadOwnerSnapshot = useCallback(async () => {
+    if (!effectiveOwnerKey) return;
+    const requestId = ++ownerRequestId.current;
+    setOwnerLoading(true);
+    const results = await Promise.allSettled(
+      dashboardCollectionEndpoints.map(([key, path]) => loadDashboardCollection<Record<string, unknown>>(path, key)),
+    );
+    if (requestId !== ownerRequestId.current) return;
+
+    const [productResult, reminderResult, watchResult, claimResult] = results;
+    const collections: DashboardCollections = {
+      products: productResult.status === "fulfilled" ? productResult.value : [],
+      reminders: reminderResult.status === "fulfilled" ? reminderResult.value : [],
+      watches: watchResult.status === "fulfilled" ? watchResult.value : [],
+      claims: claimResult.status === "fulfilled" ? claimResult.value : [],
+    };
+    setOwnerSnapshot({
+      ownerKey: effectiveOwnerKey,
+      products: collections.products.map((row) => dashboardProductFromRow(row, baseDate)).filter((product): product is ProductCardItem => product !== null),
+      timeline: dashboardTimelineFromRows(collections, baseDate),
+    });
+    setOwnerError(results.some((result) => result.status === "rejected")
+      ? { ownerKey: effectiveOwnerKey, message: "Some saved activity could not be refreshed. Try again to see the latest updates." }
+      : null);
+    setOwnerLoading(false);
+  }, [baseDate, effectiveOwnerKey]);
+
+  useEffect(() => {
+    if (!effectiveOwnerKey) return;
+
+    let active = true;
+    const load = () => {
+      if (active) void reloadOwnerSnapshot();
+    };
+    load();
+    window.addEventListener("focus", load);
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      active = false;
+      ownerRequestId.current += 1;
+      window.removeEventListener("focus", load);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, [effectiveOwnerKey, reloadOwnerSnapshot]);
+
+  const currentOwnerSnapshot = ownerSnapshot?.ownerKey === effectiveOwnerKey ? ownerSnapshot : null;
+  const currentOwnerError = ownerError?.ownerKey === effectiveOwnerKey ? ownerError.message : "";
+  const timelineItems = isSignedIn ? currentOwnerSnapshot?.timeline ?? emptyDashboardTimeline : previewTimelineItems;
+  const dashboardProducts = isSignedIn ? currentOwnerSnapshot?.products ?? emptyDashboardProducts : masterDashboardProducts;
 
   const [tasks, setTasks] = useState<TodayTaskItem[]>(() => createTodayTasks(baseDate));
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedProduct, setSelectedProduct] = useState<ProductCardItem | null>(null);
 
-  // Dynamic category counts from the curated 12 products
+  // Product categories are derived from the signed-in user's saved records.
   const categoryCounts = useMemo(
     () => ({
-      All: masterDashboardProducts.length,
-      Electronics: masterDashboardProducts.filter((p) => p.category === "Electronics").length,
-      Appliances: masterDashboardProducts.filter((p) => p.category === "Appliances").length,
-      "Personal Care": masterDashboardProducts.filter((p) => p.category === "Personal Care").length,
-      Accessories: masterDashboardProducts.filter((p) => p.category === "Accessories").length,
+      All: dashboardProducts.length,
+      Electronics: dashboardProducts.filter((p) => p.category === "Electronics").length,
+      Appliances: dashboardProducts.filter((p) => p.category === "Appliances").length,
+      "Personal Care": dashboardProducts.filter((p) => p.category === "Personal Care").length,
+      Accessories: dashboardProducts.filter((p) => p.category === "Accessories").length,
     }),
-    []
+    [dashboardProducts]
   );
 
   // Scroll-linked beam progress for dashboard timeline rail
@@ -494,7 +799,7 @@ export function DashboardHome({
     setTasks((prev) => prev.map((item) => ({ ...item, done: nextState })));
   }
 
-  const filteredProducts = masterDashboardProducts.filter((product) => {
+  const filteredProducts = dashboardProducts.filter((product) => {
     if (selectedCategory === "All") return true;
     return product.category === selectedCategory;
   });
@@ -743,6 +1048,16 @@ export function DashboardHome({
                 viewMode === "grid" ? "quad-grid" : "list-layout"
               }`}
             >
+              {isSignedIn && ownerLoading && filteredProducts.length === 0 ? (
+                <p role="status" className="dashboard-data-status">Loading your products…</p>
+              ) : null}
+              {isSignedIn && !ownerLoading && filteredProducts.length === 0 ? (
+                <div className="dashboard-data-status">
+                  <p>{currentOwnerError || "Your saved products will appear here."}</p>
+                  {currentOwnerError ? <button type="button" onClick={() => void reloadOwnerSnapshot()}>Retry</button> : null}
+                  {!currentOwnerError ? <button type="button" onClick={() => onNavigateTab("add-product")}>Add your first product</button> : null}
+                </div>
+              ) : null}
               {filteredProducts.map((product) => (
                 <div
                   key={product.id}
@@ -776,12 +1091,7 @@ export function DashboardHome({
 
                   {/* Centered Product Visual - Realistic Clean Cutout */}
                   <div className="product-visual-stage">
-                    <img
-                      src={product.imageSrc}
-                      alt={product.name}
-                      className="product-cutout-img"
-                      loading="eager"
-                    />
+                    {dashboardProductImage(product, "product-cutout-img")}
                   </div>
 
                   {/* Name and Added Date */}
@@ -794,7 +1104,7 @@ export function DashboardHome({
                   <div className="product-card-footer">
                     <div className="doc-count-strip">
                       <FileText size={12} className="doc-strip-icon" />
-                      <span>{product.documentCount} {product.documentCount === 1 ? "document" : "documents"}</span>
+                      <span>{product.documentCount === undefined ? "Open passport" : `${product.documentCount} ${product.documentCount === 1 ? "document" : "documents"}`}</span>
                     </div>
                     <ChevronRight size={14} className="card-footer-arrow" />
                   </div>
@@ -850,6 +1160,16 @@ export function DashboardHome({
               </div>
 
               <div className="timeline-items-flow">
+                {isSignedIn && ownerLoading && timelineItems.length === 0 ? <p role="status" className="dashboard-data-status">Loading your timeline…</p> : null}
+                {isSignedIn && currentOwnerError ? (
+                  <div role="alert" className="dashboard-data-status">
+                    <p>{currentOwnerError}</p>
+                    <button type="button" onClick={() => void reloadOwnerSnapshot()}>Retry</button>
+                  </div>
+                ) : null}
+                {isSignedIn && !ownerLoading && !currentOwnerError && timelineItems.length === 0 ? (
+                  <p className="dashboard-data-status">Add a product or reminder to start your timeline.</p>
+                ) : null}
                 {timelineItems.map((item) => (
                   <React.Fragment key={item.id}>
                     {item.section && (
@@ -857,7 +1177,19 @@ export function DashboardHome({
                         <span className="section-pill-tag">{item.section}</span>
                       </div>
                     )}
-                    <div className="timeline-event-row">
+                    <div
+                      className="timeline-event-row"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`${item.title}: ${item.subtitle}. Open timeline`}
+                      onClick={() => onNavigateTab("timeline")}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          onNavigateTab("timeline");
+                        }
+                      }}
+                    >
                       <div className="event-date-col">
                         <span className="event-day-number">{item.day}</span>
                         <span className="event-month-text">{item.month}</span>
@@ -869,7 +1201,7 @@ export function DashboardHome({
                       />
 
                       <div className="event-thumb-wrap">
-                        <img src={item.imageSrc} alt="" className="timeline-event-thumb-img" />
+                        {item.imageSrc ? <img src={item.imageSrc} alt="" className="timeline-event-thumb-img" loading="lazy" /> : <Package size={18} aria-hidden="true" />}
                       </div>
 
                       <div className="event-desc-col">
@@ -954,11 +1286,7 @@ export function DashboardHome({
             <div className="passport-modal-head">
               <div className="passport-head-left">
                 <div className="passport-modal-thumb">
-                  <img
-                    src={selectedProduct.imageSrc}
-                    alt={selectedProduct.name}
-                    className="passport-cutout-img"
-                  />
+                  {dashboardProductImage(selectedProduct, "passport-cutout-img")}
                 </div>
                 <div>
                   <div className="passport-brand-tag">{selectedProduct.brand}</div>
@@ -981,7 +1309,7 @@ export function DashboardHome({
               <div className="passport-details-grid">
                 <div className="passport-field">
                   <span className="field-label">Category</span>
-                  <span className="field-value font-medium">{selectedProduct.category}</span>
+                  <span className="field-value font-medium">{selectedProduct.categoryLabel ?? selectedProduct.category}</span>
                 </div>
                 <div className="passport-field">
                   <span className="field-label">Status</span>
@@ -1004,7 +1332,7 @@ export function DashboardHome({
               </div>
 
               {/* Saved Document Card */}
-              <div className="passport-document-card">
+              {selectedProduct.invoiceName ? <div className="passport-document-card">
                 <div className="doc-card-info">
                   <FileText size={18} className="doc-icon" />
                   <div>
@@ -1020,7 +1348,7 @@ export function DashboardHome({
                   <Download size={14} />
                   <span>View</span>
                 </button>
-              </div>
+              </div> : null}
 
               {/* Official Support Link */}
               {selectedProduct.supportLink && (

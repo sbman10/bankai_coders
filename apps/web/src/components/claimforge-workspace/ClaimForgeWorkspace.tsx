@@ -68,7 +68,7 @@ function getServerThemeSnapshot(): boolean {
   return false;
 }
 
-export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: string; onSignOut?: () => void | Promise<void> } = {}) {
+export function ClaimForgeWorkspace({ userEmail, userId, onSignOut }: { userEmail?: string; userId?: string; onSignOut?: () => void | Promise<void> } = {}) {
   const pathname = usePathname();
   const router = useRouter();
   const view: View = workspaceViewForPathname(pathname) ?? "workspace";
@@ -678,6 +678,8 @@ export function ClaimForgeWorkspace({ userEmail, onSignOut }: { userEmail?: stri
           <DashboardHome
             onStartClaim={beginClaim}
             onOpenReview={() => navigateToView("review")}
+            isSignedIn={Boolean(userEmail)}
+            ownerKey={userId ?? userEmail}
             onNavigateTab={(tab) => {
               navigateToView(tab as View);
             }}

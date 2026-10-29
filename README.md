@@ -16,7 +16,7 @@ Build the ProductVault MVP while keeping the Reforged '26 deck accurate. See [sl
 
 ## Status
 
-The web app uses Supabase Auth and owner-scoped routes for claim intake, products, manual price watches, and in-app reminder records. Claim submissions store selected files in private Supabase Storage and create an idempotent event. The `ProductVault App API` n8n workflow now has an ID-only processing branch but remains inactive until the additive outbox migration, separate outbound credential, and HTTPS synthetic verification are complete. The app-side processor sends extracted claim-document text to the configured Groq service; n8n does not receive document contents. Automated retailer price checks and outbound notifications are not connected.
+The web app uses Supabase Auth and owner-scoped routes for claim intake, products, manual price watches, and in-app reminder records. The signed-in dashboard now reads the same saved products, reminders, price watches, and claims as the product library and timeline; fictional sample records remain limited to the signed-out preview. Claim submissions store selected files in private Supabase Storage and create an idempotent event. The `ProductVault App API` and daily reminders n8n workflows now point at the app routes, but remain inactive until their separate credentials, additive migrations, and HTTPS synthetic verification are complete. The app-side processor sends extracted claim-document text to the configured Groq service; n8n does not receive document contents. Automated retailer price checks and outbound notifications are not live-verified.
 
 ## MVP codebase
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isRecord, JsonBodyError, readJsonBody } from "@/lib/http/read-json-body";
 import { createClient } from "@/lib/supabase/server";
+import { searchProductImage } from "@/lib/ecommerce/image-search";
 
 const productFields = "id, name, category, brand, model, seller, serial_number, purchase_date, warranty_end, replenishment_days, replenishment_remind_at, owner_name, buying_method, purchase_platform, price_paid, currency, invoice_number, order_id, warranty_duration_months, image_url, source_url, asin, created_at, updated_at";
 
@@ -70,6 +71,24 @@ async function readBody(request: Request): Promise<Record<string, unknown> | Nex
 import { isSupabaseConfigured } from "@/lib/supabase/configured";
 import { prototypeStore } from "@/lib/store/prototype-store";
 
+async function ensureProductImage(input: Record<string, unknown>): Promise<void> {
+  if (!input.image_url && typeof input.name === "string" && input.name.trim()) {
+    try {
+      const match = await searchProductImage({
+        name: input.name as string,
+        brand: typeof input.brand === "string" ? input.brand : null,
+        model: typeof input.model === "string" ? input.model : null,
+        category: typeof input.category === "string" ? input.category : null,
+      });
+      if (match?.imageUrl) {
+        input.image_url = match.imageUrl;
+      }
+    } catch {
+      // Non-blocking enrichment failure
+    }
+  }
+}
+
 export async function GET() {
   try {
     const supabase = await createClient();
@@ -99,6 +118,7 @@ export async function POST(request: Request) {
     if (body instanceof NextResponse) return body;
     const input = productInput(body);
     if (!input) return NextResponse.json({ error: "Enter a product name and valid ownership dates." }, { status: 400 });
+    await ensureProductImage(input);
 
     const { data, error } = await supabase.from("products")
       .insert({ ...input, user_id: user.id }).select(productFields).single();
@@ -110,6 +130,7 @@ export async function POST(request: Request) {
       if (body instanceof NextResponse) return body;
       const input = productInput(body);
       if (!input) return NextResponse.json({ error: "Enter a product name and valid ownership dates." }, { status: 400 });
+    await ensureProductImage(input);
       const product = prototypeStore.createProduct({
         name: input.name as string,
         brand: input.brand as string | null | undefined,

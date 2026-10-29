@@ -135,6 +135,7 @@ export function ProductVisual({
   className?: string;
 }) {
   const [imgError, setImgError] = useState(false);
+  const [dynamicSrc, setDynamicSrc] = useState<string | null>(null);
   const q = `${product.name} ${product.brand} ${product.model} ${product.category}`.toLowerCase();
 
   const resolvedSrc = useMemo(() => {
@@ -205,10 +206,27 @@ export function ProductVisual({
     return null;
   }, [product, imgError, q]);
 
-  if (resolvedSrc) {
+  useEffect(() => {
+    if (resolvedSrc || dynamicSrc || imgError || !product.name) return;
+    let mounted = true;
+    const query = [product.brand, product.name].filter(Boolean).join(" ");
+    fetch(`/api/products/search-image?q=${encodeURIComponent(query)}`)
+      .then((r) => r.json())
+      .then((res) => {
+        if (mounted && res.success && res.imageUrl) {
+          setDynamicSrc(res.imageUrl);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, [product.name, product.brand, resolvedSrc, dynamicSrc, imgError]);
+
+  if ((resolvedSrc || dynamicSrc) && !imgError) {
     return (
       <img
-        src={resolvedSrc}
+        src={resolvedSrc || dynamicSrc!}
         alt={product.name}
         className={className}
         loading="lazy"

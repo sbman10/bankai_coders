@@ -82,6 +82,8 @@ export function AddProduct({ busy, onAdd, onCancel, onSuccess }: AddProductProps
   const [pricePaid, setPricePaid] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [orderId, setOrderId] = useState("");
+  const [manualImageUrl, setManualImageUrl] = useState("");
+  const [manualImageSearching, setManualImageSearching] = useState(false);
 
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   const [warrantyFile, setWarrantyFile] = useState<File | null>(null);
@@ -356,7 +358,7 @@ export function AddProduct({ busy, onAdd, onCancel, onSuccess }: AddProductProps
       invoiceNumber: revInvoiceNumber.trim() || null,
       orderId: revOrderId.trim() || null,
       warrantyDurationMonths: revWarrantyMonths ? Number(revWarrantyMonths) : null,
-      imageUrl: revImageUrl.trim() || null,
+      imageUrl: (manualImageUrl || revImageUrl).trim() || null,
       sourceUrl: revSourceUrl.trim() || null,
       asin: revAsin.trim() || null,
     }, {
@@ -404,6 +406,24 @@ export function AddProduct({ busy, onAdd, onCancel, onSuccess }: AddProductProps
     setPricePaid(""); setInvoiceNumber(""); setOrderId(""); setWarrantyMonths("12");
     setProductUrl(""); setRevImageUrl(""); setRevSourceUrl(""); setRevAsin("");
     setInvoiceFile(null); setWarrantyFile(null); setScanSuccess(false); setScanSummary(null);
+    setManualImageUrl("");
+  }
+
+  async function handleAutoSearchManualImage() {
+    if (!name.trim()) return;
+    setManualImageSearching(true);
+    try {
+      const q = [brand.trim(), name.trim(), model.trim()].filter(Boolean).join(" ");
+      const res = await fetch(`/api/products/search-image?q=${encodeURIComponent(q)}&category=${encodeURIComponent(category.trim())}`);
+      const data = await res.json();
+      if (data.success && data.imageUrl) {
+        setManualImageUrl(data.imageUrl);
+      }
+    } catch {
+      // non-blocking
+    } finally {
+      setManualImageSearching(false);
+    }
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -426,7 +446,7 @@ export function AddProduct({ busy, onAdd, onCancel, onSuccess }: AddProductProps
       invoiceNumber: invoiceNumber.trim() || null,
       orderId: orderId.trim() || null,
       warrantyDurationMonths: warrantyMonths ? Number(warrantyMonths) : null,
-      imageUrl: revImageUrl.trim() || null,
+      imageUrl: (manualImageUrl || revImageUrl).trim() || null,
       sourceUrl: revSourceUrl.trim() || productUrl.trim() || null,
       asin: revAsin.trim() || null,
     }, {

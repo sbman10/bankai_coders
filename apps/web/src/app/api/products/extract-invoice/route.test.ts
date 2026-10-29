@@ -279,6 +279,33 @@ Seller: Valuecart India Private Ltd
     }
   });
 
+  it("automatically attaches searched product photo when invoice lacks barcode or product link", async () => {
+    const invoiceText = `
+TAX INVOICE
+Retailer: FitIndia Sports
+Customer: Rohan Sharma
+Order ID: OD992819283
+Date: 2026-03-01
+Item: Kobo Adjustable Dumbbell Pad
+Price: Rs. 1,499
+    `;
+
+    const request = new Request("http://localhost:3000/api/products/extract-invoice", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: invoiceText }),
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.success).toBe(true);
+    expect(json.invoice.productName).toContain("Dumbbell");
+    // Should have automatically retrieved and attached an image URL
+    expect(json.imageUrl || json.invoice.imageUrl).toBeTruthy();
+    expect(json.fieldStatus.image_url).toBe("confident");
+  });
+
   it("returns 400 for unsupported or invalid marketplace URL", async () => {
     const request = new Request("http://localhost:3000/api/products/extract-invoice", {
       method: "POST",

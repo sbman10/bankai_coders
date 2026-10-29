@@ -56,19 +56,28 @@ The workflow `ProductVault App API` is `VhmDra9QWmtcokXe`:
 
 - `POST productvault/intake` Webhook → HTTP 202 response and protected app-side processor request.
 - The existing inbound `Header Auth account` is assigned to the Webhook and expects `x-claimforge-secret`.
-- The processing node is configured for a separate templated custom-auth credential using `x-claimforge-callback-secret`, but no such credential is available through the connected MCP. It must be created manually in n8n and assigned to the node.
-- The processing node currently points to the previously used ngrok host `https://regress-outer-ambiance.ngrok-free.dev`; no app server or ngrok process is running in this environment, so the current host/port and reachability are unverified.
-- The workflow remains inactive. `N8N_CLAIM_INTAKE_WEBHOOK_URL` remains blank locally, and `N8N_CALLBACK_SECRET` must be configured locally to match the separate n8n credential. The workflow has not been executed end-to-end.
+- The processing node posts only `eventId` and `claimId` to `https://regress-outer-ambiance.ngrok-free.dev/api/integrations/n8n/process`. It is configured for a separate callback credential that sends `x-claimforge-callback-secret`; that credential is not yet assigned.
+- `N8N_CLAIM_INTAKE_WEBHOOK_URL` is now set locally to this workflow's confirmed Production URL. The existing `N8N_WEBHOOK_AUTH_TOKEN` and inbound Header Auth binding are present locally, but a live webhook request has not verified that they match.
+- The callback secret is present only in ignored `apps/web/.env.local`; it has not been added to an n8n credential. The local callback route still depends on the unapplied claim outbox migration.
+- The workflow remains inactive. No app server is listening on local port 3000, and a safe public status-endpoint probe through ngrok did not connect. The workflow has not been executed end-to-end.
 - The `ClaimForge — Product Ownership Assistant` workflow remains unchanged.
+
+The workflow `ProductVault Reminders & Price Checks` is `uMswrAFgMBmy9aII`:
+
+- Its 9:00 AM Asia/Kolkata schedule is retained and remains inactive.
+- Its HTTP Request URL now points to `https://regress-outer-ambiance.ngrok-free.dev/api/integrations/n8n/reminders`, with a bounded batch request of 100.
+- Its request uses the protected scheduler endpoint, but the scheduler Custom Auth credential is not yet assigned. `N8N_REMINDERS_SECRET` exists only in ignored local `.env.local`.
+- The endpoint requires database routines from `20261028110000_reminders_notifications_and_price_checks.sql`. That migration is local-only and has not been verified/applied to `bankai`; activating the workflow before that step would produce failed executions.
+- Postmark is optional for in-app alerts and remains unconfigured. Email delivery is therefore not available.
 
 ## Safe activation checklist
 
-1. Review and apply the additive outbox migration to the verified `bankai` project after confirming migration history. Do not reset or bulk-push migrations.
-2. Create a new n8n templated custom-auth credential with header `x-claimforge-callback-secret`; use a value distinct from the inbound app-to-n8n secret and store the same value in `N8N_CALLBACK_SECRET` locally.
-3. Verify the current local app port and ngrok host, then update the HTTP Request URL if the host differs. Keep the workflow inactive during setup.
-4. Test while the n8n Test URL is listening. Use synthetic claims for valid, invalid, unauthorized, duplicate, and retry cases; confirm only IDs and safe statuses appear in execution data.
-5. Keep claim submission and external communication behind explicit user approval. This workflow does not send email or contact a manufacturer.
-6. Activate the production webhook only after those checks and explicit user approval. Then set its Production URL in `N8N_CLAIM_INTAKE_WEBHOOK_URL`.
+1. Confirm the exact live schema and migration history for `bankai`; review and apply the claim outbox and reminders/price checks migrations additively. Do not reset or bulk-push migrations.
+2. In n8n, create two separate **Custom Auth** credentials from the values already stored in ignored `apps/web/.env.local`. For the claim callback, set the credential JSON to `{"headers":{"x-claimforge-callback-secret":"<the local N8N_CALLBACK_SECRET value>"}}`. For the scheduler, use `{"headers":{"x-productvault-scheduler-secret":"<the local N8N_REMINDERS_SECRET value>"}}`. Enter the actual values in n8n; do not paste either value into chat. After you tell me the credentials are saved, I can bind them to the two HTTP Request nodes through MCP.
+3. Start the app on port 3000 and the ngrok tunnel for that port. Confirm the public `GET /api/integrations/n8n` status route responds before running any workflow. The current tunnel host is not reachable while no app is listening.
+4. Verify the app-to-n8n secret in a synthetic claim request, and test authorized/unauthorized, duplicate, and retry paths using synthetic records. For reminders, test one synthetic due reminder and a safe no-op batch. Confirm n8n execution data contains no document contents, recipient details, or secrets.
+5. Keep both workflows inactive until migrations, credentials, and synthetic checks pass. Claim submission and external communication remain behind explicit user approval.
+6. Activate only after the app and database are reachable and checks pass. Postmark sender verification is required only if opt-in reminder email is needed; in-app notifications do not depend on it.
 
 ## Environment variables
 
@@ -79,17 +88,17 @@ Copy `.env.example` to `.env.local` for local development. `NEXT_PUBLIC_SUPABASE
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | Configured locally |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Public project key used with RLS | Configured locally |
 | `SUPABASE_SECRET_KEY` | Server-only key for trusted claim processing and result writes | Configured locally; never expose to browser code |
-| `N8N_CLAIM_INTAKE_WEBHOOK_URL` | Active n8n Production URL | Blank while workflow is inactive |
-| `N8N_WEBHOOK_AUTH_TOKEN` | Header Auth secret for the app-to-n8n request | Configured locally; credential is assigned in n8n |
-| `N8N_CALLBACK_SECRET` | Authenticates n8n-to-app processing requests | Blank locally; set to the value stored in the separate n8n credential |
+| `N8N_CLAIM_INTAKE_WEBHOOK_URL` | n8n Production URL | Configured locally; workflow remains inactive |
+| `N8N_WEBHOOK_AUTH_TOKEN` | Header Auth secret for the app-to-n8n request | Configured locally and bound to the inbound n8n webhook; not live-verified |
+| `N8N_CALLBACK_SECRET` | Authenticates n8n-to-app claim processing | Generated locally; matching n8n credential still needs to be created and bound |
 | `GROQ_API_KEY`, `GROQ_MODEL` | Server-side claim review and document assistant model | Configured locally; document-to-Groq processing has not been live-tested |
-| `N8N_REMINDERS_SECRET` | Protects the scheduled n8n-to-app reminders endpoint | Required before workflow setup; keep server-side |
+| `N8N_REMINDERS_SECRET` | Protects the scheduled n8n-to-app reminders endpoint | Generated locally; matching n8n credential still needs to be created and bound |
 | `POSTMARK_SERVER_TOKEN`, `POSTMARK_FROM_EMAIL` | Optional opt-in reminder email delivery | Not configured here; configure after sender verification |
 | `FIRECRAWL_API_KEY` | Existing scraper request credential used for scheduled price checks | Required for automated checks; usage/cost and retailer terms need review |
 
 ## Current handoff state
 
-The authenticated claim upload path and protected app-side processing code are in place locally. The n8n workflow has the new processing branch and remains inactive. The live bankai outbox migration is unapplied; the outbound n8n credential and matching local secret are not configured; and no synthetic end-to-end execution has been run. No deployment or real-customer document test has been performed.
+The authenticated claim upload path and protected app-side processing code are in place locally. Both n8n workflows now have their intended app endpoint URLs and separate custom-auth credential slots, but remain inactive and are not fully connected until credentials are created and bound. The live bankai outbox and reminders migrations are unapplied/unverified, the ngrok endpoint is currently unreachable, and no synthetic end-to-end execution has been run. No deployment or real-customer document test has been performed.
 
 ## RAG ingestion callback — future integration only
 

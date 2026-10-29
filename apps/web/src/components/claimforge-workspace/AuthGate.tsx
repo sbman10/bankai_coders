@@ -64,6 +64,6 @@ export function AuthGate() {
   if (state.status === "demo") return <ClaimForgeWorkspace />;
   return <>
     {signOutError && <div className="auth-inline-error" role="alert">{signOutError}</div>}
-    <ClaimForgeWorkspace userEmail={state.user.email ?? undefined} onSignOut={signOut} />
+    <ClaimForgeWorkspace userEmail={state.user.email ?? undefined} userId={state.user.id} onSignOut={signOut} />
   </>;
 }
