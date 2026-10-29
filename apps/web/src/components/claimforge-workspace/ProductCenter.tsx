@@ -12,7 +12,9 @@ import {
   Eye,
   FileCheck,
   FileText,
+  Headphones,
   Info,
+  Laptop,
   LayoutGrid,
   List,
   LoaderCircle,
@@ -23,10 +25,13 @@ import {
   ShieldAlert,
   ShieldCheck,
   ShoppingBag,
+  Smartphone,
   Sparkles,
   Trash2,
   TrendingDown,
+  Tv,
   Upload,
+  Watch,
   X,
 } from "lucide-react";
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
@@ -243,10 +248,82 @@ export function ProductVisual({
     );
   }
 
-  // Elegant neutral fallback when no genuine asset is available
+  // Refined category-specific generic icon fallbacks (tasteful minimal icons, never mistaken for fake photos)
+  if (
+    q.includes("phone") ||
+    q.includes("realme") ||
+    q.includes("mobile") ||
+    q.includes("5g") ||
+    q.includes("smartphone") ||
+    q.includes("android") ||
+    q.includes("galaxy")
+  ) {
+    return (
+      <div className="library-product-fallback-icon" aria-hidden="true">
+        <Smartphone size={46} strokeWidth={1.25} className="fallback-category-icon" />
+      </div>
+    );
+  }
+
+  if (
+    q.includes("headphone") ||
+    q.includes("earphone") ||
+    q.includes("earbuds") ||
+    q.includes("audio") ||
+    q.includes("sound")
+  ) {
+    return (
+      <div className="library-product-fallback-icon" aria-hidden="true">
+        <Headphones size={46} strokeWidth={1.25} className="fallback-category-icon" />
+      </div>
+    );
+  }
+
+  if (
+    q.includes("laptop") ||
+    q.includes("computer") ||
+    q.includes("macbook") ||
+    q.includes("pc") ||
+    q.includes("notebook")
+  ) {
+    return (
+      <div className="library-product-fallback-icon" aria-hidden="true">
+        <Laptop size={46} strokeWidth={1.25} className="fallback-category-icon" />
+      </div>
+    );
+  }
+
+  if (
+    q.includes("watch") ||
+    q.includes("wearable") ||
+    q.includes("timepiece") ||
+    q.includes("band")
+  ) {
+    return (
+      <div className="library-product-fallback-icon" aria-hidden="true">
+        <Watch size={46} strokeWidth={1.25} className="fallback-category-icon" />
+      </div>
+    );
+  }
+
+  if (
+    q.includes("tv") ||
+    q.includes("television") ||
+    q.includes("monitor") ||
+    q.includes("display") ||
+    q.includes("screen")
+  ) {
+    return (
+      <div className="library-product-fallback-icon" aria-hidden="true">
+        <Tv size={46} strokeWidth={1.25} className="fallback-category-icon" />
+      </div>
+    );
+  }
+
+  // Elegant neutral fallback when no genuine asset or specific category is matched
   return (
     <div className="library-product-fallback-icon" aria-hidden="true">
-      <PackagePlus size={42} strokeWidth={1.5} className="fallback-box-icon" />
+      <PackagePlus size={44} strokeWidth={1.25} className="fallback-category-icon fallback-box-icon" />
     </div>
   );
 }
@@ -278,7 +355,7 @@ const headings: Record<ProductCenterView, [string, string, string]> = {
   "add-product": ["NEW PRODUCT REGISTRATION", "Add Product", "Extract details from an invoice, paste a product link, or enter information manually."],
   prices: ["PRICE INTELLIGENCE", "Find the right price. Never miss the drop.", "Paste a product link, compare available offers across supported stores, and set an alert for the price you want. Know when the price is right."],
   reminders: ["PRODUCT-SPECIFIC REMINDERS", "A nudge on your terms.", "Set a reminder using your own estimated usage period. It appears in your ProductVault timeline."],
-  timeline: ["UNIFIED PRODUCT TIMELINE", "Your ownership timeline.", "From past purchases to upcoming milestones, every product event in one place."],
+  timeline: ["", "Unified Product Timeline", "Every product. Every milestone. One timeline."],
 };
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
@@ -638,7 +715,9 @@ export function ProductCenter({
       {activeView !== "prices" && (
         <div className={`product-page-header-row ${activeView === "timeline" ? "timeline-header-row" : ""}`}>
           <div className="product-page-title-block">
-            <div className="eyebrow"><span className="eyebrow-line" /> {heading[0]}</div>
+            {heading[0] && activeView !== "timeline" ? (
+              <div className="eyebrow"><span className="eyebrow-line" /> {heading[0]}</div>
+            ) : null}
             {activeView === "products" ? (
               <TechHeading
                 variant="page"
@@ -651,6 +730,8 @@ export function ProductCenter({
                 specks={8}
                 className="techttext-heading-title"
               />
+            ) : activeView === "timeline" ? (
+              <h1 className="timeline-main-heading">Unified Product Timeline</h1>
             ) : (
               <TechHeading
                 variant="page"
@@ -1928,6 +2009,7 @@ function UnifiedTimelineView({
               purchaseDate: "",
               warrantyEnd: "",
               createdAt: "",
+              imageUrl: event.imageUrl,
             };
 
             return (
@@ -1936,44 +2018,54 @@ function UnifiedTimelineView({
                 key={event.id}
                 aria-label={`${event.title} - ${event.productName}`}
               >
-                <header className="timeline-card-header">
-                  <div className="timeline-product-identity" title={event.productName}>
-                    <div className="timeline-product-thumb">
-                      <ProductVisual product={prod} className="w-full h-full object-cover" />
-                    </div>
-                    <span className="timeline-product-name">{event.productName}</span>
-                    {prod.model && prod.model !== event.productName && !event.productName.toLowerCase().includes(prod.model.toLowerCase()) && (
-                      <span className="timeline-product-variant" title={prod.model}>· {prod.model}</span>
-                    )}
+                {/* Upper 45-55% Area: Hero Product Image Stage */}
+                <div className="timeline-card-image-stage">
+                  <div className="timeline-card-image-wrap">
+                    <ProductVisual product={prod} className="timeline-card-hero-img" />
                   </div>
-
-                  <span className={`timeline-type-tag timeline-tag-${event.kind}`}>{event.typeLabel}</span>
-                </header>
-
-                <div className="timeline-card-body">
-                  <h3 className="timeline-event-title" data-testid="timeline-event-title">
-                    {event.title}
-                  </h3>
-                  <p className="timeline-event-detail">{event.detail}</p>
+                  {event.typeLabel && (
+                    <span className={`timeline-card-type-tag timeline-tag-${event.kind}`}>
+                      {event.typeLabel}
+                    </span>
+                  )}
                 </div>
 
-                <footer className="timeline-card-footer">
-                  <div className="timeline-card-meta">
-                    {event.seller && event.kind !== "purchase" && (
-                      <span className="timeline-meta-seller" title={event.seller}>Seller: {event.seller}</span>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    className="timeline-action-btn"
-                    onClick={() => onSelectProduct(event.productId)}
-                    aria-label={`View Passport for ${event.productName}`}
+                {/* Lower Area: Editorial Content Hierarchy */}
+                <div className="timeline-card-content">
+                  {/* B. Product Identity */}
+                  <h4
+                    className="timeline-card-product-title"
+                    title={event.productName}
                   >
-                    <Eye size={12} aria-hidden="true" />
-                    <span>View Passport</span>
-                    <ChevronRight size={12} aria-hidden="true" />
-                  </button>
-                </footer>
+                    {event.productName}
+                  </h4>
+
+                  {/* C. Event Information */}
+                  <h3 className="timeline-card-event-title" data-testid="timeline-event-title">
+                    {event.title}
+                  </h3>
+
+                  {/* D. Concise Contextual Information */}
+                  {event.detail && (
+                    <p className="timeline-card-event-detail" title={event.detail}>
+                      {event.detail}
+                    </p>
+                  )}
+
+                  {/* E. Restrained Action */}
+                  <div className="timeline-card-action-row">
+                    <button
+                      type="button"
+                      className="timeline-action-btn"
+                      onClick={() => onSelectProduct(event.productId)}
+                      aria-label={`View Passport for ${event.productName}`}
+                    >
+                      <Eye size={12} aria-hidden="true" />
+                      <span>View Passport</span>
+                      <ChevronRight size={12} aria-hidden="true" />
+                    </button>
+                  </div>
+                </div>
               </article>
             );
           })}

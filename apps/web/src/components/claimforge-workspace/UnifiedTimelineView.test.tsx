@@ -145,21 +145,21 @@ describe("UnifiedTimelineView", () => {
     });
   });
 
-  it("establishes clear visual hierarchy with approved eyebrow, heading, and subtitle without duplicate headers", async () => {
+  it("establishes clear visual hierarchy with prominent Unified Product Timeline heading and subtitle without duplicate headers or eyebrow", async () => {
     render(<ProductCenter view="timeline" />);
 
-    // Approved top hierarchy
-    expect(await screen.findByText("UNIFIED PRODUCT TIMELINE")).toBeInTheDocument();
+    // Approved top hierarchy: prominent Unified Product Timeline heading without orange eyebrow
     expect(
-      screen.getByRole("heading", {
-        name: /Your ownership timeline\.|Your ownership history\./i,
+      await screen.findByRole("heading", {
+        name: /Unified Product Timeline/i,
       })
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
-        /From past purchases to upcoming milestones, every product event in one place\.|Every purchase, milestone and product event — all in one place\./i
-      )
+      screen.getByText("Every product. Every milestone. One timeline.")
     ).toBeInTheDocument();
+
+    // Verifies tiny eyebrow is completely removed
+    expect(screen.queryByText("UNIFIED PRODUCT TIMELINE")).not.toBeInTheDocument();
 
     // Verifies duplicate inner headers are removed
     expect(screen.queryByRole("heading", { name: "All Product Ownership Events" })).not.toBeInTheDocument();
