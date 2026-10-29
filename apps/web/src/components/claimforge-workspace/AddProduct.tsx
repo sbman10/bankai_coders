@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useRef, type FormEvent, type ChangeEvent } from "react";
 import { TechHeading } from "../TechText";
@@ -864,6 +864,25 @@ export function AddProduct({ busy, onAdd, onCancel, onSuccess }: AddProductProps
                 />
               </label>
             </div>
+
+            {/* Auto-find product photo */}
+            {manualImageUrl ? (
+              <div style={{display:"flex",alignItems:"center",gap:"14px",padding:"12px 14px",background:"var(--surface-muted,#f8fafc)",borderRadius:"10px",margin:"8px 0 16px",border:"1px solid var(--border-subtle,#e2e8f0)"}}>
+                <img src={manualImageUrl} alt={name||"Product"} style={{width:"56px",height:"56px",objectFit:"contain",borderRadius:"8px",background:"#ffffff",border:"1px solid #e2e8f0",padding:"2px"}} onError={() => setManualImageUrl("")} />
+                <div style={{flex:1}}>
+                  <div style={{fontSize:"13px",fontWeight:600,color:"var(--accent,#0284c7)",display:"flex",alignItems:"center",gap:"5px"}}><CheckCircle2 size={15}/> Product photograph attached</div>
+                  <span style={{fontSize:"11px",color:"var(--text-muted,#64748b)"}}>Retrieved from catalog</span>
+                </div>
+                <button type="button" onClick={() => setManualImageUrl("")} style={{fontSize:"12px",color:"var(--text-muted,#64748b)",background:"transparent",border:"none",cursor:"pointer",textDecoration:"underline"}}>Remove</button>
+              </div>
+            ) : (
+              <div style={{margin:"8px 0 16px"}}>
+                <button type="button" onClick={handleAutoSearchManualImage} disabled={!name.trim()||manualImageSearching} className="btn-secondary" style={{display:"inline-flex",alignItems:"center",gap:"6px",fontSize:"12px",padding:"6px 12px",borderRadius:"6px",cursor:!name.trim()?"not-allowed":"pointer",opacity:!name.trim()?0.6:1}}>
+                  {manualImageSearching ? <LoaderCircle size={14} className="spin"/> : <Sparkles size={14}/>}
+                  {manualImageSearching ? "Finding photo..." : "Auto-find product photo"}
+                </button>
+              </div>
+            )}
 
             {/* Section 2: Purchase & Seller Details */}
             <div className="form-subheading">
